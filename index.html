@@ -5,48 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Rotated Square — Menu Mode</title>
 
-<!-- Fonts: Satoshi (Fontshare) + Bluu Next (CDN Fonts) -->
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap" rel="stylesheet">
 <link href="https://fonts.cdnfonts.com/css/bluu-next" rel="stylesheet">
 
 <style>
 :root{
-  /* Gratified design tokens */
-  --deep-red: #722F37;
-  --bright-orange: #CC5500;
-  --warm-amber: #D2691E;
-  --olive-bronze: #6B5740;
-  --cream: #EDE8E0;
-  --charcoal: #3C3C3C;
-  --golden-sand: #E6C89C;
+  --deep-red:#722F37;
+  --bright-orange:#CC5500;
+  --warm-amber:#D2691E;
+  --olive-bronze:#6B5740;
+  --cream:#EDE8E0;
+  --charcoal:#3C3C3C;
+  --golden-sand:#E6C89C;
 
-  --font-price:'Satoshi', system-ui, sans-serif;
-  --font-name:'Bluu Next', Georgia, serif;
-  --font-note:'Satoshi', system-ui, sans-serif;
+  --font-price:'Satoshi',system-ui,sans-serif;
+  --font-name:'Bluu Next',Georgia,serif;
+  --font-note:'Satoshi',system-ui,sans-serif;
 }
 
 html,body{
   margin:0;
   height:100%;
   overflow:hidden;
-  font-family:'Satoshi', system-ui;
+  font-family:'Satoshi',system-ui;
   background:var(--cream);
 }
 
 #ui{
   position:fixed;
-  top:0;
-  left:0;
-  right:0;
+  top:0;left:0;right:0;
   height:56px;
   display:flex;
   align-items:center;
   gap:8px;
   padding:0 14px;
   background:var(--cream);
-  color:var(--charcoal);
   border-bottom:3px solid var(--deep-red);
-  box-shadow:0 4px 20px rgba(114, 47, 55, 0.12);
+  box-shadow:0 4px 20px rgba(114,47,55,0.12);
   z-index:10;
 }
 
@@ -64,34 +59,20 @@ input{
   font-size:12px;
   padding:6px 8px;
   font-family:inherit;
-  border:2px solid rgba(114, 47, 55, 0.25);
-  background:rgba(230, 200, 156, 0.15);
+  border:2px solid rgba(114,47,55,0.25);
+  background:rgba(230,200,156,0.15);
   color:var(--charcoal);
   outline:none;
-  transition:border-color 0.3s ease;
 }
 
-input:focus{
-  border-color:var(--bright-orange);
-}
-
-input::placeholder{
-  color:var(--olive-bronze);
-  opacity:0.6;
-  text-transform:lowercase;
-  letter-spacing:0.5px;
-}
+input:focus{ border-color:var(--bright-orange); }
 
 input[type="color"]{
-  padding:2px;
-  width:36px;
-  height:30px;
-  cursor:pointer;
+  width:36px;height:30px;padding:2px;
 }
 
 button{
   font-size:12px;
-  font-family:inherit;
   font-weight:600;
   letter-spacing:1px;
   text-transform:lowercase;
@@ -100,13 +81,11 @@ button{
   background:transparent;
   color:var(--deep-red);
   cursor:pointer;
-  transition:all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 button:hover{
   background:var(--deep-red);
   color:var(--cream);
-  letter-spacing:1.5px;
 }
 
 #wrap{
@@ -132,9 +111,9 @@ svg:active{ cursor:grabbing; }
 <body>
 
 <div id="ui">
-  <input id="name" placeholder="item name" />
-  <input id="price" placeholder="price" />
-  <input id="note" placeholder="note" />
+  <input id="name" placeholder="item name"/>
+  <input id="price" placeholder="price"/>
+  <input id="note" placeholder="note"/>
   <input type="color" id="color" value="#E6C89C"/>
   <button onclick="addItem()">Add Item</button>
   <button onclick="del()">Delete</button>
@@ -150,362 +129,262 @@ svg:active{ cursor:grabbing; }
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD7a6t76FQj4FBJSObPntecdIypF9lhi_E",
-  authDomain: "rotated-square.firebaseapp.com",
-  databaseURL: "https://rotated-square-default-rtdb.firebaseio.com",
-  projectId: "rotated-square",
-  storageBucket: "rotated-square.firebasestorage.app",
-  messagingSenderId: "185495802916",
-  appId: "1:185495802916:web:54f9c7798477e6b292b4b1"
-};
+const fbApp = initializeApp({
+  apiKey:"AIzaSyD7a6t76FQJ4FBJSObPntecdIypF9lhi_E",
+  authDomain:"rotated-square.firebaseapp.com",
+  databaseURL:"https://rotated-square-default-rtdb.firebaseio.com",
+  projectId:"rotated-square",
+  storageBucket:"rotated-square.firebasestorage.app",
+  messagingSenderId:"185495802916",
+  appId:"1:185495802916:web:54f9c7798477e6b292b4b1"
+});
 
-const fbApp = initializeApp(firebaseConfig);
 const db = getDatabase(fbApp);
-const menuRef = ref(db, "menus/default");
+const menuRef = ref(db,"menus/default");
 
 const svg = document.getElementById("svg");
 
 let state = {
-  scale: 40,
-  ox: 0,
-  oy: 0,
+  scale:40,
+  ox:0,
+  oy:0,
   dragging:false,
   dragStart:null,
   selected:null,
   items:[]
 };
 
-/* ---------------------------
-   Persistence
-   Primary: Firebase Realtime DB
-   Fallback/cache: localStorage
-   (writes are debounced so wheel
-   zoom doesn't spam the network)
-----------------------------*/
+const Y_RATIO = 0.57735026919;
 
-const STORE_KEY = "diamond-menu-v1";
-let saveTimer = null;
+/* ---------------- persistence ---------------- */
+
+const STORE_KEY="diamond-menu-v1";
+let saveTimer=null;
 
 function snapshot(){
   return {
-    items: state.items,
-    scale: state.scale,
-    ox: state.ox,
-    oy: state.oy
+    items:state.items,
+    scale:state.scale,
+    ox:state.ox,
+    oy:state.oy
   };
 }
 
-function applySnapshot(data){
-  if(!data) return;
-  state.items = data.items || [];
-  if(typeof data.scale === "number") state.scale = data.scale;
-  if(typeof data.ox === "number") state.ox = data.ox;
-  if(typeof data.oy === "number") state.oy = data.oy;
+function applySnapshot(d){
+  if(!d) return;
+  state.items=d.items||[];
+  if(typeof d.scale==="number") state.scale=d.scale;
+  if(typeof d.ox==="number") state.ox=d.ox;
+  if(typeof d.oy==="number") state.oy=d.oy;
 }
 
 function save(){
-  const data = snapshot();
-
-  // instant local cache
-  try{
-    localStorage.setItem(STORE_KEY, JSON.stringify(data));
-  }catch(err){ /* private mode etc. */ }
-
-  // debounced cloud write
+  const d=snapshot();
+  localStorage.setItem(STORE_KEY,JSON.stringify(d));
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(()=>{
-    set(menuRef, data).catch(err=>{
-      console.error("Firebase save failed:", err);
-    });
-  }, 400);
+  saveTimer=setTimeout(()=>set(menuRef,d),400);
 }
 
 async function load(){
-  // try cloud first
   try{
-    const snap = await get(menuRef);
-    if(snap.exists()){
-      applySnapshot(snap.val());
-      return;
-    }
-  }catch(err){
-    console.error("Firebase load failed, using local cache:", err);
-  }
-
-  // fall back to local cache
-  try{
-    const raw = localStorage.getItem(STORE_KEY);
-    if(raw) applySnapshot(JSON.parse(raw));
-  }catch(err){
-    console.error("Local load failed:", err);
-  }
+    const s=await get(menuRef);
+    if(s.exists()){ applySnapshot(s.val()); return; }
+  }catch{}
+  const raw=localStorage.getItem(STORE_KEY);
+  if(raw) applySnapshot(JSON.parse(raw));
 }
 
-/* ---------------------------
-   Typography (trad layout)
-   PRICE (top)   → Satoshi 700
-   NAME (middle) → Bluu Next
-   NOTE (bottom) → Satoshi 300, lighter
-----------------------------*/
-
-const FONT_PRICE = "Satoshi, system-ui, sans-serif";
-const FONT_NAME  = "'Bluu Next', Georgia, serif";
-const FONT_NOTE  = "Satoshi, system-ui, sans-serif";
-
-/* ---------------------------
-   Diamond coordinate system
-----------------------------*/
+/* ---------------- projection ---------------- */
 
 function toScreen(q,r){
   return {
     x:(q-r)*state.scale + state.ox,
-    y:(q+r)*state.scale*0.5 + state.oy
+    y:(q+r)*state.scale*Y_RATIO + state.oy
   };
 }
 
 function toGrid(x,y){
-  const dx = (x - state.ox)/state.scale;
-  const dy = (y - state.oy)/(state.scale*0.5);
-
+  const dx=(x-state.ox)/state.scale;
+  const dy=(y-state.oy)/(state.scale*Y_RATIO);
   return {
     q:Math.round((dx+dy)/2),
     r:Math.round((dy-dx)/2)
   };
 }
 
-/* ---------------------------
-   Diamond shape
-----------------------------*/
+/* ---------------- helpers ---------------- */
+
+function clampText(s,n){
+  if(!s) return "";
+  return s.length>n?s.slice(0,n-1)+"…":s;
+}
+
+function hitTest(it,mx,my){
+  const p=toScreen(it.q,it.r);
+  const s=state.scale;
+  return Math.abs(mx-p.x)<s && Math.abs(my-p.y)<s;
+}
+
+/* ---------------- render ---------------- */
 
 function diamond(x,y,s,fill,stroke){
-  return `
-    <polygon
-      points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
-      fill="${fill}"
-      stroke="${stroke}"
-    />
-  `;
+  return `<polygon points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
+  fill="${fill}" stroke="${stroke}"/>`;
 }
-
-/* ---------------------------
-   Render menu item
-   (price top / name middle / note bottom)
-----------------------------*/
 
 function renderItem(it){
-  const p = toScreen(it.q,it.r);
-  const isSel = state.selected === it;
+  const p=toScreen(it.q,it.r);
+  const sel=state.selected===it;
+
+  const name=clampText(it.name,14);
+  const note=clampText(it.note,18);
+
+  const s=state.scale;
+  const py=p.y;
 
   return `
-    <g class="item" data-id="${it.id}">
+  <g class="item" data-id="${it.id}">
+    ${diamond(p.x,py,s*0.95,it.color,sel?"#CC5500":"rgba(114,47,55,0.55)")}
 
-      ${diamond(
-        p.x,p.y,
-        state.scale*0.95,
-        it.color,
-        isSel ? "#CC5500" : "rgba(114, 47, 55, 0.55)"
-      )}
+    <text x="${p.x}" y="${py-s*0.25}" text-anchor="middle"
+      font-family="Satoshi" font-weight="700" font-size="11"
+      fill="#CC5500">${it.price}</text>
 
-      <text x="${p.x}" y="${p.y-12}"
-        text-anchor="middle"
-        font-size="11"
-        font-weight="700"
-        font-family="${FONT_PRICE}"
-        letter-spacing="0.5"
-        fill="#CC5500"
-      >${it.price}</text>
+    <text x="${p.x}" y="${py+s*0.05}" text-anchor="middle"
+      font-family="Bluu Next" font-weight="700" font-size="13"
+      fill="#722F37">${name}</text>
 
-      <text x="${p.x}" y="${p.y+4}"
-        text-anchor="middle"
-        font-size="13"
-        font-family="${FONT_NAME}"
-        font-weight="700"
-        fill="#722F37"
-      >${it.name}</text>
-
-      <text x="${p.x}" y="${p.y+18}"
-        text-anchor="middle"
-        font-size="9"
-        font-weight="300"
-        font-family="${FONT_NOTE}"
-        fill="#6B5740"
-        opacity="0.85"
-      >${it.note}</text>
-
-    </g>
-  `;
+    <text x="${p.x}" y="${py+s*0.28}" text-anchor="middle"
+      font-family="Satoshi" font-size="9"
+      fill="#6B5740" opacity="0.85">${note}</text>
+  </g>`;
 }
 
-/* ---------------------------
-   Render loop
-----------------------------*/
-
 function render(){
+  let out="";
 
-  let out = "";
-
-  // light grid
-  const range = 18;
-  for(let q=-range;q<range;q++){
-    for(let r=-range;r<range;r++){
-      const p = toScreen(q,r);
-      out += diamond(p.x,p.y,state.scale,"none","rgba(114, 47, 55, 0.08)");
+  const R=18;
+  for(let q=-R;q<R;q++){
+    for(let r=-R;r<R;r++){
+      const p=toScreen(q,r);
+      out+=diamond(p.x,p.y,state.scale,"none","rgba(114,47,55,0.08)");
     }
   }
 
-  for(const it of state.items){
-    out += renderItem(it);
-  }
-
-  svg.innerHTML = out;
+  for(const it of state.items) out+=renderItem(it);
+  svg.innerHTML=out;
 }
 
-/* ---------------------------
-   Interaction
-----------------------------*/
+/* ---------------- interaction ---------------- */
 
-let draggingItem = null;
+let draggingItem=null;
 
 svg.addEventListener("mousedown",(e)=>{
+  const mx=e.clientX,my=e.clientY;
 
-  const g = e.target.closest?.("g");
+  const hit=[...state.items].reverse().find(it=>hitTest(it,mx,my));
 
-  if(g){
-    const id = g.dataset.id;
-    const it = state.items.find(x=>x.id===id);
-    state.selected = it;
-    draggingItem = it;
+  if(hit){
+    state.selected=hit;
+    draggingItem=hit;
     render();
     return;
   }
 
-  state.dragging = true;
-  state.dragStart = {x:e.clientX,y:e.clientY};
+  state.dragging=true;
+  state.dragStart={x:mx,y:my};
 });
 
 window.addEventListener("mousemove",(e)=>{
-
-  if(state.dragging && !draggingItem){
-    state.ox += e.clientX - state.dragStart.x;
-    state.oy += e.clientY - state.dragStart.y;
-    state.dragStart = {x:e.clientX,y:e.clientY};
+  if(state.dragging&&!draggingItem){
+    state.ox+=e.clientX-state.dragStart.x;
+    state.oy+=e.clientY-state.dragStart.y;
+    state.dragStart={x:e.clientX,y:e.clientY};
     render();
   }
 
   if(draggingItem){
-    const g = toGrid(e.clientX,e.clientY);
-    draggingItem.q = g.q;
-    draggingItem.r = g.r;
+    const g=toGrid(e.clientX,e.clientY);
+    draggingItem.q=g.q;
+    draggingItem.r=g.r;
     render();
   }
 });
 
 window.addEventListener("mouseup",()=>{
-  if(state.dragging || draggingItem) save();
-  state.dragging = false;
-  draggingItem = null;
+  if(state.dragging||draggingItem) save();
+  state.dragging=false;
+  draggingItem=null;
 });
 
 /* zoom */
 
 svg.addEventListener("wheel",(e)=>{
   e.preventDefault();
-  const f = e.deltaY < 0 ? 1.1 : 0.9;
-  state.scale = Math.max(10,Math.min(120,state.scale*f));
-  render();
-  save();
+  const f=e.deltaY<0?1.1:0.9;
+  state.scale=Math.max(10,Math.min(120,state.scale*f));
+  render(); save();
 });
 
-/* ---------------------------
-   Add menu item
-----------------------------*/
+/* ---------------- CRUD ---------------- */
 
 function addItem(){
-
   state.items.push({
     id:crypto.randomUUID(),
-    q:0,
-    r:0,
-    name:document.getElementById("name").value || "Item",
-    price:document.getElementById("price").value || "$0",
-    note:document.getElementById("note").value || "",
+    q:0,r:0,
+    name:document.getElementById("name").value||"Item",
+    price:document.getElementById("price").value||"$0",
+    note:document.getElementById("note").value||"",
     color:document.getElementById("color").value
   });
-
-  render();
-  save();
+  render(); save();
 }
 
 function del(){
   if(!state.selected) return;
-  state.items = state.items.filter(x=>x!==state.selected);
+  state.items=state.items.filter(x=>x!==state.selected);
   state.selected=null;
-  render();
-  save();
+  render(); save();
 }
 
-/* ---------------------------
-   Export SVG
-   (same trad hierarchy, fonts embedded via @import
-    so the exported file renders correctly online)
-----------------------------*/
+/* export */
 
 function exportSVG(){
-
-  let out = `<svg xmlns="http://www.w3.org/2000/svg">`;
-
-  out += `
-    <style>
-      @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&amp;display=swap');
-      @import url('https://fonts.cdnfonts.com/css/bluu-next');
-    </style>
-    <rect width="100%" height="100%" fill="#EDE8E0"/>
-  `;
+  let out=`<svg xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#EDE8E0"/>`;
 
   for(const it of state.items){
-    const p = toScreen(it.q,it.r);
-    const s = state.scale;
+    const p=toScreen(it.q,it.r);
+    const s=state.scale;
 
-    out += `
-      <polygon
-        points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
-        fill="${it.color}"
-        stroke="rgba(114, 47, 55, 0.55)"
-      />
+    out+=`
+    <polygon points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
+    fill="${it.color}" stroke="rgba(114,47,55,0.55)"/>
 
-      <text x="${p.x}" y="${p.y-12}" text-anchor="middle"
-        font-size="11" font-weight="700" fill="#CC5500"
-        font-family="${FONT_PRICE}" letter-spacing="0.5">${it.price}</text>
+    <text x="${p.x}" y="${p.y-s*0.25}" text-anchor="middle"
+      font-family="Satoshi" font-size="11" font-weight="700">${it.price}</text>
 
-      <text x="${p.x}" y="${p.y+4}" text-anchor="middle"
-        font-size="13" font-weight="700" fill="#722F37"
-        font-family="${FONT_NAME}">${it.name}</text>
+    <text x="${p.x}" y="${p.y+s*0.05}" text-anchor="middle"
+      font-family="Bluu Next" font-size="13" font-weight="700">${it.name}</text>
 
-      <text x="${p.x}" y="${p.y+18}" text-anchor="middle"
-        font-size="9" font-weight="300" fill="#6B5740" opacity="0.85"
-        font-family="${FONT_NOTE}">${it.note}</text>
-    `;
+    <text x="${p.x}" y="${p.y+s*0.28}" text-anchor="middle"
+      font-family="Satoshi" font-size="9">${it.note}</text>`;
   }
 
-  out += `</svg>`;
+  out+="</svg>";
 
-  const blob = new Blob([out],{type:"image/svg+xml"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "menu.svg";
+  const blob=new Blob([out],{type:"image/svg+xml"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="menu.svg";
   a.click();
 }
 
-/* --------------------------- */
+window.addItem=addItem;
+window.del=del;
+window.exportSVG=exportSVG;
 
-// module scope: expose handlers for the toolbar's onclick attributes
-window.addItem = addItem;
-window.del = del;
-window.exportSVG = exportSVG;
-
-render();           // show grid immediately
-load().then(render); // then hydrate from Firebase
+render();
+load().then(render);
 
 </script>
 
