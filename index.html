@@ -86,7 +86,24 @@ svg:active{ cursor:grabbing; }
 <svg id="svg"></svg>
 </div>
 
-<script>
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD7a6t76FQj4FBJSObPntecdIypF9lhi_E",
+  authDomain: "rotated-square.firebaseapp.com",
+  databaseURL: "https://rotated-square-default-rtdb.firebaseio.com",
+  projectId: "rotated-square",
+  storageBucket: "rotated-square.firebasestorage.app",
+  messagingSenderId: "185495802916",
+  appId: "1:185495802916:web:54f9c7798477e6b292b4b1"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getDatabase(fbApp);
+const menuRef = ref(db, "menus/default");
 
 const svg = document.getElementById("svg");
 
@@ -101,38 +118,68 @@ let state = {
 };
 
 /* ---------------------------
-   Persistence (localStorage)
-   Swap these two functions for
-   Firebase later if you need
-   cross-device sync.
+   Persistence
+   Primary: Firebase Realtime DB
+   Fallback/cache: localStorage
+   (writes are debounced so wheel
+   zoom doesn't spam the network)
 ----------------------------*/
 
 const STORE_KEY = "diamond-menu-v1";
+let saveTimer = null;
 
-function save(){
-  try{
-    localStorage.setItem(STORE_KEY, JSON.stringify({
-      items: state.items,
-      scale: state.scale,
-      ox: state.ox,
-      oy: state.oy
-    }));
-  }catch(err){
-    console.error("Save failed:", err);
-  }
+function snapshot(){
+  return {
+    items: state.items,
+    scale: state.scale,
+    ox: state.ox,
+    oy: state.oy
+  };
 }
 
-function load(){
+function applySnapshot(data){
+  if(!data) return;
+  state.items = data.items || [];
+  if(typeof data.scale === "number") state.scale = data.scale;
+  if(typeof data.ox === "number") state.ox = data.ox;
+  if(typeof data.oy === "number") state.oy = data.oy;
+}
+
+function save(){
+  const data = snapshot();
+
+  // instant local cache
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+  }catch(err){ /* private mode etc. */ }
+
+  // debounced cloud write
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    set(menuRef, data).catch(err=>{
+      console.error("Firebase save failed:", err);
+    });
+  }, 400);
+}
+
+async function load(){
+  // try cloud first
+  try{
+    const snap = await get(menuRef);
+    if(snap.exists()){
+      applySnapshot(snap.val());
+      return;
+    }
+  }catch(err){
+    console.error("Firebase load failed, using local cache:", err);
+  }
+
+  // fall back to local cache
   try{
     const raw = localStorage.getItem(STORE_KEY);
-    if(!raw) return;
-    const data = JSON.parse(raw);
-    state.items = data.items || [];
-    if(typeof data.scale === "number") state.scale = data.scale;
-    if(typeof data.ox === "number") state.ox = data.ox;
-    if(typeof data.oy === "number") state.oy = data.oy;
+    if(raw) applySnapshot(JSON.parse(raw));
   }catch(err){
-    console.error("Load failed:", err);
+    console.error("Local load failed:", err);
   }
 }
 
@@ -388,8 +435,13 @@ function exportSVG(){
 
 /* --------------------------- */
 
-load();
-render();
+// module scope: expose handlers for the toolbar's onclick attributes
+window.addItem = addItem;
+window.del = del;
+window.exportSVG = exportSVG;
+
+render();           // show grid immediately
+load().then(render); // then hydrate from Firebase
 
 </script>
 
