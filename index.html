@@ -382,18 +382,19 @@ function renderItem(it){
         isSel ? "#CC5500" : "#722F37"
       )}
 
-      <text x="${p.x}" y="${p.y-12}"
+      <text x="${p.x}" y="${p.y-13}"
         text-anchor="middle"
-        font-size="11"
-        font-weight="700"
+        font-size="9.5"
+        font-weight="500"
         font-family="${FONT_PRICE}"
-        letter-spacing="0.5"
-        fill="#CC5500"
+        letter-spacing="1"
+        fill="#6B5740"
+        opacity="0.85"
       >${esc(it.price)}</text>
 
       <text x="${p.x}" y="${p.y+4}"
         text-anchor="middle"
-        font-size="13"
+        font-size="14"
         font-family="${FONT_NAME}"
         font-weight="700"
         fill="#722F37"
@@ -647,7 +648,7 @@ function exportSVG(){
   }
 
   const pad = 36;
-  const headerH = 122;
+  const headerH = 92;
   const footerH = 48;
   const x0 = minX - pad;
   const y0 = minY - pad - headerH;
@@ -679,19 +680,11 @@ function exportSVG(){
     <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#washOrange)"/>
   `;
 
-  // ---- title block: menu / Launch Menu / drinks ----
+  // ---- title ----
   out += `
-    <text x="${cx}" y="${y0 + 36}" text-anchor="middle"
-      font-size="13" font-weight="500" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_PRICE}" letter-spacing="4">menu</text>
-
-    <text x="${cx}" y="${y0 + 78}" text-anchor="middle"
-      font-size="36" font-weight="700" fill="#722F37"
-      font-family="${FONT_NAME}" letter-spacing="3">Launch Menu</text>
-
-    <text x="${cx}" y="${y0 + 104}" text-anchor="middle"
-      font-size="14" font-weight="500" fill="#CC5500"
-      font-family="${FONT_PRICE}" letter-spacing="3">drinks</text>
+    <text x="${cx}" y="${y0 + 62}" text-anchor="middle"
+      font-size="38" font-weight="700" fill="#722F37"
+      font-family="${FONT_NAME}" letter-spacing="4">Drinks</text>
   `;
 
   // ---- footer note ----
@@ -708,12 +701,12 @@ function exportSVG(){
     out += diamondItem(p.x, p.y, s*0.98, it.color, "#722F37");
 
     out += `
-      <text x="${p.x}" y="${p.y-12}" text-anchor="middle"
-        font-size="11" font-weight="700" fill="#CC5500"
-        font-family="${FONT_PRICE}" letter-spacing="0.5">${esc(it.price)}</text>
+      <text x="${p.x}" y="${p.y-13}" text-anchor="middle"
+        font-size="9.5" font-weight="500" fill="#6B5740" opacity="0.85"
+        font-family="${FONT_PRICE}" letter-spacing="1">${esc(it.price)}</text>
 
       <text x="${p.x}" y="${p.y+4}" text-anchor="middle"
-        font-size="13" font-weight="700" fill="#722F37"
+        font-size="14" font-weight="700" fill="#722F37"
         font-family="${FONT_NAME}">${esc(it.name)}</text>
 
       <text x="${p.x}" y="${p.y+18}" text-anchor="middle"
