@@ -89,6 +89,31 @@ input[type="color"]{
   cursor:pointer;
 }
 
+#swatches{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 6px;
+}
+
+.swatch{
+  width:18px;
+  height:18px;
+  transform:rotate(45deg);
+  cursor:pointer;
+  border:2px solid rgba(60,60,60,0.2);
+  transition:transform 0.25s ease, border-color 0.25s ease;
+}
+
+.swatch:hover{
+  transform:rotate(45deg) scale(1.2);
+  border-color:var(--charcoal);
+}
+
+.swatch.current{
+  border-color:var(--bright-orange);
+}
+
 button{
   font-size:12px;
   font-family:inherit;
@@ -135,6 +160,7 @@ svg:active{ cursor:grabbing; }
   <input id="name" placeholder="item name" />
   <input id="price" placeholder="price" />
   <input id="note" placeholder="note" />
+  <div id="swatches" title="brand colors"></div>
   <input type="color" id="color" value="#E6C89C"/>
   <button onclick="addItem()">Add Item</button>
   <button onclick="del()">Delete</button>
@@ -198,7 +224,15 @@ function snapshot(){
 
 function applySnapshot(data){
   if(!data) return;
-  state.items = data.items || [];
+  // migrate old (q,r) items to the new (gx,gy) system
+  state.items = (data.items || []).map(it=>{
+    if(it.gx === undefined && it.q !== undefined){
+      const m = { ...it, gx: it.q - it.r, gy: it.q + it.r };
+      delete m.q; delete m.r;
+      return m;
+    }
+    return it;
+  });
   if(typeof data.scale === "number") state.scale = data.scale;
   if(typeof data.ox === "number") state.ox = data.ox;
   if(typeof data.oy === "number") state.oy = data.oy;
@@ -255,23 +289,31 @@ const FONT_NOTE  = "Satoshi, system-ui, sans-serif";
 
 /* ---------------------------
    Diamond coordinate system
+   gx = column, gy = half-step row.
+   Any integer pair is valid — the old
+   (q,r) system could only reach
+   checkerboard positions.
 ----------------------------*/
 
-function toScreen(q,r){
+function toScreen(gx,gy){
   return {
-    x:(q-r)*state.scale + state.ox,
-    y:(q+r)*state.scale*0.5 + state.oy
+    x: gx*state.scale + state.ox,
+    y: gy*state.scale*0.5 + state.oy
   };
 }
 
 function toGrid(x,y){
-  const dx = (x - state.ox)/state.scale;
-  const dy = (y - state.oy)/(state.scale*0.5);
-
   return {
-    q:Math.round((dx+dy)/2),
-    r:Math.round((dy-dx)/2)
+    gx: Math.round((x - state.ox)/state.scale),
+    gy: Math.round((y - state.oy)/(state.scale*0.5))
   };
+}
+
+/* mouse coords → svg-local coords
+   (fixes the toolbar-offset drift) */
+function svgPoint(e){
+  const r = svg.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
 
 /* ---------------------------
@@ -294,7 +336,7 @@ function diamond(x,y,s,fill,stroke){
 ----------------------------*/
 
 function renderItem(it){
-  const p = toScreen(it.q,it.r);
+  const p = toScreen(it.gx,it.gy);
   const isSel = state.selected === it;
 
   return `
@@ -345,12 +387,29 @@ function render(){
 
   let out = "";
 
-  // light grid
-  const range = 18;
-  for(let q=-range;q<range;q++){
-    for(let r=-range;r<range;r++){
-      const p = toScreen(q,r);
-      out += diamond(p.x,p.y,state.scale,"none","rgba(114, 47, 55, 0.08)");
+  // grid: computed from the visible viewport so it never runs out when panning
+  const w = svg.clientWidth || 800;
+  const h = svg.clientHeight || 600;
+  const s = state.scale;
+
+  const gx0 = Math.floor((0 - state.ox)/s) - 1;
+  const gx1 = Math.ceil((w - state.ox)/s) + 1;
+  const gy0 = Math.floor((0 - state.oy)/(s*0.5)) - 1;
+  const gy1 = Math.ceil((h - state.oy)/(s*0.5)) + 1;
+
+  const cells = (gx1-gx0)*(gy1-gy0);
+
+  if(cells <= 12000){
+    for(let gx=gx0; gx<=gx1; gx++){
+      for(let gy=gy0; gy<=gy1; gy++){
+        const p = toScreen(gx,gy);
+        if((gx+gy) % 2 === 0){
+          // tiling outline (the classic lattice look)
+          out += diamond(p.x,p.y,s,"none","rgba(114, 47, 55, 0.08)");
+        }
+        // dot at every placeable centre
+        out += `<circle cx="${p.x}" cy="${p.y}" r="1.5" fill="rgba(114, 47, 55, 0.18)"/>`;
+      }
     }
   }
 
@@ -366,22 +425,44 @@ function render(){
 ----------------------------*/
 
 let draggingItem = null;
+let dragOffset = {x:0, y:0};
+
+const fName  = document.getElementById("name");
+const fPrice = document.getElementById("price");
+const fNote  = document.getElementById("note");
+const fColor = document.getElementById("color");
+
+function populateFields(it){
+  fName.value  = it.name;
+  fPrice.value = it.price;
+  fNote.value  = it.note;
+  fColor.value = it.color;
+}
 
 svg.addEventListener("mousedown",(e)=>{
 
   const g = e.target.closest?.("g");
+  const pt = svgPoint(e);
 
   if(g){
     const id = g.dataset.id;
     const it = state.items.find(x=>x.id===id);
     state.selected = it;
     draggingItem = it;
+    // remember where inside the diamond you grabbed,
+    // so it doesn't jump to centre-on-cursor
+    const p = toScreen(it.gx, it.gy);
+    dragOffset = { x: p.x - pt.x, y: p.y - pt.y };
+    populateFields(it);
     render();
     return;
   }
 
+  // empty canvas: deselect + start panning
+  state.selected = null;
   state.dragging = true;
   state.dragStart = {x:e.clientX,y:e.clientY};
+  render();
 });
 
 window.addEventListener("mousemove",(e)=>{
@@ -394,18 +475,70 @@ window.addEventListener("mousemove",(e)=>{
   }
 
   if(draggingItem){
-    const g = toGrid(e.clientX,e.clientY);
-    draggingItem.q = g.q;
-    draggingItem.r = g.r;
-    render();
+    const pt = svgPoint(e);
+    const g = toGrid(pt.x + dragOffset.x, pt.y + dragOffset.y);
+    if(g.gx !== draggingItem.gx || g.gy !== draggingItem.gy){
+      draggingItem.gx = g.gx;
+      draggingItem.gy = g.gy;
+      render();
+    }
   }
 });
+
+/* live edit: typing updates the selected diamond */
+function liveEdit(field, input){
+  input.addEventListener("input", ()=>{
+    if(!state.selected) return;
+    state.selected[field] = input.value;
+    render();
+    save();
+  });
+}
+liveEdit("name",  fName);
+liveEdit("price", fPrice);
+liveEdit("note",  fNote);
+liveEdit("color", fColor);
+
+/* ---------------------------
+   Brand color swatches
+----------------------------*/
+
+const BRAND_COLORS = [
+  { name:"deep red",      hex:"#722F37" },
+  { name:"bright orange", hex:"#CC5500" },
+  { name:"warm amber",    hex:"#D2691E" },
+  { name:"olive bronze",  hex:"#6B5740" },
+  { name:"golden sand",   hex:"#E6C89C" },
+  { name:"cream",         hex:"#EDE8E0" }
+];
+
+const swatchBox = document.getElementById("swatches");
+
+for(const c of BRAND_COLORS){
+  const el = document.createElement("div");
+  el.className = "swatch";
+  el.style.background = c.hex;
+  el.title = c.name;
+  el.addEventListener("click", ()=>{
+    fColor.value = c.hex;
+    swatchBox.querySelectorAll(".swatch").forEach(s=>s.classList.remove("current"));
+    el.classList.add("current");
+    if(state.selected){
+      state.selected.color = c.hex;
+      render();
+      save();
+    }
+  });
+  swatchBox.appendChild(el);
+}
 
 window.addEventListener("mouseup",()=>{
   if(state.dragging || draggingItem) save();
   state.dragging = false;
   draggingItem = null;
 });
+
+window.addEventListener("resize", render);
 
 /* zoom */
 
@@ -423,15 +556,23 @@ svg.addEventListener("wheel",(e)=>{
 
 function addItem(){
 
-  state.items.push({
+  const centre = toGrid(
+    (svg.clientWidth || 800)/2,
+    (svg.clientHeight || 600)/2
+  );
+
+  const it = {
     id:crypto.randomUUID(),
-    q:0,
-    r:0,
-    name:document.getElementById("name").value || "Item",
-    price:document.getElementById("price").value || "$0",
-    note:document.getElementById("note").value || "",
-    color:document.getElementById("color").value
-  });
+    gx:centre.gx,
+    gy:centre.gy,
+    name:fName.value || "Item",
+    price:fPrice.value || "$0",
+    note:fNote.value || "",
+    color:fColor.value
+  };
+
+  state.items.push(it);
+  state.selected = it;
 
   render();
   save();
@@ -464,7 +605,7 @@ function exportSVG(){
   `;
 
   for(const it of state.items){
-    const p = toScreen(it.q,it.r);
+    const p = toScreen(it.gx,it.gy);
     const s = state.scale;
 
     out += `
