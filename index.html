@@ -287,6 +287,15 @@ const FONT_PRICE = "Satoshi, system-ui, sans-serif";
 const FONT_NAME  = "'Bluu Next', Georgia, serif";
 const FONT_NOTE  = "Satoshi, system-ui, sans-serif";
 
+/* escape user text so "tea & honey" doesn't break the SVG */
+function esc(str){
+  return String(str)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+
 /* ---------------------------
    Diamond coordinate system
    gx = column, gy = half-step row.
@@ -330,6 +339,30 @@ function diamond(x,y,s,fill,stroke){
   `;
 }
 
+/* Gratified signature: solid outer border
+   + faint inset echo, like the site's
+   .section::before / .value-item::before */
+function diamondItem(x,y,s,fill,stroke){
+  const si = s*0.82;
+  return `
+    <polygon
+      points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
+      fill="${fill}"
+      stroke="${stroke}"
+      stroke-width="1.6"
+      stroke-linejoin="round"
+    />
+    <polygon
+      points="${x},${y-si} ${x+si},${y} ${x},${y+si} ${x-si},${y}"
+      fill="none"
+      stroke="${stroke}"
+      stroke-width="0.8"
+      stroke-linejoin="round"
+      opacity="0.35"
+    />
+  `;
+}
+
 /* ---------------------------
    Render menu item
    (price top / name middle / note bottom)
@@ -342,11 +375,11 @@ function renderItem(it){
   return `
     <g class="item" data-id="${it.id}">
 
-      ${diamond(
+      ${diamondItem(
         p.x,p.y,
         state.scale*0.95,
         it.color,
-        isSel ? "#CC5500" : "rgba(114, 47, 55, 0.55)"
+        isSel ? "#CC5500" : "#722F37"
       )}
 
       <text x="${p.x}" y="${p.y-12}"
@@ -356,7 +389,7 @@ function renderItem(it){
         font-family="${FONT_PRICE}"
         letter-spacing="0.5"
         fill="#CC5500"
-      >${it.price}</text>
+      >${esc(it.price)}</text>
 
       <text x="${p.x}" y="${p.y+4}"
         text-anchor="middle"
@@ -364,7 +397,7 @@ function renderItem(it){
         font-family="${FONT_NAME}"
         font-weight="700"
         fill="#722F37"
-      >${it.name}</text>
+      >${esc(it.name)}</text>
 
       <text x="${p.x}" y="${p.y+18}"
         text-anchor="middle"
@@ -373,7 +406,7 @@ function renderItem(it){
         font-family="${FONT_NOTE}"
         fill="#6B5740"
         opacity="0.85"
-      >${it.note}</text>
+      >${esc(it.note)}</text>
 
     </g>
   `;
@@ -587,45 +620,99 @@ function del(){
 }
 
 /* ---------------------------
-   Export SVG
-   (same trad hierarchy, fonts embedded via @import
-    so the exported file renders correctly online)
+   Export SVG — the final menu.
+   Auto-crops to your diamonds, adds the
+   Gratified wordmark header, brand
+   background washes, and the double-
+   border treatment on every diamond.
 ----------------------------*/
 
 function exportSVG(){
 
-  let out = `<svg xmlns="http://www.w3.org/2000/svg">`;
+  if(!state.items.length){
+    alert("Add some menu items first :)");
+    return;
+  }
+
+  const s = state.scale;
+
+  // bounds of all diamonds
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+  for(const it of state.items){
+    const p = toScreen(it.gx,it.gy);
+    minX = Math.min(minX, p.x - s);
+    maxX = Math.max(maxX, p.x + s);
+    minY = Math.min(minY, p.y - s);
+    maxY = Math.max(maxY, p.y + s);
+  }
+
+  const pad = 70;
+  const headerH = 170;
+  const x0 = minX - pad;
+  const y0 = minY - pad - headerH;
+  const w  = (maxX - minX) + pad*2;
+  const h  = (maxY - minY) + pad*2 + headerH + 30;
+  const cx = (minX + maxX)/2;
+
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" width="${w}" height="${h}">`;
 
   out += `
     <style>
       @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&amp;display=swap');
       @import url('https://fonts.cdnfonts.com/css/bluu-next');
     </style>
-    <rect width="100%" height="100%" fill="#EDE8E0"/>
+
+    <defs>
+      <radialGradient id="washRed" cx="25%" cy="25%" r="60%">
+        <stop offset="0%" stop-color="#722F37" stop-opacity="0.04"/>
+        <stop offset="100%" stop-color="#722F37" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="washOrange" cx="75%" cy="75%" r="60%">
+        <stop offset="0%" stop-color="#CC5500" stop-opacity="0.03"/>
+        <stop offset="100%" stop-color="#CC5500" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+
+    <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#EDE8E0"/>
+    <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#washRed)"/>
+    <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#washOrange)"/>
   `;
 
+  // ---- header: diamond mark + wordmark + tagline ----
+  const dy = y0 + 52;
+  out += `
+    <polygon points="${cx},${dy-16} ${cx+16},${dy} ${cx},${dy+16} ${cx-16},${dy}"
+      fill="#722F37"/>
+    <polygon points="${cx},${dy-22} ${cx+22},${dy} ${cx},${dy+22} ${cx-22},${dy}"
+      fill="none" stroke="#722F37" stroke-width="1.5" opacity="0.5"/>
+
+    <text x="${cx}" y="${y0 + 118}" text-anchor="middle"
+      font-size="42" font-weight="700" fill="#722F37"
+      font-family="${FONT_NAME}" letter-spacing="6">Gratified</text>
+
+    <text x="${cx}" y="${y0 + 146}" text-anchor="middle"
+      font-size="15" fill="#6B5740" opacity="0.85"
+      font-family="${FONT_PRICE}" letter-spacing="4">coffee + art</text>
+  `;
+
+  // ---- diamonds with double borders ----
   for(const it of state.items){
     const p = toScreen(it.gx,it.gy);
-    const s = state.scale;
+
+    out += diamondItem(p.x, p.y, s*0.98, it.color, "#722F37");
 
     out += `
-      <polygon
-        points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
-        fill="${it.color}"
-        stroke="rgba(114, 47, 55, 0.55)"
-      />
-
       <text x="${p.x}" y="${p.y-12}" text-anchor="middle"
         font-size="11" font-weight="700" fill="#CC5500"
-        font-family="${FONT_PRICE}" letter-spacing="0.5">${it.price}</text>
+        font-family="${FONT_PRICE}" letter-spacing="0.5">${esc(it.price)}</text>
 
       <text x="${p.x}" y="${p.y+4}" text-anchor="middle"
         font-size="13" font-weight="700" fill="#722F37"
-        font-family="${FONT_NAME}">${it.name}</text>
+        font-family="${FONT_NAME}">${esc(it.name)}</text>
 
       <text x="${p.x}" y="${p.y+18}" text-anchor="middle"
         font-size="9" font-weight="300" fill="#6B5740" opacity="0.85"
-        font-family="${FONT_NOTE}">${it.note}</text>
+        font-family="${FONT_NOTE}">${esc(it.note)}</text>
     `;
   }
 
@@ -634,7 +721,7 @@ function exportSVG(){
   const blob = new Blob([out],{type:"image/svg+xml"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "menu.svg";
+  a.download = "gratified-menu.svg";
   a.click();
 }
 
