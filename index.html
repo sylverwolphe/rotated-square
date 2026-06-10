@@ -646,12 +646,13 @@ function exportSVG(){
     maxY = Math.max(maxY, p.y + s);
   }
 
-  const pad = 70;
-  const headerH = 170;
+  const pad = 36;
+  const headerH = 122;
+  const footerH = 48;
   const x0 = minX - pad;
   const y0 = minY - pad - headerH;
   const w  = (maxX - minX) + pad*2;
-  const h  = (maxY - minY) + pad*2 + headerH + 30;
+  const h  = (maxY - minY) + pad*2 + headerH + footerH;
   const cx = (minX + maxX)/2;
 
   let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" width="${w}" height="${h}">`;
@@ -678,21 +679,26 @@ function exportSVG(){
     <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#washOrange)"/>
   `;
 
-  // ---- header: diamond mark + wordmark + tagline ----
-  const dy = y0 + 52;
+  // ---- title block: menu / Launch Menu / drinks ----
   out += `
-    <polygon points="${cx},${dy-16} ${cx+16},${dy} ${cx},${dy+16} ${cx-16},${dy}"
-      fill="#722F37"/>
-    <polygon points="${cx},${dy-22} ${cx+22},${dy} ${cx},${dy+22} ${cx-22},${dy}"
-      fill="none" stroke="#722F37" stroke-width="1.5" opacity="0.5"/>
+    <text x="${cx}" y="${y0 + 36}" text-anchor="middle"
+      font-size="13" font-weight="500" fill="#6B5740" opacity="0.8"
+      font-family="${FONT_PRICE}" letter-spacing="4">menu</text>
 
-    <text x="${cx}" y="${y0 + 118}" text-anchor="middle"
-      font-size="42" font-weight="700" fill="#722F37"
-      font-family="${FONT_NAME}" letter-spacing="6">Gratified</text>
+    <text x="${cx}" y="${y0 + 78}" text-anchor="middle"
+      font-size="36" font-weight="700" fill="#722F37"
+      font-family="${FONT_NAME}" letter-spacing="3">Launch Menu</text>
 
-    <text x="${cx}" y="${y0 + 146}" text-anchor="middle"
-      font-size="15" fill="#6B5740" opacity="0.85"
-      font-family="${FONT_PRICE}" letter-spacing="4">coffee + art</text>
+    <text x="${cx}" y="${y0 + 104}" text-anchor="middle"
+      font-size="14" font-weight="500" fill="#CC5500"
+      font-family="${FONT_PRICE}" letter-spacing="3">drinks</text>
+  `;
+
+  // ---- footer note ----
+  out += `
+    <text x="${cx}" y="${maxY + pad + 30}" text-anchor="middle"
+      font-size="11" font-weight="300" fill="#6B5740" opacity="0.75"
+      font-family="${FONT_NOTE}" letter-spacing="0.5">Pricing includes tax. Suggested tip 50&#162;/item.</text>
   `;
 
   // ---- diamonds with double borders ----
