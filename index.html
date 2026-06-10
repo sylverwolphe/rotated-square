@@ -101,6 +101,42 @@ let state = {
 };
 
 /* ---------------------------
+   Persistence (localStorage)
+   Swap these two functions for
+   Firebase later if you need
+   cross-device sync.
+----------------------------*/
+
+const STORE_KEY = "diamond-menu-v1";
+
+function save(){
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      items: state.items,
+      scale: state.scale,
+      ox: state.ox,
+      oy: state.oy
+    }));
+  }catch(err){
+    console.error("Save failed:", err);
+  }
+}
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    state.items = data.items || [];
+    if(typeof data.scale === "number") state.scale = data.scale;
+    if(typeof data.ox === "number") state.ox = data.ox;
+    if(typeof data.oy === "number") state.oy = data.oy;
+  }catch(err){
+    console.error("Load failed:", err);
+  }
+}
+
+/* ---------------------------
    Typography (trad layout)
    PRICE (top)   → Satoshi 700
    NAME (middle) → Bluu Next
@@ -256,6 +292,7 @@ window.addEventListener("mousemove",(e)=>{
 });
 
 window.addEventListener("mouseup",()=>{
+  if(state.dragging || draggingItem) save();
   state.dragging = false;
   draggingItem = null;
 });
@@ -267,6 +304,7 @@ svg.addEventListener("wheel",(e)=>{
   const f = e.deltaY < 0 ? 1.1 : 0.9;
   state.scale = Math.max(10,Math.min(120,state.scale*f));
   render();
+  save();
 });
 
 /* ---------------------------
@@ -286,6 +324,7 @@ function addItem(){
   });
 
   render();
+  save();
 }
 
 function del(){
@@ -293,6 +332,7 @@ function del(){
   state.items = state.items.filter(x=>x!==state.selected);
   state.selected=null;
   render();
+  save();
 }
 
 /* ---------------------------
@@ -348,6 +388,7 @@ function exportSVG(){
 
 /* --------------------------- */
 
+load();
 render();
 
 </script>
