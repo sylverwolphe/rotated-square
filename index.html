@@ -1,301 +1,304 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Rotated Square</title>
 
 <style>
 html,body{
-    margin:0;
-    width:100%;
-    height:100%;
-    overflow:hidden;
-    font-family:system-ui;
+  margin:0;
+  height:100%;
+  overflow:hidden;
+  font-family:system-ui;
+  background:#f6f6f6;
 }
 
-#toolbar{
-    position:fixed;
-    top:0;
-    left:0;
-    right:0;
-    height:50px;
-    background:#111;
-    color:white;
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:0 12px;
-    z-index:10;
+#ui{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  height:52px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 10px;
+  background:#111;
+  color:white;
+  z-index:10;
 }
 
-button{
-    padding:6px 12px;
+button,input{
+  font-size:12px;
 }
 
-canvas{
-    display:block;
+#wrap{
+  position:absolute;
+  inset:52px 0 0 0;
+}
+
+svg{
+  width:100%;
+  height:100%;
+  background:#fff;
+  cursor:grab;
+}
+
+svg:active{ cursor:grabbing; }
+
+.diamond{
+  cursor:pointer;
+  transition:all 0.05s linear;
+}
+
+.label{
+  pointer-events:none;
+  font-size:12px;
+  user-select:none;
 }
 </style>
 </head>
+
 <body>
 
-<div id="toolbar">
-    <button id="addDiamond">Add Diamond</button>
-    <button id="exportSvg">Export SVG</button>
-    <input type="color" id="color" value="#e6b800">
+<div id="ui">
+  <button onclick="addDiamond()">Add</button>
+  <button onclick="del()">Delete</button>
+  <input type="color" id="color" value="#ffcc66"/>
+  <input id="text" placeholder="text"/>
+  <button onclick="save()">Save</button>
+  <button onclick="load()">Load</button>
+  <button onclick="exportSVG()">Export SVG</button>
 </div>
 
-<canvas id="canvas"></canvas>
+<div id="wrap">
+<svg id="svg"></svg>
+</div>
 
 <script>
 
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+const svg = document.getElementById("svg");
 
-let width,height;
+let state = {
+  scale: 40,
+  ox: 0,
+  oy: 0,
+  dragging:false,
+  dragStart:null,
+  selected:null,
+  nodes:[]
+};
 
-function resize(){
-    width=canvas.width=window.innerWidth;
-    height=canvas.height=window.innerHeight;
-}
-resize();
-window.addEventListener("resize",resize);
+/* ---------------------------
+   Diamond coordinate system
+----------------------------*/
 
-const TILE=40;
-
-let zoom=1;
-let offsetX=0;
-let offsetY=0;
-
-let draggingCanvas=false;
-let lastX=0;
-let lastY=0;
-
-let selected=null;
-
-const diamonds=[];
-
-function diamondToScreen(q,r){
-
-    return {
-        x:(q-r)*TILE*zoom+width/2+offsetX,
-        y:(q+r)*TILE*0.5*zoom+height/2+offsetY
-    };
+function toScreen(q,r){
+  const x = (q - r) * state.scale + state.ox;
+  const y = (q + r) * state.scale * 0.5 + state.oy;
+  return {x,y};
 }
 
-function screenToDiamond(x,y){
+function toGrid(x,y){
+  const dx = (x - state.ox) / state.scale;
+  const dy = (y - state.oy) / (state.scale * 0.5);
 
-    const dx=(x-width/2-offsetX)/(TILE*zoom);
-    const dy=(y-height/2-offsetY)/(TILE*0.5*zoom);
+  const q = Math.round((dx + dy)/2);
+  const r = Math.round((dy - dx)/2);
 
-    const q=(dx+dy)/2;
-    const r=(dy-dx)/2;
-
-    return {
-        q:Math.round(q),
-        r:Math.round(r)
-    };
+  return {q,r};
 }
 
-function drawDiamond(cx,cy,size,fill,stroke){
+/* ---------------------------
+   Rendering
+----------------------------*/
 
-    ctx.beginPath();
-
-    ctx.moveTo(cx,cy-size);
-    ctx.lineTo(cx+size,cy);
-    ctx.lineTo(cx,cy+size);
-    ctx.lineTo(cx-size,cy);
-
-    ctx.closePath();
-
-    if(fill){
-        ctx.fillStyle=fill;
-        ctx.fill();
-    }
-
-    ctx.strokeStyle=stroke;
-    ctx.stroke();
+function drawDiamond(x,y,s,fill,stroke){
+  return `
+    <polygon
+      points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
+      fill="${fill}"
+      stroke="${stroke}"
+      stroke-width="1"
+    />
+  `;
 }
 
 function render(){
 
-    ctx.clearRect(0,0,width,height);
+  let html = "";
 
-    drawGrid();
-
-    for(const d of diamonds){
-
-        const p=diamondToScreen(d.q,d.r);
-
-        drawDiamond(
-            p.x,
-            p.y,
-            TILE*0.9*zoom,
-            d.color,
-            d===selected ? "#ff0000" : "#333"
-        );
-
-        if(d.text){
-
-            ctx.fillStyle="#000";
-            ctx.textAlign="center";
-            ctx.textBaseline="middle";
-            ctx.font=`${16*zoom}px sans-serif`;
-
-            ctx.fillText(
-                d.text,
-                p.x,
-                p.y
-            );
-        }
+  // grid (light)
+  const range = 20;
+  for(let q=-range;q<range;q++){
+    for(let r=-range;r<range;r++){
+      const p = toScreen(q,r);
+      html += drawDiamond(p.x,p.y,state.scale,"none","#eee");
     }
+  }
 
-    requestAnimationFrame(render);
+  // nodes
+  for(const n of state.nodes){
+    const p = toScreen(n.q,n.r);
+
+    const isSel = state.selected === n;
+
+    html += `
+      <g class="diamond" data-id="${n.id}">
+        ${drawDiamond(
+          p.x,p.y,
+          state.scale*0.95,
+          n.color,
+          isSel ? "#ff0000" : "#333"
+        )}
+        <text x="${p.x}" y="${p.y+4}"
+          text-anchor="middle"
+          class="label"
+        >${n.text || ""}</text>
+      </g>
+    `;
+  }
+
+  svg.innerHTML = html;
 }
 
-function drawGrid(){
+/* ---------------------------
+   Interaction
+----------------------------*/
 
-    const range=50;
+let draggingNode = null;
 
-    ctx.strokeStyle="#ddd";
+svg.addEventListener("mousedown",(e)=>{
 
-    for(let q=-range;q<range;q++){
+  const target = e.target.closest?.("g");
+  if(target){
+    const id = target.dataset.id;
+    const n = state.nodes.find(x=>x.id==id);
+    state.selected = n;
+    draggingNode = n;
+    render();
+    return;
+  }
 
-        for(let r=-range;r<range;r++){
+  state.dragging = true;
+  state.dragStart = {x:e.clientX,y:e.clientY};
+});
 
-            const p=diamondToScreen(q,r);
+window.addEventListener("mousemove",(e)=>{
 
-            drawDiamond(
-                p.x,
-                p.y,
-                TILE*zoom,
-                null,
-                "#eee"
-            );
-        }
-    }
-}
+  // pan
+  if(state.dragging && !draggingNode){
+    state.ox += e.clientX - state.dragStart.x;
+    state.oy += e.clientY - state.dragStart.y;
+    state.dragStart = {x:e.clientX,y:e.clientY};
+    render();
+  }
 
-canvas.addEventListener("mousedown",e=>{
-
-    if(e.button===1){
-
-        draggingCanvas=true;
-        lastX=e.clientX;
-        lastY=e.clientY;
-    }
+  // drag node
+  if(draggingNode){
+    const g = toGrid(e.clientX,e.clientY);
+    draggingNode.q = g.q;
+    draggingNode.r = g.r;
+    render();
+  }
 });
 
 window.addEventListener("mouseup",()=>{
 
-    draggingCanvas=false;
+  state.dragging = false;
+  draggingNode = null;
 });
 
-window.addEventListener("mousemove",e=>{
+/* zoom */
 
-    if(!draggingCanvas) return;
-
-    offsetX += e.clientX-lastX;
-    offsetY += e.clientY-lastY;
-
-    lastX=e.clientX;
-    lastY=e.clientY;
+svg.addEventListener("wheel",(e)=>{
+  e.preventDefault();
+  const f = e.deltaY < 0 ? 1.1 : 0.9;
+  state.scale *= f;
+  state.scale = Math.max(10,Math.min(120,state.scale));
+  render();
 });
 
-canvas.addEventListener("wheel",e=>{
+/* click empty -> create */
 
-    e.preventDefault();
+svg.addEventListener("click",(e)=>{
 
-    const factor=e.deltaY<0 ? 1.1 : 0.9;
+  if(e.target.tagName !== "svg") return;
 
-    zoom*=factor;
+  const g = toGrid(e.clientX,e.clientY);
 
-    zoom=Math.max(
-        0.2,
-        Math.min(5,zoom)
-    );
+  const node = {
+    id:crypto.randomUUID(),
+    q:g.q,
+    r:g.r,
+    color:document.getElementById("color").value,
+    text:document.getElementById("text").value || "◆"
+  };
+
+  state.nodes.push(node);
+  state.selected = node;
+  render();
 });
 
-canvas.addEventListener("click",e=>{
+/* ---------------------------
+   UI actions
+----------------------------*/
 
-    const pos=screenToDiamond(
-        e.clientX,
-        e.clientY
-    );
+function addDiamond(){
+  state.nodes.push({
+    id:crypto.randomUUID(),
+    q:0,r:0,
+    color:"#ffcc66",
+    text:"◆"
+  });
+  render();
+}
 
-    selected=null;
+function del(){
+  if(!state.selected) return;
+  state.nodes = state.nodes.filter(n=>n!==state.selected);
+  state.selected=null;
+  render();
+}
 
-    for(const d of diamonds){
+function save(){
+  localStorage.setItem("rotated-square",JSON.stringify(state.nodes));
+}
 
-        if(
-            d.q===pos.q &&
-            d.r===pos.r
-        ){
-            selected=d;
-            break;
-        }
-    }
-});
+function load(){
+  const data = JSON.parse(localStorage.getItem("rotated-square")||"[]");
+  state.nodes = data;
+  render();
+}
 
-document
-.getElementById("addDiamond")
-.onclick=()=>{
+function exportSVG(){
 
-    diamonds.push({
+  let out = `<svg xmlns="http://www.w3.org/2000/svg">`;
 
-        q:0,
-        r:0,
-        color:document.getElementById("color").value,
-        text:"◆"
+  for(const n of state.nodes){
+    const p = toScreen(n.q,n.r);
+    const s = state.scale;
 
-    });
-};
+    out += `
+      <polygon
+        points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
+        fill="${n.color}"
+        stroke="black"
+      />
+    `;
+  }
 
-document
-.getElementById("exportSvg")
-.onclick=()=>{
+  out += `</svg>`;
 
-    let svg=`
-<svg xmlns="http://www.w3.org/2000/svg">
-`;
+  const blob = new Blob([out],{type:"image/svg+xml"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "rotated-square.svg";
+  a.click();
+}
 
-    for(const d of diamonds){
-
-        const p=diamondToScreen(
-            d.q,
-            d.r
-        );
-
-        const s=TILE;
-
-        svg+=`
-<polygon
-points="
-${p.x},${p.y-s}
-${p.x+s},${p.y}
-${p.x},${p.y+s}
-${p.x-s},${p.y}
-"
-fill="${d.color}"
-stroke="black"
-/>
-`;
-    }
-
-    svg+="</svg>";
-
-    const blob=new Blob(
-        [svg],
-        {type:"image/svg+xml"}
-    );
-
-    const a=document.createElement("a");
-
-    a.href=URL.createObjectURL(blob);
-    a.download="rotated-square.svg";
-    a.click();
-};
+/* --------------------------- */
 
 render();
 
