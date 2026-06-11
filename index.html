@@ -504,19 +504,24 @@ function specialPattern(it, x, y, s){
   if(Si < 22) return "";
 
   /* regular diamond lattice of glyphs: positions are an even
-     grid (so coverage is uniform corner to corner), while the
-     species + tilt at each point come from a tiny hash so the
-     pattern doesn't stripe. Fully deterministic. */
+     grid (uniform coverage corner to corner). Species follow a
+     3-coloring of the lattice — (a + 2b) mod 3 in diagonal
+     coordinates — which guarantees every glyph's nearest
+     neighbours are the other two species: no two beets can
+     ever sit together. Tilt is hashed per point for a
+     hand-placed feel. Fully deterministic. */
   const h = 18;
   const N = Math.ceil(Si / h);
+  const off = hashStr(it.id || "") % 3; // rotate the colouring per item
   let g = `<g opacity="0.5">`;
   for(let j = -N; j <= N; j++){
     for(let i = -N; i <= N; i++){
       if((i + j) % 2 !== 0) continue;                  // diamond lattice
       const dx = i * h, dy = j * h;
       if(Math.abs(dx) + Math.abs(dy) > Si * 0.9) continue; // stay inside
+      const a = (i + j) / 2, b = (i - j) / 2;
+      const kind = ((a + 2 * b) % 3 + 3 + off) % 3;
       const hsh = hashStr(i + "," + j + "," + (it.id || ""));
-      const kind = hsh % 3;
       const tilt = ((hsh >> 3) % 2 ? 1 : -1) * (8 + (hsh >> 5) % 12);
       const gx = x + dx, gy = y + dy;
       if(kind === 0)      g += glyphCarrot(gx, gy, tilt);
@@ -985,7 +990,7 @@ function exportSVG(){
   out += `
     <text x="${cx}" y="${footY}" text-anchor="middle"
       font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_NOTE}" letter-spacing="1.5">prices include tax &#160;//&#160; suggested tip 50&#162; per item</text>
+      font-family="${FONT_NOTE}" letter-spacing="1.5">prices include tax &#160;//&#160; suggested 50&#162; tip</text>
   `;
 
   // ---- diamonds with double borders + wrapped text ----
