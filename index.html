@@ -232,10 +232,12 @@ let state = {
 ----------------------------*/
 
 const STORE_KEY = "diamond-menu-v1";
+const SNAPSHOT_VERSION = 2;
 let saveTimer = null;
 
 function snapshot(){
   return {
+    v: SNAPSHOT_VERSION,
     items: state.items,
     scale: state.scale,
     ox: state.ox,
@@ -245,12 +247,22 @@ function snapshot(){
 
 function applySnapshot(data){
   if(!data) return;
-  // migrate old (q,r) items to the new (gx,gy) system
-  state.items = (data.items || []).map(it=>{
+  const v = data.v || 1;
+
+  /* migrations:
+     v0: items stored as (q,r)        → gx=(q-r)*2, gy=q+r
+     v1: gx in full-scale units       → gx*2
+     v2: gx AND gy in half-scale units (current — diamonds can sit
+         on any half-step intersection, so a one-line diagonal
+         nudge is just gx±1, gy±1) */
+  state.items = (data.items || []).map(raw=>{
+    const it = { ...raw };
     if(it.gx === undefined && it.q !== undefined){
-      const m = { ...it, gx: it.q - it.r, gy: it.q + it.r };
-      delete m.q; delete m.r;
-      return m;
+      it.gx = (it.q - it.r) * 2;
+      it.gy = it.q + it.r;
+      delete it.q; delete it.r;
+    }else if(v < 2){
+      it.gx = it.gx * 2;
     }
     return it;
   });
@@ -318,25 +330,142 @@ function esc(str){
 }
 
 /* ---------------------------
+   Diamond-aware text wrapping
+
+   SVG text doesn't wrap on its own, so we measure each word
+   with a canvas and break lines ourselves. The trick: the
+   max width isn't a box — it follows the diamond's slanted
+   edges. At vertical offset dy from the centre, the diamond
+   is 2*(S - |dy|) wide, so a line near the middle can run
+   nearly the full width and only wraps when it genuinely
+   kisses the border. Nibbles wrap against the inner border
+   (S * 0.82) instead of the outer one.
+----------------------------*/
+
+const measCtx = document.createElement("canvas").getContext("2d");
+function textW(text, font){
+  measCtx.font = font;
+  return measCtx.measureText(text).width;
+}
+
+/* wrap `text` where each line's max width depends on its
+   vertical position. dyOf(i, n) = offset of line i of n from
+   the diamond centre; widthAt(dy) = max width at that offset.
+   Line count changes the offsets, so we run to a fixed point. */
+function wrapText(text, font, widthAt, dyOf, maxLines){
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean);
+  if(!words.length) return [];
+  let n = 1;
+  let lines = [words.join(" ")];
+  for(let pass = 0; pass < 5; pass++){
+    const out = [];
+    let cur = "";
+    for(const w of words){
+      const li = Math.min(out.length, n - 1);
+      const maxW = widthAt(dyOf(li, n));
+      const test = cur ? cur + " " + w : w;
+      if(cur && textW(test, font) > maxW){
+        out.push(cur);
+        cur = w;
+      }else{
+        cur = test;
+      }
+    }
+    if(cur) out.push(cur);
+    if(out.length === n){ lines = out; break; }
+    n = out.length;
+    lines = out;
+  }
+  // cap the line count: rather than spilling past the diamond's
+  // points, fold the remainder onto the last allowed line
+  if(maxLines && lines.length > maxLines){
+    lines = lines.slice(0, maxLines - 1)
+      .concat(lines.slice(maxLines - 1).join(" "));
+  }
+  return lines;
+}
+
+const NAME_FS = 14, NAME_LH = 15;
+const NOTE_FS = 9,  NOTE_LH = 11;
+const PRICE_FS = 9.5;
+const EDGE_PAD = 5; /* how close text may get to the border */
+
+/* price (top) / name (middle, vertically centred) / note
+   (below name) — all wrapped against the diamond's edges.
+   Shared by the live canvas and the export so they match. */
+function itemTexts(it, x, y, s){
+  const S = it.nibble ? s * 0.82 : s;
+  const widthAt = dy => Math.max(10, 2 * (S - Math.abs(dy)) - EDGE_PAD * 2);
+
+  const nameFont = `700 ${NAME_FS}px ${FONT_NAME}`;
+  const noteFont = `300 ${NOTE_FS}px ${FONT_NOTE}`;
+
+  // name: block centred on the diamond's widest band (max 3 lines)
+  const nameLines = wrapText(it.name, nameFont, widthAt,
+    (i, n) => (i - (n - 1) / 2) * NAME_LH, 3);
+  const nN = Math.max(1, nameLines.length);
+  const nameTop = -((nN - 1) / 2) * NAME_LH - NAME_FS * 0.55;
+  const nameBot =  ((nN - 1) / 2) * NAME_LH + NAME_FS * 0.45;
+
+  // note: grows downward from under the name (max 2 lines)
+  const noteStart = nameBot + 10;
+  const noteLines = wrapText(it.note, noteFont, widthAt,
+    (i) => noteStart + i * NOTE_LH - NOTE_FS * 0.35, 2);
+
+  let out = "";
+
+  if(String(it.price || "").trim()){
+    out += `
+      <text x="${x}" y="${y + nameTop - 5}" text-anchor="middle"
+        font-size="${PRICE_FS}" font-weight="500" fill="#6B5740" opacity="0.85"
+        font-family="${FONT_PRICE}" letter-spacing="1">${esc(it.price)}</text>`;
+  }
+
+  nameLines.forEach((ln, i)=>{
+    out += `
+      <text x="${x}" y="${y + (i - (nN - 1) / 2) * NAME_LH + 5}" text-anchor="middle"
+        font-size="${NAME_FS}" font-weight="700" fill="#722F37"
+        font-family="${FONT_NAME}">${esc(ln)}</text>`;
+  });
+
+  noteLines.forEach((ln, i)=>{
+    out += `
+      <text x="${x}" y="${y + noteStart + i * NOTE_LH}" text-anchor="middle"
+        font-size="${NOTE_FS}" font-weight="300" fill="#6B5740" opacity="0.85"
+        font-family="${FONT_NOTE}">${esc(ln)}</text>`;
+  });
+
+  return out;
+}
+
+/* ---------------------------
    Diamond coordinate system
-   gx = column, gy = half-step row.
-   Any integer pair is valid — the old
-   (q,r) system could only reach
-   checkerboard positions.
+   BOTH axes now run in half-scale steps, so every
+   intersection — including the midpoint of a lattice
+   edge — is placeable. A one-line diagonal move is
+   simply (gx±1, gy±1); no more hopping.
 ----------------------------*/
 
 function toScreen(gx,gy){
+  const u = state.scale * 0.5;
   return {
-    x: gx*state.scale + state.ox,
-    y: gy*state.scale*0.5 + state.oy
+    x: gx * u + state.ox,
+    y: gy * u + state.oy
   };
 }
 
 function toGrid(x,y){
+  const u = state.scale * 0.5;
   return {
-    gx: Math.round((x - state.ox)/state.scale),
-    gy: Math.round((y - state.oy)/(state.scale*0.5))
+    gx: Math.round((x - state.ox) / u),
+    gy: Math.round((y - state.oy) / u)
   };
+}
+
+/* true when (gx,gy) is a centre of the edge-to-edge
+   diamond tiling (the classic lattice look) */
+function isLatticeCentre(gx, gy){
+  return gx % 2 === 0 && gy % 2 === 0 && ((gx + gy) / 2) % 2 === 0;
 }
 
 /* mouse coords → svg-local coords
@@ -417,7 +546,6 @@ function renderItem(it){
 
   return `
     <g class="item" data-id="${it.id}">
-
       ${diamondItem(
         p.x,p.y,
         state.scale,
@@ -425,34 +553,7 @@ function renderItem(it){
         isSel ? "#CC5500" : "#722F37",
         it.nibble
       )}
-
-      <text x="${p.x}" y="${p.y-13}"
-        text-anchor="middle"
-        font-size="9.5"
-        font-weight="500"
-        font-family="${FONT_PRICE}"
-        letter-spacing="1"
-        fill="#6B5740"
-        opacity="0.85"
-      >${esc(it.price)}</text>
-
-      <text x="${p.x}" y="${p.y+4}"
-        text-anchor="middle"
-        font-size="14"
-        font-family="${FONT_NAME}"
-        font-weight="700"
-        fill="#722F37"
-      >${esc(it.name)}</text>
-
-      <text x="${p.x}" y="${p.y+18}"
-        text-anchor="middle"
-        font-size="9"
-        font-weight="300"
-        font-family="${FONT_NOTE}"
-        fill="#6B5740"
-        opacity="0.85"
-      >${esc(it.note)}</text>
-
+      ${itemTexts(it, p.x, p.y, state.scale)}
     </g>
   `;
 }
@@ -469,24 +570,28 @@ function render(){
   const w = svg.clientWidth || 800;
   const h = svg.clientHeight || 600;
   const s = state.scale;
+  const u = s * 0.5;
 
-  const gx0 = Math.floor((0 - state.ox)/s) - 1;
-  const gx1 = Math.ceil((w - state.ox)/s) + 1;
-  const gy0 = Math.floor((0 - state.oy)/(s*0.5)) - 1;
-  const gy1 = Math.ceil((h - state.oy)/(s*0.5)) + 1;
+  const gx0 = Math.floor((0 - state.ox)/u) - 2;
+  const gx1 = Math.ceil((w - state.ox)/u) + 2;
+  const gy0 = Math.floor((0 - state.oy)/u) - 2;
+  const gy1 = Math.ceil((h - state.oy)/u) + 2;
 
   const cells = (gx1-gx0)*(gy1-gy0);
+  const showDots = u >= 9; // skip the dots when zoomed way out
 
-  if(cells <= 12000){
+  if(cells <= 30000){
     for(let gx=gx0; gx<=gx1; gx++){
       for(let gy=gy0; gy<=gy1; gy++){
         const p = toScreen(gx,gy);
-        if((gx+gy) % 2 === 0){
+        if(isLatticeCentre(gx,gy)){
           // tiling outline (the classic lattice look)
           out += diamond(p.x,p.y,s,"none","rgba(114, 47, 55, 0.08)");
         }
-        // dot at every placeable centre
-        out += `<circle cx="${p.x}" cy="${p.y}" r="1.5" fill="rgba(114, 47, 55, 0.18)"/>`;
+        if(showDots){
+          // dot at every placeable centre (now every half-step)
+          out += `<circle cx="${p.x}" cy="${p.y}" r="1.2" fill="rgba(114, 47, 55, 0.14)"/>`;
+        }
       }
     }
   }
@@ -524,18 +629,20 @@ svg.addEventListener("mousedown",(e)=>{
   const g = e.target.closest?.("g");
   const pt = svgPoint(e);
 
-  if(g){
+  if(g && g.dataset.id){
     const id = g.dataset.id;
     const it = state.items.find(x=>x.id===id);
-    state.selected = it;
-    draggingItem = it;
-    // remember where inside the diamond you grabbed,
-    // so it doesn't jump to centre-on-cursor
-    const p = toScreen(it.gx, it.gy);
-    dragOffset = { x: p.x - pt.x, y: p.y - pt.y };
-    populateFields(it);
-    render();
-    return;
+    if(it){
+      state.selected = it;
+      draggingItem = it;
+      // remember where inside the diamond you grabbed,
+      // so it doesn't jump to centre-on-cursor
+      const p = toScreen(it.gx, it.gy);
+      dragOffset = { x: p.x - pt.x, y: p.y - pt.y };
+      populateFields(it);
+      render();
+      return;
+    }
   }
 
   // empty canvas: deselect + start panning
@@ -679,8 +786,11 @@ function del(){
    Export SVG — the final menu.
    Auto-crops to your diamonds, adds the
    Gratified wordmark header, brand
-   background washes, and the double-
-   border treatment on every diamond.
+   background washes, a whisper-faint
+   diamond lattice across the whole sheet
+   so the composition feels of-a-piece,
+   diamond ornaments around the title,
+   and a nibble legend when needed.
 ----------------------------*/
 
 function exportSVG(){
@@ -691,6 +801,7 @@ function exportSVG(){
   }
 
   const s = state.scale;
+  const hasNibbles = state.items.some(it=>it.nibble);
 
   // bounds of all diamonds
   let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
@@ -702,9 +813,9 @@ function exportSVG(){
     maxY = Math.max(maxY, p.y + s);
   }
 
-  const pad = 36;
-  const headerH = 92;
-  const footerH = 48;
+  const pad = 48;
+  const headerH = 112;
+  const footerH = hasNibbles ? 86 : 60;
   const x0 = minX - pad;
   const y0 = minY - pad - headerH;
   const w  = (maxX - minX) + pad*2;
@@ -735,39 +846,84 @@ function exportSVG(){
     <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#washOrange)"/>
   `;
 
-  // ---- title ----
+  // ---- whisper lattice across the whole sheet (aligned to the working grid) ----
+  {
+    const u = s * 0.5;
+    const lgx0 = Math.floor((x0 - state.ox)/u) - 1;
+    const lgx1 = Math.ceil((x0 + w - state.ox)/u) + 1;
+    const lgy0 = Math.floor((y0 - state.oy)/u) - 1;
+    const lgy1 = Math.ceil((y0 + h - state.oy)/u) + 1;
+    if((lgx1-lgx0)*(lgy1-lgy0) <= 40000){
+      for(let gx=lgx0; gx<=lgx1; gx++){
+        for(let gy=lgy0; gy<=lgy1; gy++){
+          if(isLatticeCentre(gx,gy)){
+            const p = toScreen(gx,gy);
+            out += `
+              <polygon
+                points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
+                fill="none" stroke="#722F37" stroke-opacity="0.05" stroke-width="1"
+              />`;
+          }
+        }
+      }
+    }
+  }
+
+  // ---- title with flanking diamond ornaments + rule ----
+  const titleY = y0 + 60;
+  const titleW = textW("Drinks and nibbles", `700 32px ${FONT_NAME}`);
+  const ornX = titleW/2 + 30;
+
+  function miniDiamond(x, y, r, fill, opacity){
+    return `<polygon points="${x},${y-r} ${x+r},${y} ${x},${y+r} ${x-r},${y}"
+      fill="${fill}" opacity="${opacity}"/>`;
+  }
+
   out += `
-    <text x="${cx}" y="${y0 + 62}" text-anchor="middle"
+    <text x="${cx}" y="${titleY}" text-anchor="middle"
       font-size="32" font-weight="700" fill="#722F37"
       font-family="${FONT_NAME}" letter-spacing="3">Drinks and nibbles</text>
+
+    ${miniDiamond(cx - ornX, titleY - 10, 7, "#722F37", 1)}
+    ${miniDiamond(cx - ornX - 18, titleY - 10, 4, "#CC5500", 0.8)}
+    ${miniDiamond(cx + ornX, titleY - 10, 7, "#722F37", 1)}
+    ${miniDiamond(cx + ornX + 18, titleY - 10, 4, "#CC5500", 0.8)}
+
+    <line x1="${cx - 92}" y1="${titleY + 22}" x2="${cx - 14}" y2="${titleY + 22}"
+      stroke="#722F37" stroke-width="1" stroke-opacity="0.45"/>
+    <line x1="${cx + 14}" y1="${titleY + 22}" x2="${cx + 92}" y2="${titleY + 22}"
+      stroke="#722F37" stroke-width="1" stroke-opacity="0.45"/>
+    ${miniDiamond(cx, titleY + 22, 4.5, "#D2691E", 0.9)}
   `;
 
-  // ---- footer note ----
+  // ---- footer: tax note (+ nibble legend if any nibbles) ----
+  const footY = maxY + pad + 28;
+
   out += `
-    <text x="${cx}" y="${maxY + pad + 30}" text-anchor="middle"
+    <text x="${cx}" y="${footY}" text-anchor="middle"
       font-size="11" font-weight="300" fill="#6B5740" opacity="0.75"
       font-family="${FONT_NOTE}" letter-spacing="0.5">Pricing includes tax. Suggested tip 50&#162;/item.</text>
   `;
 
-  // ---- diamonds with double borders ----
+  if(hasNibbles){
+    const legY = footY + 24;
+    const lx = cx - 64, ly = legY - 4, lr = 9, li = lr * 0.82;
+    out += `
+      <polygon points="${lx},${ly-lr} ${lx+lr},${ly} ${lx},${ly+lr} ${lx-lr},${ly}"
+        fill="#722F37"/>
+      <polygon points="${lx},${ly-li} ${lx+li},${ly} ${lx},${ly+li} ${lx-li},${ly}"
+        fill="#E6C89C" stroke="#EDE8E0" stroke-width="0.6"/>
+      <text x="${lx + 18}" y="${legY}" text-anchor="start"
+        font-size="10" font-weight="500" fill="#6B5740" opacity="0.85"
+        font-family="${FONT_NOTE}" letter-spacing="1">deep-red band = nibble</text>
+    `;
+  }
+
+  // ---- diamonds with double borders + wrapped text ----
   for(const it of state.items){
     const p = toScreen(it.gx,it.gy);
-
     out += diamondItem(p.x, p.y, s, it.color, "#722F37", it.nibble);
-
-    out += `
-      <text x="${p.x}" y="${p.y-13}" text-anchor="middle"
-        font-size="9.5" font-weight="500" fill="#6B5740" opacity="0.85"
-        font-family="${FONT_PRICE}" letter-spacing="1">${esc(it.price)}</text>
-
-      <text x="${p.x}" y="${p.y+4}" text-anchor="middle"
-        font-size="14" font-weight="700" fill="#722F37"
-        font-family="${FONT_NAME}">${esc(it.name)}</text>
-
-      <text x="${p.x}" y="${p.y+18}" text-anchor="middle"
-        font-size="9" font-weight="300" fill="#6B5740" opacity="0.85"
-        font-family="${FONT_NOTE}">${esc(it.note)}</text>
-    `;
+    out += itemTexts(it, p.x, p.y, s);
   }
 
   out += `</svg>`;
@@ -788,6 +944,12 @@ window.exportSVG = exportSVG;
 
 render();           // show grid immediately
 load().then(render); // then hydrate from Firebase
+
+// re-render once webfonts arrive so text wrapping
+// is measured with the real Bluu Next / Satoshi metrics
+if(document.fonts && document.fonts.ready){
+  document.fonts.ready.then(render);
+}
 
 </script>
 
