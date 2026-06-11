@@ -882,7 +882,7 @@ function exportSVG(){
     }
   }
 
-  // ---- title + reassurance line ----
+  // ---- title + service line (matches the footer's format exactly) ----
   const titleY = y0 + 60;
   out += `
     <text x="${cx}" y="${titleY}" text-anchor="middle"
@@ -890,17 +890,17 @@ function exportSVG(){
       font-family="${FONT_NAME}" letter-spacing="3">Drinks and nibbles</text>
 
     <text x="${cx}" y="${titleY + 26}" text-anchor="middle"
-      font-size="11.5" font-weight="300" fill="#6B5740" opacity="0.85"
-      font-family="${FONT_NOTE}" letter-spacing="1.5">every drink hot or iced &#183; dairy or oat &#183; no extra charge</text>
+      font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
+      font-family="${FONT_NOTE}" letter-spacing="1.5">every drink hot or iced &#160;//&#160; dairy or oat &#160;//&#160; no extra charge</text>
   `;
 
-  // ---- footer: tax note ----
+  // ---- footer service line (same format as the one under the title) ----
   const footY = maxY + pad + 28;
 
   out += `
     <text x="${cx}" y="${footY}" text-anchor="middle"
-      font-size="11" font-weight="300" fill="#6B5740" opacity="0.75"
-      font-family="${FONT_NOTE}" letter-spacing="0.5">Pricing includes tax. Suggested tip 50&#162;/item.</text>
+      font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
+      font-family="${FONT_NOTE}" letter-spacing="1.5">pricing includes tax &#160;//&#160; suggested tip 50&#162; per item</text>
   `;
 
   // ---- diamonds with double borders + wrapped text ----
