@@ -432,7 +432,7 @@ function itemTexts(it, x, y, s){
 
   if(String(it.price || "").trim()){
     out += `
-      <text x="${x}" y="${y + nameTop - 5}" text-anchor="middle"
+      <text x="${x}" y="${y + nameTop - 9}" text-anchor="middle"
         font-size="${PRICE_FS}" font-weight="500" fill="${subCol}" opacity="${subOp}"
         font-family="${FONT_PRICE}" letter-spacing="1">${esc(it.price)}</text>`;
   }
@@ -827,7 +827,7 @@ function exportSVG(){
   }
 
   const pad = 48;
-  const headerH = 112;
+  const headerH = 128;
   const footerH = 60;
   const x0 = minX - pad;
   const y0 = minY - pad - headerH;
@@ -882,12 +882,16 @@ function exportSVG(){
     }
   }
 
-  // ---- title ----
+  // ---- title + reassurance line ----
   const titleY = y0 + 60;
   out += `
     <text x="${cx}" y="${titleY}" text-anchor="middle"
       font-size="32" font-weight="700" fill="#722F37"
       font-family="${FONT_NAME}" letter-spacing="3">Drinks and nibbles</text>
+
+    <text x="${cx}" y="${titleY + 26}" text-anchor="middle"
+      font-size="11.5" font-weight="300" fill="#6B5740" opacity="0.85"
+      font-family="${FONT_NOTE}" letter-spacing="1.5">every drink hot or iced &#183; dairy or oat &#183; no extra charge</text>
   `;
 
   // ---- footer: tax note ----
