@@ -154,9 +154,90 @@ button:hover{
   letter-spacing:1.5px;
 }
 
+/* ---------------------------
+   Menu tabs — one design per tab
+   (single-click switch, double-click
+   rename, × to delete)
+----------------------------*/
+
+#tabs{
+  position:fixed;
+  top:56px;
+  left:0;
+  right:0;
+  height:36px;
+  display:flex;
+  align-items:stretch;
+  padding:0 14px;
+  background:rgba(230, 200, 156, 0.22);
+  border-bottom:1px solid rgba(114, 47, 55, 0.2);
+  overflow-x:auto;
+  z-index:10;
+}
+
+#tabList{
+  display:flex;
+  align-items:stretch;
+}
+
+.tab{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:0 14px;
+  font-size:12px;
+  letter-spacing:1px;
+  text-transform:lowercase;
+  color:var(--olive-bronze);
+  cursor:pointer;
+  user-select:none;
+  white-space:nowrap;
+  border-right:1px solid rgba(114, 47, 55, 0.12);
+  transition:background 0.25s ease, color 0.25s ease;
+}
+
+.tab:hover{
+  color:var(--deep-red);
+  background:rgba(114, 47, 55, 0.05);
+}
+
+.tab.active{
+  color:var(--deep-red);
+  font-weight:700;
+  background:var(--cream);
+  box-shadow:inset 0 -3px 0 var(--deep-red);
+}
+
+.tab-close{
+  opacity:0;
+  font-size:14px;
+  line-height:1;
+  padding:1px 3px;
+  transition:opacity 0.2s ease;
+}
+
+.tab:hover .tab-close{ opacity:0.55; }
+.tab-close:hover{ opacity:1 !important; color:var(--bright-orange); }
+
+#newTab{
+  border:none;
+  background:transparent;
+  color:var(--deep-red);
+  font-size:16px;
+  font-weight:700;
+  padding:0 12px;
+  cursor:pointer;
+}
+
+#newTab:hover{
+  background:rgba(114, 47, 55, 0.08);
+  color:var(--deep-red);
+  letter-spacing:1px;
+}
+
 #wrap{
   position:absolute;
-  inset:56px 0 0 0;
+  inset:92px 0 0 0;
 }
 
 svg{
@@ -189,6 +270,11 @@ svg:active{ cursor:grabbing; }
   <button onclick="exportSVG()">Export SVG</button>
 </div>
 
+<div id="tabs">
+  <div id="tabList"></div>
+  <button id="newTab" title="new menu">+</button>
+</div>
+
 <div id="wrap">
 <svg id="svg"></svg>
 </div>
@@ -210,7 +296,6 @@ const firebaseConfig = {
 
 const fbApp = initializeApp(firebaseConfig);
 const db = getDatabase(fbApp);
-const menuRef = ref(db, "menus/default");
 
 const svg = document.getElementById("svg");
 
@@ -225,16 +310,31 @@ let state = {
 };
 
 /* ---------------------------
-   Persistence
-   Primary: Firebase Realtime DB
-   Fallback/cache: localStorage
-   (writes are debounced so wheel
-   zoom doesn't spam the network)
+   Persistence — multi-menu tabs
+
+   menuIndex (cloud node "menuIndex",
+   local key INDEX_KEY) lists the tabs:
+   [{id, name}]. Each menu's data lives
+   at menus/{id} in Firebase, mirrored
+   to localStorage per-id.
+
+   Your original single menu at
+   menus/default is adopted as the
+   first tab on first run — nothing
+   is lost.
 ----------------------------*/
 
-const STORE_KEY = "diamond-menu-v1";
+const STORE_PREFIX = "diamond-menu-v2:";
+const LEGACY_STORE_KEY = "diamond-menu-v1"; // pre-tabs local cache
+const INDEX_KEY = "diamond-menu-index-v1";
 const SNAPSHOT_VERSION = 2;
 let saveTimer = null;
+
+let menuIndex = [];      // [{id, name}]
+let currentMenuId = null;
+
+const menuRef = id => ref(db, "menus/" + id);
+const indexRef = ref(db, "menuIndex");
 
 function snapshot(){
   return {
@@ -273,26 +373,82 @@ function applySnapshot(data){
 }
 
 function save(){
+  if(!currentMenuId) return;
   const data = snapshot();
+  const id = currentMenuId;
 
   // instant local cache
   try{
-    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    localStorage.setItem(STORE_PREFIX + id, JSON.stringify(data));
   }catch(err){ /* private mode etc. */ }
 
   // debounced cloud write
   clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>{
-    set(menuRef, data).catch(err=>{
+    set(menuRef(id), data).catch(err=>{
       console.error("Firebase save failed:", err);
     });
   }, 400);
 }
 
-async function load(){
+/* immediate save (no debounce) — used right before
+   switching tabs so nothing in-flight is lost */
+function flushSave(){
+  if(!currentMenuId) return;
+  clearTimeout(saveTimer);
+  const data = snapshot();
+  try{
+    localStorage.setItem(STORE_PREFIX + currentMenuId, JSON.stringify(data));
+  }catch(err){}
+  set(menuRef(currentMenuId), data).catch(err=>{
+    console.error("Firebase save failed:", err);
+  });
+}
+
+function saveIndex(){
+  try{
+    localStorage.setItem(INDEX_KEY, JSON.stringify(menuIndex));
+  }catch(err){}
+  set(indexRef, menuIndex).catch(err=>{
+    console.error("Firebase index save failed:", err);
+  });
+}
+
+async function loadIndex(){
   // try cloud first
   try{
-    const snap = await get(menuRef);
+    const snap = await get(indexRef);
+    if(snap.exists()){
+      const v = snap.val();
+      menuIndex = Array.isArray(v) ? v.filter(Boolean) : Object.values(v);
+      if(menuIndex.length) return;
+    }
+  }catch(err){
+    console.error("Firebase index load failed, trying local:", err);
+  }
+
+  // fall back to local cache
+  try{
+    const raw = localStorage.getItem(INDEX_KEY);
+    if(raw){
+      menuIndex = JSON.parse(raw);
+      if(menuIndex.length) return;
+    }
+  }catch(err){}
+
+  // first run on the tab scheme: adopt the original single
+  // menu (menus/default) as tab #1 so existing work carries over
+  menuIndex = [{ id:"default", name:"Drinks and nibbles" }];
+  saveIndex();
+}
+
+async function loadMenu(id){
+  state.items = [];
+  state.selected = null;
+
+  // try cloud first
+  try{
+    const snap = await get(menuRef(id));
     if(snap.exists()){
       applySnapshot(snap.val());
       return;
@@ -301,14 +457,116 @@ async function load(){
     console.error("Firebase load failed, using local cache:", err);
   }
 
-  // fall back to local cache
+  // fall back to local cache (incl. the pre-tabs key for "default")
   try{
-    const raw = localStorage.getItem(STORE_KEY);
+    const raw = localStorage.getItem(STORE_PREFIX + id) ||
+                (id === "default" ? localStorage.getItem(LEGACY_STORE_KEY) : null);
     if(raw) applySnapshot(JSON.parse(raw));
   }catch(err){
     console.error("Local load failed:", err);
   }
 }
+
+/* ---------------------------
+   Tab bar
+----------------------------*/
+
+const tabList = document.getElementById("tabList");
+
+function currentMenuName(){
+  const m = menuIndex.find(t=>t.id===currentMenuId);
+  return m ? m.name : "Menu";
+}
+
+function renderTabs(){
+  tabList.innerHTML = "";
+  for(const m of menuIndex){
+    const el = document.createElement("div");
+    el.className = "tab" + (m.id === currentMenuId ? " active" : "");
+    el.title = "click to open · double-click to rename";
+
+    const lbl = document.createElement("span");
+    lbl.textContent = m.name;
+    el.appendChild(lbl);
+
+    const x = document.createElement("span");
+    x.className = "tab-close";
+    x.textContent = "\u00d7";
+    x.title = "delete menu";
+    el.appendChild(x);
+
+    el.addEventListener("click", (e)=>{
+      if(e.target === x) return;
+      switchMenu(m.id);
+    });
+
+    el.addEventListener("dblclick", ()=>{
+      const name = prompt("Rename menu:", m.name);
+      if(name && name.trim()){
+        m.name = name.trim();
+        saveIndex();
+        renderTabs();
+      }
+    });
+
+    x.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      deleteMenu(m.id);
+    });
+
+    tabList.appendChild(el);
+  }
+}
+
+async function switchMenu(id){
+  if(id === currentMenuId) return;
+  flushSave();
+  currentMenuId = id;
+  renderTabs();
+  await loadMenu(id);
+  render();
+}
+
+function newMenu(){
+  flushSave();
+  const id = crypto.randomUUID();
+  const name = prompt("Name the new menu:", "Menu " + (menuIndex.length + 1));
+  if(name === null) return; // cancelled
+  menuIndex.push({ id, name: (name.trim() || "Menu " + menuIndex.length) });
+  saveIndex();
+
+  currentMenuId = id;
+  state.items = [];
+  state.selected = null;
+  renderTabs();
+  render();
+  save(); // create the empty cloud record
+}
+
+function deleteMenu(id){
+  const m = menuIndex.find(t=>t.id===id);
+  if(!m) return;
+  if(menuIndex.length <= 1){
+    alert("Can't delete the last menu — make a new one first.");
+    return;
+  }
+  if(!confirm(`Delete "${m.name}"? This can't be undone.`)) return;
+
+  menuIndex = menuIndex.filter(t=>t.id!==id);
+  saveIndex();
+
+  try{ localStorage.removeItem(STORE_PREFIX + id); }catch(err){}
+  set(menuRef(id), null).catch(()=>{});
+
+  if(currentMenuId === id){
+    currentMenuId = null;
+    switchMenu(menuIndex[0].id);
+  }else{
+    renderTabs();
+  }
+}
+
+document.getElementById("newTab").addEventListener("click", newMenu);
 
 /* ---------------------------
    Typography (trad layout)
@@ -890,10 +1148,10 @@ function del(){
 /* ---------------------------
    Export SVG — the final menu.
    Auto-crops to your diamonds, adds the
-   title, brand background washes, and a
-   whisper-faint diamond lattice across
-   the whole sheet so the composition
-   feels of-a-piece.
+   title (the current tab's name), brand
+   background washes, and a whisper-faint
+   diamond lattice across the whole sheet
+   so the composition feels of-a-piece.
 ----------------------------*/
 
 function exportSVG(){
@@ -904,6 +1162,7 @@ function exportSVG(){
   }
 
   const s = state.scale;
+  const title = currentMenuName();
 
   // bounds of all diamonds
   let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
@@ -971,13 +1230,13 @@ function exportSVG(){
     }
   }
 
-  // ---- title + service line (matches the footer's format exactly) ----
+  // ---- title (current tab name) + service line ----
   // baseline sits low in the header so air above ≈ air below (optical centering)
   const titleY = y0 + 78;
   out += `
     <text x="${cx}" y="${titleY}" text-anchor="middle"
       font-size="32" font-weight="700" fill="#722F37"
-      font-family="${FONT_NAME}" letter-spacing="3">Drinks and nibbles</text>
+      font-family="${FONT_NAME}" letter-spacing="3">${esc(title)}</text>
 
     <text x="${cx}" y="${titleY + 26}" text-anchor="middle"
       font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
@@ -1006,7 +1265,8 @@ function exportSVG(){
   const blob = new Blob([out],{type:"image/svg+xml"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = "gratified-menu.svg";
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  a.download = "gratified-" + (slug || "menu") + ".svg";
   a.click();
 }
 
@@ -1017,8 +1277,17 @@ window.addItem = addItem;
 window.del = del;
 window.exportSVG = exportSVG;
 
-render();           // show grid immediately
-load().then(render); // then hydrate from Firebase
+render(); // show grid immediately
+
+// boot: load the tab index, open the first tab,
+// then hydrate that menu from Firebase
+(async ()=>{
+  await loadIndex();
+  currentMenuId = menuIndex[0].id;
+  renderTabs();
+  await loadMenu(currentMenuId);
+  render();
+})();
 
 // re-render once webfonts arrive so text wrapping
 // is measured with the real Bluu Next / Satoshi metrics
