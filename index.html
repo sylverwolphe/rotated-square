@@ -671,6 +671,16 @@ const SIGN_LOCATION_LINE = "Lower Level";
 const SIGN_HOURS_LINE = "open during all library hours";
 const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
 
+/* sign colour scheme — dark and rich instead of the menu's
+   light cream, so it reads as a destination/wayfinding sign
+   rather than a blown-up paper menu. Diamonds turn a uniform
+   parchment (their old per-drink fill colour moves to the text
+   instead, see deepenColor below); amber/gold carry the accents. */
+const SIGN_BG = "#722F37";
+const SIGN_PARCHMENT = "#EDE8E0";
+const SIGN_GOLD = "#E6C89C";
+const SIGN_AMBER = "#D2691E";
+
 /* escape user text so "tea & honey" doesn't break the SVG */
 function esc(str){
   return String(str)
@@ -763,6 +773,62 @@ function isDarkFill(hex){
   return (0.2126*r + 0.7152*g + 0.0722*b) < 0.55;
 }
 
+/* the sign export turns each item's own colour (currently used
+   as the diamond fill everywhere else) into deep, jewel-toned
+   text instead — these are the HSL plumbing deepenColor needs */
+function hexToRgb(hex){
+  const c = String(hex || "").replace("#","");
+  return { r: parseInt(c.slice(0,2),16)||0, g: parseInt(c.slice(2,4),16)||0, b: parseInt(c.slice(4,6),16)||0 };
+}
+function rgbToHsl(r,g,b){
+  r/=255; g/=255; b/=255;
+  const max=Math.max(r,g,b), min=Math.min(r,g,b);
+  let h,s,l=(max+min)/2;
+  if(max===min){ h=s=0; }
+  else{
+    const d=max-min;
+    s = l>0.5 ? d/(2-max-min) : d/(max+min);
+    if(max===r) h=((g-b)/d + (g<b?6:0));
+    else if(max===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h/=6;
+  }
+  return {h,s,l};
+}
+function hslToRgb(h,s,l){
+  let r,g,b;
+  if(s===0){ r=g=b=l; }
+  else{
+    const hue2rgb=(p,q,t)=>{
+      if(t<0) t+=1; if(t>1) t-=1;
+      if(t<1/6) return p+(q-p)*6*t;
+      if(t<1/2) return q;
+      if(t<2/3) return p+(q-p)*(2/3-t)*6;
+      return p;
+    };
+    const q = l<0.5 ? l*(1+s) : l+s-l*s;
+    const p = 2*l-q;
+    r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
+  }
+  return { r:Math.round(r*255), g:Math.round(g*255), b:Math.round(b*255) };
+}
+function toHex2(n){ return Math.max(0,Math.min(255,n)).toString(16).padStart(2,"0"); }
+
+/* caps a colour's lightness so it reads as deep/rich text on the
+   parchment diamonds, regardless of how light the original swatch
+   was, while keeping its hue (and a bit more saturation) intact —
+   a pale golden-sand item still ends up a recognisable deep gold,
+   not generic dark grey */
+function deepenColor(hex, maxL){
+  maxL = maxL===undefined ? 0.30 : maxL;
+  const {r,g,b} = hexToRgb(hex);
+  let {h,s,l} = rgbToHsl(r,g,b);
+  if(l > maxL) l = maxL;
+  s = Math.min(1, s*1.15);
+  const out = hslToRgb(h,s,l);
+  return "#" + toHex2(out.r) + toHex2(out.g) + toHex2(out.b);
+}
+
 /* price (top) / name (middle, vertically centred) / note
    (below name) — all wrapped against the diamond's edges.
    Shared by the live canvas and the export so they match.
@@ -770,7 +836,7 @@ function isDarkFill(hex){
    a unit — used by the sign export, whose diamonds can be much
    bigger than a normal menu's, so the base sizes below would
    otherwise look lost inside them. */
-function itemTexts(it, x, y, s, fontScale){
+function itemTexts(it, x, y, s, fontScale, colorOverride){
   fontScale = fontScale || 1;
   const nameFS = NAME_FS*fontScale, nameLH = NAME_LH*fontScale;
   const noteFS = NOTE_FS*fontScale, noteLH = NOTE_LH*fontScale;
@@ -779,10 +845,17 @@ function itemTexts(it, x, y, s, fontScale){
   const S = it.nibble ? s * 0.82 : s;
   const widthAt = dy => Math.max(10, 2 * (S - Math.abs(dy)) - edgePad * 2);
 
-  const dark = isDarkFill(it.color);
-  const nameCol = dark ? "#EDE8E0" : "#722F37";
-  const subCol  = dark ? "#E6C89C" : "#6B5740";
-  const subOp   = dark ? 0.95 : 0.85;
+  let nameCol, subCol, subOp;
+  if(colorOverride){
+    nameCol = colorOverride.nameCol;
+    subCol = colorOverride.subCol;
+    subOp = colorOverride.subOp !== undefined ? colorOverride.subOp : 0.85;
+  }else{
+    const dark = isDarkFill(it.color);
+    nameCol = dark ? "#EDE8E0" : "#722F37";
+    subCol  = dark ? "#E6C89C" : "#6B5740";
+    subOp   = dark ? 0.95 : 0.85;
+  }
 
   const nameFont = `700 ${nameFS}px ${FONT_NAME}`;
   const noteFont = `300 ${noteFS}px ${FONT_NOTE}`;
@@ -987,18 +1060,20 @@ function downChevron(cx, cy, w, color){
 }
 
 /* Gratified signature: a single solid outer border in deep
-   red (or orange when selected). Nibbles get a deep-red band
-   around a smaller inner diamond in the item's own colour —
-   the colour change alone marks the boundary, so no inset
-   line is needed (it used to read as a stray white/pale ring
-   on most fills, light or dark, so it's gone for good). */
-function diamondItem(x,y,s,fill,stroke,nibble){
+   red (or orange when selected). Nibbles get a band — deep red
+   by default, but callers can override it (the sign export does,
+   since its own background IS deep red) — around a smaller inner
+   diamond in the item's own colour; the colour change alone marks
+   the boundary, so no inset line is needed (it used to read as a
+   stray white/pale ring on most fills, light or dark, so it's
+   gone for good). */
+function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand){
   const si = s*0.82;
   if(nibble){
     return `
       <polygon
         points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
-        fill="#722F37"
+        fill="${nibbleBand || '#722F37'}"
         stroke="${stroke}"
         stroke-width="1.6"
         stroke-linejoin="round"
@@ -1622,20 +1697,20 @@ function exportSignSVG(){
     </style>
 
     <defs>
-      <radialGradient id="signWashRed" cx="20%" cy="10%" r="65%">
-        <stop offset="0%" stop-color="#722F37" stop-opacity="0.06"/>
-        <stop offset="100%" stop-color="#722F37" stop-opacity="0"/>
+      <radialGradient id="signGlow" cx="50%" cy="14%" r="55%">
+        <stop offset="0%" stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
+        <stop offset="100%" stop-color="${SIGN_AMBER}" stop-opacity="0"/>
       </radialGradient>
-      <radialGradient id="signWashOrange" cx="85%" cy="92%" r="65%">
-        <stop offset="0%" stop-color="#CC5500" stop-opacity="0.05"/>
-        <stop offset="100%" stop-color="#CC5500" stop-opacity="0"/>
+      <radialGradient id="signVignette" cx="50%" cy="50%" r="75%">
+        <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#000000" stop-opacity="0.18"/>
       </radialGradient>
     </defs>
 
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="#EDE8E0"/>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signWashRed)"/>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signWashOrange)"/>
-    <rect x="40" y="40" width="${PAGE_W-80}" height="${PAGE_H-80}" fill="none" stroke="#722F37" stroke-width="1.5" opacity="0.3"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${SIGN_BG}"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signGlow)"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signVignette)"/>
+    <rect x="40" y="40" width="${PAGE_W-80}" height="${PAGE_H-80}" fill="none" stroke="${SIGN_AMBER}" stroke-width="1.5" opacity="0.55"/>
   `;
 
   // ---- whisper lattice across the whole sheet ----
@@ -1652,7 +1727,7 @@ function exportSignSVG(){
             out += `
               <polygon
                 points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
-                fill="none" stroke="#722F37" stroke-opacity="0.045" stroke-width="1"
+                fill="none" stroke="${SIGN_PARCHMENT}" stroke-opacity="0.05" stroke-width="1"
               />`;
           }
         }
@@ -1661,24 +1736,25 @@ function exportSignSVG(){
   }
 
   // ---- logo lockup: wordmark / "coffee + art" / diamond mark,
-  // matching the website's landing-page hero exactly ----
+  // matching the website's landing-page hero exactly (just in
+  // parchment now, to read against the dark background) ----
   out += `
     <text x="${cx}" y="${wordmarkY}" text-anchor="middle"
-      font-size="${WORD_FS}" font-weight="700" fill="#722F37"
+      font-size="${WORD_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
       font-family="${FONT_NAME}" letter-spacing="${WORD_LETTER}">Gratified</text>
 
     <text x="${cx}" y="${subtitleY}" text-anchor="middle"
-      font-size="${SUB_FS}" font-weight="700" fill="#722F37"
+      font-size="${SUB_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
       font-family="${FONT_NAME}" letter-spacing="2" style="word-spacing:5px">coffee + art</text>
   `;
-  out += logoDiamond(cx, logoDiamondY, LOGO_D, "#722F37");
+  out += logoDiamond(cx, logoDiamondY, LOGO_D, SIGN_PARCHMENT);
 
   // ---- optional tagline — kept small and light so it reads as
   // a little aside, not competition for the headline or menu ----
   if(SIGN_TAGLINE_TEXT.trim()){
     out += `
       <text x="${cx}" y="${taglineY}" text-anchor="middle"
-        font-size="17" font-weight="300" font-style="italic" fill="#6B5740" opacity="0.8"
+        font-size="17" font-weight="300" font-style="italic" fill="${SIGN_GOLD}" opacity="0.85"
         font-family="${FONT_PRICE}" letter-spacing="1">${esc(SIGN_TAGLINE_TEXT)}</text>
     `;
   }
@@ -1686,36 +1762,41 @@ function exportSignSVG(){
   // ---- section label introducing the items (the open tab's name) ----
   out += `
     <text x="${cx}" y="${sectionLabelY}" text-anchor="middle"
-      font-size="${sectionLabelSize}" font-weight="700" fill="#722F37"
+      font-size="${sectionLabelSize}" font-weight="700" fill="${SIGN_PARCHMENT}"
       font-family="${FONT_NAME}" letter-spacing="2">${esc(title)}</text>
   `;
 
-  // ---- diamonds with wrapped text scaled to match their size ----
+  // ---- diamonds: uniform parchment now — each item's own colour
+  // (used everywhere else as the fill) shows up as deep, jewel-
+  // toned text instead, via deepenColor ----
   for(const it of state.items){
     const p = sToScreen(it.gx, it.gy);
-    out += diamondItem(p.x, p.y, s, it.color, "#722F37", it.nibble);
+    out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER);
     out += specialPattern(it, p.x, p.y, s);
-    out += itemTexts(it, p.x, p.y, s, fontScale);
+    const deepColor = deepenColor(it.color);
+    out += itemTexts(it, p.x, p.y, s, fontScale, { nameCol: deepColor, subCol: deepColor, subOp: 0.7 });
   }
 
-  // ---- footer: the bold "find us" close. Same fonts as the rest
-  // of the sign throughout (Bluu Next for the section label style
-  // wouldn't fit here — this stays in Satoshi like the rest of the
-  // body copy), just sized and weighted with real conviction, plus
-  // a chevron doing what a real sign's arrow would do ----
+  // ---- footer: the bold "find us" close. Same fonts throughout
+  // (Bluu Next wouldn't fit here — this stays in Satoshi like the
+  // rest of the body copy), just sized and weighted with real
+  // conviction, plus a chevron doing what a real sign's arrow
+  // would do. Parchment for the destination itself so it's the
+  // brightest thing on the page after the wordmark; gold for the
+  // supporting lines ----
   out += `
-    <line x1="${cx-130}" y1="${footerDividerY}" x2="${cx+130}" y2="${footerDividerY}" stroke="#CC5500" stroke-width="1.5" opacity="0.6"/>
+    <line x1="${cx-130}" y1="${footerDividerY}" x2="${cx+130}" y2="${footerDividerY}" stroke="${SIGN_AMBER}" stroke-width="1.5" opacity="0.7"/>
     <text x="${cx}" y="${findUsY}" text-anchor="middle"
-      font-size="24" font-weight="700" fill="#6B5740"
+      font-size="24" font-weight="700" fill="${SIGN_GOLD}"
       font-family="${FONT_PRICE}" letter-spacing="2">${esc(SIGN_FIND_US_LINE)}</text>
   `;
-  out += downChevron(cx, chevronY, 30, "#722F37");
+  out += downChevron(cx, chevronY, 30, SIGN_GOLD);
   out += `
     <text x="${cx}" y="${lowerLevelY}" text-anchor="middle"
-      font-size="${LOWER_FS}" font-weight="700" fill="#722F37"
+      font-size="${LOWER_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
       font-family="${FONT_PRICE}" letter-spacing="1">${esc(SIGN_LOCATION_LINE)}</text>
     <text x="${cx}" y="${hoursY}" text-anchor="middle"
-      font-size="22" font-weight="700" fill="#6B5740" opacity="0.85"
+      font-size="22" font-weight="700" fill="${SIGN_GOLD}" opacity="0.85"
       font-family="${FONT_PRICE}" letter-spacing="1.2">${esc(SIGN_HOURS_LINE)}</text>
   `;
 
