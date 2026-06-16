@@ -323,6 +323,7 @@ svg:active{ cursor:grabbing; }
   user-select:none;
 }
 </style>
+<base target="_blank">
 </head>
 
 <body>
@@ -559,6 +560,11 @@ const tabList = document.getElementById("tabList");
 function currentMenuName(){
   const m = menuIndex.find(t=>t.id===currentMenuId);
   return m ? m.name : "Menu";
+}
+
+/* true when the current tab is an Entry / wayfinding tab */
+function isEntryTab(){
+  return /\bentry\b/i.test(currentMenuName());
 }
 
 function renderTabs(){
@@ -1027,7 +1033,7 @@ function diamond(x,y,s,fill,stroke){
 }
 
 /* Replicates the actual website logo mark — a square rotated
-   45° (rect + transform="rotate(45 ...)"), filled and stroked
+   45° (rect + transform="rotate(45 ...)", filled and stroked
    in one colour, sized by its overall tip-to-tip span D — used
    by the sign export's header (and as a small closing flourish
    in its footer), so the sign carries the real brand mark
@@ -1056,6 +1062,28 @@ function downChevron(cx, cy, w, color){
   return `
     <polyline points="${cx-hw},${cy-h/2} ${cx},${cy+h/2} ${cx+hw},${cy-h/2}"
       fill="none" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  `;
+}
+
+/* A bold architectural downward arrow — thick shaft + filled
+   arrowhead. This is the wayfinding cue on Entry signs: much
+   heavier than the menu's delicate chevron so it reads from
+   20-40 feet away inside a busy library. */
+function bigArrow(cx, cy, w, color){
+  const shaftW = w * 0.22;
+  const shaftH = w * 0.55;
+  const headH = w * 0.45;
+  const headW = w * 0.55;
+  const top = cy - w/2;
+  const shaftBottom = top + shaftH;
+  const headBottom = top + shaftH + headH;
+  return `
+    <g>
+      <!-- shaft -->
+      <rect x="${cx - shaftW/2}" y="${top}" width="${shaftW}" height="${shaftH + 2}" fill="${color}"/>
+      <!-- arrowhead -->
+      <polygon points="${cx},${headBottom} ${cx - headW/2},${shaftBottom} ${cx + headW/2},${shaftBottom}" fill="${color}"/>
+    </g>
   `;
 }
 
@@ -1573,20 +1601,25 @@ function exportMenuSVG(){
 
 /* ---------------------------
    Export SVG — 14"x22" sign.
-   A standee sign for upstairs near the library entrance, not
-   just a bigger menu — so the header carries the real logo
-   lockup (wordmark / "coffee + art" / diamond mark, matching
-   the website exactly), the middle is a small, deliberately-
-   oversized cluster of items, and the close is a bold "find us"
-   block with a directional cue — closer to how an actual
-   wayfinding sign is built than a menu blown up to poster size.
-   Doesn't read the canvas's pan/zoom — it keeps your items'
-   relative grid arrangement, then auto-scales that cluster to
-   fill the space between header and footer. Works best with a
-   fairly compact, small arrangement (a few specials) — that's
-   exactly what lets the diamonds get big and legible from a few
-   feet away; a much larger item count will shrink them back
-   toward normal menu-diamond size to keep everything on the page.
+
+   ENTRY TABS (wayfinding mode):
+   When the current tab's name contains "entry", the sign
+   becomes a destination wayfinding sign — not a menu with
+   directions attached. The hierarchy inverts: location is
+   the loudest thing, the arrow is architectural-scale, and
+   the diamond cluster at the bottom provides "real cafe"
+   evidence without prices or descriptions.
+
+   The layout reads top-to-bottom as a narrative:
+   1. Brand lockup    (who we are)
+   2. Tagline         (why you care)
+   3. Giant arrow     (where to go)
+   4. Destination     (the payload — LOWER LEVEL)
+   5. Diamond cluster (proof we're real)
+
+   NON-ENTRY TABS (menu sign mode):
+   The existing behaviour is preserved: a dark, rich sign
+   with your item cluster in the middle and a footer close.
 ----------------------------*/
 
 function exportSignSVG(){
@@ -1603,6 +1636,17 @@ function exportSignSVG(){
 
   const title = currentMenuName();
   const cx = PAGE_W / 2;
+
+  // Branch: Entry tabs get the wayfinding sign, everything else
+  // gets the regular menu sign
+  if(isEntryTab()){
+    exportEntrySign(PAGE_W, PAGE_H, MARGIN, cx, title);
+    return;
+  }
+
+  // =========================================================
+  // NON-ENTRY: regular menu sign (existing behaviour)
+  // =========================================================
 
   // ---- header cursor: logo lockup, tagline, section label.
   // Shorter than it used to be — wayfinding lives in the footer
@@ -1807,6 +1851,180 @@ function exportSignSVG(){
   a.href = URL.createObjectURL(blob);
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
   a.download = "gratified-sign-" + (slug || "menu") + ".svg";
+  a.click();
+}
+
+/* ---------------------------
+   ENTRY SIGN — wayfinding layout
+   (extracted from exportSignSVG for clarity)
+
+   This is the destination sign: it pulls library visitors
+   downstairs. The hierarchy is inverted from the menu sign —
+   location is loudest, the arrow is architectural, and the
+   diamond cluster provides cafe evidence without prices.
+----------------------------*/
+
+function exportEntrySign(PAGE_W, PAGE_H, MARGIN, cx, title){
+
+  // ---- layout: five vertical zones, top to bottom ----
+
+  // Zone 1: Brand lockup (museum-scale)
+  const WORD_FS = 100;
+  const wordmarkY = MARGIN + 96;
+
+  const SUB_FS = 38;
+  const subtitleY = wordmarkY + 62;
+
+  const LOGO_D = 78;
+  const logoDiamondY = subtitleY + 28 + LOGO_D/2;
+
+  // Zone 2: Tagline (connector)
+  const taglineY = logoDiamondY + LOGO_D/2 + 48;
+
+  // Zone 3: Giant arrow (wayfinding cue)
+  const ARROW_W = 90;
+  const arrowY = taglineY + 22 + ARROW_W/2;
+
+  // Zone 4: Destination (the payload)
+  const LOWER_FS = 82;
+  const lowerLevelY = arrowY + ARROW_W/2 + 68;
+
+  const HOURS_FS = 22;
+  const hoursY = lowerLevelY + 48;
+
+  // Zone 5: Diamond cluster (evidence)
+  const dividerY = hoursY + 52;
+  const clusterTop = dividerY + 44;
+
+  // Build the SVG
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="14in" height="22in">`;
+
+  out += `
+    <style>
+      @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&amp;display=swap');
+      @import url('https://fonts.cdnfonts.com/css/bluu-next');
+    </style>
+
+    <defs>
+      <radialGradient id="signGlow" cx="50%" cy="14%" r="55%">
+        <stop offset="0%" stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
+        <stop offset="100%" stop-color="${SIGN_AMBER}" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="signVignette" cx="50%" cy="50%" r="75%">
+        <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#000000" stop-opacity="0.18"/>
+      </radialGradient>
+    </defs>
+
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${SIGN_BG}"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signGlow)"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signVignette)"/>
+    <rect x="40" y="40" width="${PAGE_W-80}" height="${PAGE_H-80}" fill="none" stroke="${SIGN_AMBER}" stroke-width="1.5" opacity="0.55"/>
+  `;
+
+  // ---- Zone 1: Brand lockup (GRATIFIED / coffee + art / diamond) ----
+  out += `
+    <text x="${cx}" y="${wordmarkY}" text-anchor="middle"
+      font-size="${WORD_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
+      font-family="${FONT_NAME}" letter-spacing="6">Gratified</text>
+
+    <text x="${cx}" y="${subtitleY}" text-anchor="middle"
+      font-size="${SUB_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
+      font-family="${FONT_NAME}" letter-spacing="2" style="word-spacing:6px">coffee + art</text>
+  `;
+  out += logoDiamond(cx, logoDiamondY, LOGO_D, SIGN_PARCHMENT);
+
+  // ---- Zone 2: Tagline ----
+  if(SIGN_TAGLINE_TEXT.trim()){
+    out += `
+      <text x="${cx}" y="${taglineY}" text-anchor="middle"
+        font-size="17" font-weight="300" font-style="italic" fill="${SIGN_GOLD}" opacity="0.9"
+        font-family="${FONT_PRICE}" letter-spacing="1">${esc(SIGN_TAGLINE_TEXT)}</text>
+    `;
+  }
+
+  // ---- Zone 3: Giant architectural arrow ----
+  out += bigArrow(cx, arrowY, ARROW_W, SIGN_GOLD);
+
+  // ---- Zone 4: Destination (LOWER LEVEL — the loudest thing) ----
+  out += `
+    <text x="${cx}" y="${lowerLevelY}" text-anchor="middle"
+      font-size="${LOWER_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
+      font-family="${FONT_PRICE}" letter-spacing="1">${esc(SIGN_LOCATION_LINE)}</text>
+
+    <text x="${cx}" y="${hoursY}" text-anchor="middle"
+      font-size="${HOURS_FS}" font-weight="700" fill="${SIGN_GOLD}" opacity="0.85"
+      font-family="${FONT_PRICE}" letter-spacing="1.2">${esc(SIGN_HOURS_LINE)}</text>
+  `;
+
+  // ---- Zone 5: Diamond cluster (evidence, not menu) ----
+  out += `
+    <line x1="${cx-130}" y1="${dividerY}" x2="${cx+130}" y2="${dividerY}" stroke="${SIGN_AMBER}" stroke-width="1.5" opacity="0.7"/>
+  `;
+
+  // Render 5 large decorative diamonds from the first 5 items.
+  // No prices, no notes — just names as "real cafe" evidence.
+  // The layout follows the user's pattern:
+  //      ◇     ◇
+  //         ◇
+  //      ◇     ◇
+  const CLUSTER_S = 64; // large diamonds for the cluster
+  const clusterItems = state.items.slice(0, 5);
+  const clusterPositions = [
+    { x: cx - CLUSTER_S * 1.5, y: clusterTop + CLUSTER_S * 0.7 },   // top-left
+    { x: cx + CLUSTER_S * 1.5, y: clusterTop + CLUSTER_S * 0.7 },   // top-right
+    { x: cx,                     y: clusterTop + CLUSTER_S * 2.0 },  // centre
+    { x: cx - CLUSTER_S * 1.5, y: clusterTop + CLUSTER_S * 3.3 },   // bottom-left
+    { x: cx + CLUSTER_S * 1.5, y: clusterTop + CLUSTER_S * 3.3 },   // bottom-right
+  ];
+
+  clusterItems.forEach((it, idx) => {
+    const pos = clusterPositions[idx];
+    const nameCol = deepenColor(it.color, 0.32);
+    const scaledFS = Math.min(13, Math.max(9, CLUSTER_S / 5));
+
+    out += diamondItem(pos.x, pos.y, CLUSTER_S, SIGN_PARCHMENT, SIGN_AMBER, false);
+    out += specialPattern(it, pos.x, pos.y, CLUSTER_S);
+
+    // Just the name — no price, no note. Small but legible.
+    const nameFont = `700 ${scaledFS}px ${FONT_NAME}`;
+    const S = CLUSTER_S;
+    const widthAt = dy => Math.max(10, 2 * (S - Math.abs(dy)) - 8);
+    const nameLines = wrapText(it.name, nameFont, widthAt,
+      (i, n) => (i - (n - 1) / 2) * (scaledFS + 1), 2);
+
+    nameLines.forEach((ln, i) => {
+      out += `
+        <text x="${pos.x}" y="${pos.y + (i - (nameLines.length - 1) / 2) * (scaledFS + 1)}" text-anchor="middle"
+          font-size="${scaledFS}" font-weight="700" fill="${nameCol}"
+          font-family="${FONT_NAME}">${esc(ln)}</text>`;
+    });
+  });
+
+  // If fewer than 5 items, render empty decorative diamonds
+  // so the cluster always looks complete
+  for(let idx = clusterItems.length; idx < 5; idx++){
+    const pos = clusterPositions[idx];
+    out += diamond(pos.x, pos.y, CLUSTER_S, "none", SIGN_AMBER + "60");
+  }
+
+  // Small closing label under the cluster
+  const clusterBottom = clusterTop + CLUSTER_S * 4.0;
+  if(state.items.length > 5){
+    out += `
+      <text x="${cx}" y="${clusterBottom + 24}" text-anchor="middle"
+        font-size="13" font-weight="500" fill="${SIGN_GOLD}" opacity="0.6"
+        font-family="${FONT_PRICE}" letter-spacing="1">+ more downstairs</text>
+    `;
+  }
+
+  out += `</svg>`;
+
+  const blob = new Blob([out],{type:"image/svg+xml"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  a.download = "gratified-entry-sign-" + (slug || "wayfinding") + ".svg";
   a.click();
 }
 
