@@ -666,7 +666,8 @@ const TAGLINE_TEXT = "hot or iced &#160;//&#160; dairy or oat";
 const FOOTER_TEXT  = "prices include tax &#160;//&#160; suggested 50&#162; tip";
 
 /* sign-only copy — edit these directly if the wording changes */
-const SIGN_LOCATION_LINE = "lower level";
+const SIGN_FIND_US_LINE = "find us on the";
+const SIGN_LOCATION_LINE = "Lower Level";
 const SIGN_HOURS_LINE = "open during all library hours";
 const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
 
@@ -970,6 +971,18 @@ function logoDiamond(cx, cy, D, color){
       <rect x="${inset}" y="${inset}" width="${rs}" height="${rs}"
         transform="rotate(45 ${D/2} ${D/2})" fill="none" stroke="${color}" stroke-width="${sw}"/>
     </g>
+  `;
+}
+
+/* A simple downward chevron, drawn (not a font glyph) so its line
+   weight matches the rest of the brand's accent lines exactly.
+   Real wayfinding signage leans on directional arrows constantly —
+   this is the sign's "go downstairs" cue, sized by overall width w. */
+function downChevron(cx, cy, w, color){
+  const hw = w/2, h = w*0.55;
+  return `
+    <polyline points="${cx-hw},${cy-h/2} ${cx},${cy+h/2} ${cx+hw},${cy-h/2}"
+      fill="none" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
   `;
 }
 
@@ -1488,14 +1501,16 @@ function exportMenuSVG(){
    A standee sign for upstairs near the library entrance, not
    just a bigger menu — so the header carries the real logo
    lockup (wordmark / "coffee + art" / diamond mark, matching
-   the website exactly) and a wayfinding block, before getting
-   into a small, deliberately-oversized cluster of items.
+   the website exactly), the middle is a small, deliberately-
+   oversized cluster of items, and the close is a bold "find us"
+   block with a directional cue — closer to how an actual
+   wayfinding sign is built than a menu blown up to poster size.
    Doesn't read the canvas's pan/zoom — it keeps your items'
    relative grid arrangement, then auto-scales that cluster to
-   fill the page below the header. Works best with a fairly
-   compact, small arrangement (a few specials) — that's exactly
-   what lets the diamonds get big and legible from a few feet
-   away; a much larger item count will shrink them back down
+   fill the space between header and footer. Works best with a
+   fairly compact, small arrangement (a few specials) — that's
+   exactly what lets the diamonds get big and legible from a few
+   feet away; a much larger item count will shrink them back
    toward normal menu-diamond size to keep everything on the page.
 ----------------------------*/
 
@@ -1514,10 +1529,9 @@ function exportSignSVG(){
   const title = currentMenuName();
   const cx = PAGE_W / 2;
 
-  // ---- header cursor: lay out the logo lockup + wayfinding +
-  // tagline + section label top-down, each step advancing past
-  // the last, so the total header height is whatever this
-  // content actually needs rather than a guessed constant ----
+  // ---- header cursor: logo lockup, tagline, section label.
+  // Shorter than it used to be — wayfinding lives in the footer
+  // now, as its own bold closing statement instead ----
   let y = MARGIN;
 
   const WORD_FS = 90, WORD_LETTER = 6;
@@ -1533,16 +1547,7 @@ function exportSignSVG(){
   const logoDiamondY = y;
   y += LOGO_D/2;
 
-  y += 40;
-  const wayDividerY = y;
-
-  y += 38;
-  const wayLine1Y = y;
-
-  y += 30;
-  const wayLine2Y = y;
-
-  y += 46;
+  y += 54;
   const taglineY = y;
 
   y += 50;
@@ -1550,6 +1555,18 @@ function exportSignSVG(){
 
   y += 32;
   const contentTop = y;
+
+  // ---- footer cursor, built bottom-up: a bold "find us" block,
+  // not a small afterthought — sized and weighted like an actual
+  // directional sign would, with a hand-drawn chevron pointing
+  // at "Lower Level" the way a real sign would use an arrow ----
+  const hoursY = PAGE_H - MARGIN - 40;
+  const LOWER_FS = 68;
+  const lowerLevelY = hoursY - 80;
+  const chevronY = lowerLevelY - 74;
+  const findUsY = chevronY - 48;
+  const footerDividerY = findUsY - 52;
+  const contentBottom = footerDividerY - 36;
 
   // bounding box of items, in grid units
   let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
@@ -1560,8 +1577,6 @@ function exportSignSVG(){
   const spanX = gx1 - gx0;
   const spanY = gy1 - gy0;
 
-  const FOOTER_H = 100;
-  const contentBottom = PAGE_H - MARGIN - FOOTER_H;
   const availW = PAGE_W - MARGIN*2;
   const availH = contentBottom - contentTop;
 
@@ -1587,7 +1602,6 @@ function exportSignSVG(){
   const clusterGap = 32;
   const soy = (contentTop + clusterGap) + s - gy0 * u;
   const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
-  const clusterBottom = (gy1 * u + soy) + s;
 
   // text inside each diamond uses fixed absolute sizes tuned for
   // normal menu-diamond scale — fine most of the time, but these
@@ -1659,18 +1673,6 @@ function exportSignSVG(){
   `;
   out += logoDiamond(cx, logoDiamondY, LOGO_D, "#722F37");
 
-  // ---- wayfinding: this sign's whole job is getting people from
-  // the library entrance down to the cafe, so say where and when ----
-  out += `
-    <line x1="${cx-110}" y1="${wayDividerY}" x2="${cx+110}" y2="${wayDividerY}" stroke="#CC5500" stroke-width="1.5" opacity="0.6"/>
-    <text x="${cx}" y="${wayLine1Y}" text-anchor="middle"
-      font-size="25" font-weight="700" fill="#6B5740"
-      font-family="${FONT_PRICE}" letter-spacing="1.5">${esc(SIGN_LOCATION_LINE)}</text>
-    <text x="${cx}" y="${wayLine2Y}" text-anchor="middle"
-      font-size="18" font-weight="700" fill="#6B5740" opacity="0.85"
-      font-family="${FONT_PRICE}" letter-spacing="1.5">${esc(SIGN_HOURS_LINE)}</text>
-  `;
-
   // ---- optional tagline — kept small and light so it reads as
   // a little aside, not competition for the headline or menu ----
   if(SIGN_TAGLINE_TEXT.trim()){
@@ -1696,11 +1698,26 @@ function exportSignSVG(){
     out += itemTexts(it, p.x, p.y, s, fontScale);
   }
 
-  // ---- footer: a small bookend diamond echoing the header mark,
-  // centred in whatever space is left below the cluster ----
-  const bottomLimit = PAGE_H - MARGIN - 40;
-  const footerDiamondY = Math.min(bottomLimit, clusterBottom + Math.max(60, (bottomLimit - clusterBottom) / 2));
-  out += logoDiamond(cx, footerDiamondY, 40, "#722F37");
+  // ---- footer: the bold "find us" close. Same fonts as the rest
+  // of the sign throughout (Bluu Next for the section label style
+  // wouldn't fit here — this stays in Satoshi like the rest of the
+  // body copy), just sized and weighted with real conviction, plus
+  // a chevron doing what a real sign's arrow would do ----
+  out += `
+    <line x1="${cx-130}" y1="${footerDividerY}" x2="${cx+130}" y2="${footerDividerY}" stroke="#CC5500" stroke-width="1.5" opacity="0.6"/>
+    <text x="${cx}" y="${findUsY}" text-anchor="middle"
+      font-size="24" font-weight="700" fill="#6B5740"
+      font-family="${FONT_PRICE}" letter-spacing="2">${esc(SIGN_FIND_US_LINE)}</text>
+  `;
+  out += downChevron(cx, chevronY, 30, "#722F37");
+  out += `
+    <text x="${cx}" y="${lowerLevelY}" text-anchor="middle"
+      font-size="${LOWER_FS}" font-weight="700" fill="#722F37"
+      font-family="${FONT_PRICE}" letter-spacing="1">${esc(SIGN_LOCATION_LINE)}</text>
+    <text x="${cx}" y="${hoursY}" text-anchor="middle"
+      font-size="22" font-weight="700" fill="#6B5740" opacity="0.85"
+      font-family="${FONT_PRICE}" letter-spacing="1.2">${esc(SIGN_HOURS_LINE)}</text>
+  `;
 
   out += `</svg>`;
 
