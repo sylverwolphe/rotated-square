@@ -665,6 +665,11 @@ const FONT_NOTE  = "Satoshi, system-ui, sans-serif";
 const TAGLINE_TEXT = "hot or iced &#160;//&#160; dairy or oat";
 const FOOTER_TEXT  = "prices include tax &#160;//&#160; suggested 50&#162; tip";
 
+/* sign-only copy — edit these directly if the wording changes */
+const SIGN_LOCATION_LINE = "lower level";
+const SIGN_HOURS_LINE = "open during all library hours";
+const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
+
 /* escape user text so "tea & honey" doesn't break the SVG */
 function esc(str){
   return String(str)
@@ -759,51 +764,60 @@ function isDarkFill(hex){
 
 /* price (top) / name (middle, vertically centred) / note
    (below name) — all wrapped against the diamond's edges.
-   Shared by the live canvas and the export so they match. */
-function itemTexts(it, x, y, s){
+   Shared by the live canvas and the export so they match.
+   fontScale (default 1) scales every absolute number here as
+   a unit — used by the sign export, whose diamonds can be much
+   bigger than a normal menu's, so the base sizes below would
+   otherwise look lost inside them. */
+function itemTexts(it, x, y, s, fontScale){
+  fontScale = fontScale || 1;
+  const nameFS = NAME_FS*fontScale, nameLH = NAME_LH*fontScale;
+  const noteFS = NOTE_FS*fontScale, noteLH = NOTE_LH*fontScale;
+  const priceFS = PRICE_FS*fontScale, edgePad = EDGE_PAD*fontScale;
+
   const S = it.nibble ? s * 0.82 : s;
-  const widthAt = dy => Math.max(10, 2 * (S - Math.abs(dy)) - EDGE_PAD * 2);
+  const widthAt = dy => Math.max(10, 2 * (S - Math.abs(dy)) - edgePad * 2);
 
   const dark = isDarkFill(it.color);
   const nameCol = dark ? "#EDE8E0" : "#722F37";
   const subCol  = dark ? "#E6C89C" : "#6B5740";
   const subOp   = dark ? 0.95 : 0.85;
 
-  const nameFont = `700 ${NAME_FS}px ${FONT_NAME}`;
-  const noteFont = `300 ${NOTE_FS}px ${FONT_NOTE}`;
+  const nameFont = `700 ${nameFS}px ${FONT_NAME}`;
+  const noteFont = `300 ${noteFS}px ${FONT_NOTE}`;
 
   // name: block centred on the diamond's widest band (max 3 lines)
   const nameLines = wrapText(it.name, nameFont, widthAt,
-    (i, n) => (i - (n - 1) / 2) * NAME_LH, 3);
+    (i, n) => (i - (n - 1) / 2) * nameLH, 3);
   const nN = Math.max(1, nameLines.length);
-  const nameTop = -((nN - 1) / 2) * NAME_LH - NAME_FS * 0.55;
-  const nameBot =  ((nN - 1) / 2) * NAME_LH + NAME_FS * 0.45;
+  const nameTop = -((nN - 1) / 2) * nameLH - nameFS * 0.55;
+  const nameBot =  ((nN - 1) / 2) * nameLH + nameFS * 0.45;
 
   // note: grows downward from under the name (max 2 lines)
-  const noteStart = nameBot + 10;
+  const noteStart = nameBot + 10*fontScale;
   const noteLines = wrapText(it.note, noteFont, widthAt,
-    (i) => noteStart + i * NOTE_LH - NOTE_FS * 0.35, 2);
+    (i) => noteStart + i * noteLH - noteFS * 0.35, 2);
 
   let out = "";
 
   if(String(it.price || "").trim()){
     out += `
-      <text x="${x}" y="${y + nameTop - 9}" text-anchor="middle"
-        font-size="${PRICE_FS}" font-weight="500" fill="${subCol}" opacity="${subOp}"
+      <text x="${x}" y="${y + nameTop - 9*fontScale}" text-anchor="middle"
+        font-size="${priceFS}" font-weight="500" fill="${subCol}" opacity="${subOp}"
         font-family="${FONT_PRICE}" letter-spacing="1">${esc(it.price)}</text>`;
   }
 
   nameLines.forEach((ln, i)=>{
     out += `
-      <text x="${x}" y="${y + (i - (nN - 1) / 2) * NAME_LH + 5}" text-anchor="middle"
-        font-size="${NAME_FS}" font-weight="700" fill="${nameCol}"
+      <text x="${x}" y="${y + (i - (nN - 1) / 2) * nameLH + 5*fontScale}" text-anchor="middle"
+        font-size="${nameFS}" font-weight="700" fill="${nameCol}"
         font-family="${FONT_NAME}">${esc(ln)}</text>`;
   });
 
   noteLines.forEach((ln, i)=>{
     out += `
-      <text x="${x}" y="${y + noteStart + i * NOTE_LH}" text-anchor="middle"
-        font-size="${NOTE_FS}" font-weight="300" fill="${subCol}" opacity="${subOp}"
+      <text x="${x}" y="${y + noteStart + i * noteLH}" text-anchor="middle"
+        font-size="${noteFS}" font-weight="300" fill="${subCol}" opacity="${subOp}"
         font-family="${FONT_NOTE}">${esc(ln)}</text>`;
   });
 
@@ -935,6 +949,27 @@ function diamond(x,y,s,fill,stroke){
       fill="${fill}"
       stroke="${stroke}"
     />
+  `;
+}
+
+/* Replicates the actual website logo mark — a square rotated
+   45° (rect + transform="rotate(45 ...)"), filled and stroked
+   in one colour, sized by its overall tip-to-tip span D — used
+   by the sign export's header (and as a small closing flourish
+   in its footer), so the sign carries the real brand mark
+   rather than a re-improvised diamond. */
+function logoDiamond(cx, cy, D, color){
+  const inset = D * 0.15;
+  const rs = D * 0.7;
+  const left = cx - D/2, top = cy - D/2;
+  const sw = Math.max(1.5, Math.min(3, D * 0.025));
+  return `
+    <g transform="translate(${left},${top})">
+      <rect x="${inset}" y="${inset}" width="${rs}" height="${rs}"
+        transform="rotate(45 ${D/2} ${D/2})" fill="${color}"/>
+      <rect x="${inset}" y="${inset}" width="${rs}" height="${rs}"
+        transform="rotate(45 ${D/2} ${D/2})" fill="none" stroke="${color}" stroke-width="${sw}"/>
+    </g>
   `;
 }
 
@@ -1450,14 +1485,18 @@ function exportMenuSVG(){
 
 /* ---------------------------
    Export SVG — 14"x22" sign.
-   A fixed-page poster version of the same brand system.
-   It doesn't read the canvas's current pan/zoom — instead
-   it keeps your items' relative grid arrangement, then
-   auto-scales + centres that cluster to fit a true-to-size
-   14"x22" page with room for a bigger header/footer. Works
-   best with a fairly compact arrangement; a very spread-out
-   layout will shrink diamonds a lot to keep everything on
-   the fixed page.
+   A standee sign for upstairs near the library entrance, not
+   just a bigger menu — so the header carries the real logo
+   lockup (wordmark / "coffee + art" / diamond mark, matching
+   the website exactly) and a wayfinding block, before getting
+   into a small, deliberately-oversized cluster of items.
+   Doesn't read the canvas's pan/zoom — it keeps your items'
+   relative grid arrangement, then auto-scales that cluster to
+   fill the page below the header. Works best with a fairly
+   compact, small arrangement (a few specials) — that's exactly
+   what lets the diamonds get big and legible from a few feet
+   away; a much larger item count will shrink them back down
+   toward normal menu-diamond size to keep everything on the page.
 ----------------------------*/
 
 function exportSignSVG(){
@@ -1471,10 +1510,46 @@ function exportSignSVG(){
   const PAGE_W = 14 * PT_PER_IN;
   const PAGE_H = 22 * PT_PER_IN;
   const MARGIN = 56;
-  const HEADER_H = 240;
-  const FOOTER_H = 100;
 
   const title = currentMenuName();
+  const cx = PAGE_W / 2;
+
+  // ---- header cursor: lay out the logo lockup + wayfinding +
+  // tagline + section label top-down, each step advancing past
+  // the last, so the total header height is whatever this
+  // content actually needs rather than a guessed constant ----
+  let y = MARGIN;
+
+  const WORD_FS = 90, WORD_LETTER = 6;
+  y += 92;
+  const wordmarkY = y;
+
+  const SUB_FS = 36;
+  y += 58;
+  const subtitleY = y;
+
+  const LOGO_D = 82;
+  y += 36 + LOGO_D/2;
+  const logoDiamondY = y;
+  y += LOGO_D/2;
+
+  y += 40;
+  const wayDividerY = y;
+
+  y += 38;
+  const wayLine1Y = y;
+
+  y += 30;
+  const wayLine2Y = y;
+
+  y += 46;
+  const taglineY = y;
+
+  y += 50;
+  const sectionLabelY = y;
+
+  y += 32;
+  const contentTop = y;
 
   // bounding box of items, in grid units
   let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
@@ -1485,29 +1560,44 @@ function exportSignSVG(){
   const spanX = gx1 - gx0;
   const spanY = gy1 - gy0;
 
-  const contentTop = MARGIN + HEADER_H;
+  const FOOTER_H = 100;
   const contentBottom = PAGE_H - MARGIN - FOOTER_H;
   const availW = PAGE_W - MARGIN*2;
   const availH = contentBottom - contentTop;
 
   // solve for a diamond scale that fits the cluster's footprint
-  // — spanX/Y*(s/2)+2*s, the same geometry toScreen() uses — into
-  // the page's available space, then take whichever axis binds
+  // — spanX/Y*(s/2)+2*s, the same geometry toScreen() uses —
+  // into the page's available space. The cap is much higher
+  // than a normal menu diamond would ever need, on purpose: with
+  // only a few items (as intended here) this lets them grow into
+  // genuinely large, sign-legible diamonds instead of leaving a
+  // small tiled cluster stranded in a sea of empty page.
   const sW = availW / (spanX/2 + 2);
   const sH = availH / (spanY/2 + 2);
-  const s = Math.max(16, Math.min(sW, sH, 120));
+  const s = Math.max(16, Math.min(sW, sH, 230));
   const u = s * 0.5;
 
-  // centre the cluster's grid-space midpoint on the content area
+  // centre the cluster horizontally, but anchor it to the TOP of
+  // the content area rather than centring it vertically too —
+  // with a small item count (the common case here) the cluster
+  // is often much shorter than availH, and centring it would
+  // strand it in the middle of the page with a dead gap above
   const gxMid = (gx0 + gx1) / 2;
-  const gyMid = (gy0 + gy1) / 2;
-  const cx = PAGE_W / 2;
-  const cy = (contentTop + contentBottom) / 2;
   const sox = cx - gxMid * u;
-  const soy = cy - gyMid * u;
+  const clusterGap = 32;
+  const soy = (contentTop + clusterGap) + s - gy0 * u;
   const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
+  const clusterBottom = (gy1 * u + soy) + s;
 
-  const titleSize = fitSingleLine(title, 700, FONT_NAME, 64, PAGE_W - MARGIN*2 - 60);
+  // text inside each diamond uses fixed absolute sizes tuned for
+  // normal menu-diamond scale — fine most of the time, but these
+  // sign diamonds can run 2-3x bigger, so scale text up to match
+  // (never down: a denser sign with smaller diamonds should just
+  // look like a normal menu, not shrink its text further)
+  const TEXT_REF_SCALE = 100;
+  const fontScale = Math.max(1, s / TEXT_REF_SCALE);
+
+  const sectionLabelSize = fitSingleLine(title, 700, FONT_NAME, 26, PAGE_W - MARGIN*2 - 60);
 
   let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="14in" height="22in">`;
 
@@ -1556,38 +1646,61 @@ function exportSignSVG(){
     }
   }
 
-  // ---- brand eyebrow + headline + tagline ----
+  // ---- logo lockup: wordmark / "coffee + art" / diamond mark,
+  // matching the website's landing-page hero exactly ----
   out += `
-    <text x="${cx}" y="${MARGIN + 44}" text-anchor="middle"
-      font-size="19" font-weight="700" fill="#CC5500"
-      font-family="${FONT_PRICE}" letter-spacing="6">GRATIFIED</text>
+    <text x="${cx}" y="${wordmarkY}" text-anchor="middle"
+      font-size="${WORD_FS}" font-weight="700" fill="#722F37"
+      font-family="${FONT_NAME}" letter-spacing="${WORD_LETTER}">Gratified</text>
 
-    <text x="${cx}" y="${MARGIN + 140}" text-anchor="middle"
-      font-size="${titleSize}" font-weight="700" fill="#722F37"
-      font-family="${FONT_NAME}" letter-spacing="1">${esc(title)}</text>
+    <text x="${cx}" y="${subtitleY}" text-anchor="middle"
+      font-size="${SUB_FS}" font-weight="700" fill="#722F37"
+      font-family="${FONT_NAME}" letter-spacing="2" style="word-spacing:5px">coffee + art</text>
+  `;
+  out += logoDiamond(cx, logoDiamondY, LOGO_D, "#722F37");
 
-    <text x="${cx}" y="${MARGIN + 182}" text-anchor="middle"
-      font-size="15" font-weight="300" fill="#6B5740" opacity="0.85"
-      font-family="${FONT_NOTE}" letter-spacing="2">${TAGLINE_TEXT}</text>
-
-    <line x1="${cx-90}" y1="${MARGIN+206}" x2="${cx+90}" y2="${MARGIN+206}" stroke="#CC5500" stroke-width="1.5" opacity="0.6"/>
+  // ---- wayfinding: this sign's whole job is getting people from
+  // the library entrance down to the cafe, so say where and when ----
+  out += `
+    <line x1="${cx-110}" y1="${wayDividerY}" x2="${cx+110}" y2="${wayDividerY}" stroke="#CC5500" stroke-width="1.5" opacity="0.6"/>
+    <text x="${cx}" y="${wayLine1Y}" text-anchor="middle"
+      font-size="25" font-weight="700" fill="#6B5740"
+      font-family="${FONT_PRICE}" letter-spacing="1.5">${esc(SIGN_LOCATION_LINE)}</text>
+    <text x="${cx}" y="${wayLine2Y}" text-anchor="middle"
+      font-size="18" font-weight="700" fill="#6B5740" opacity="0.85"
+      font-family="${FONT_PRICE}" letter-spacing="1.5">${esc(SIGN_HOURS_LINE)}</text>
   `;
 
-  // ---- diamonds with double borders + wrapped text ----
+  // ---- optional tagline — kept small and light so it reads as
+  // a little aside, not competition for the headline or menu ----
+  if(SIGN_TAGLINE_TEXT.trim()){
+    out += `
+      <text x="${cx}" y="${taglineY}" text-anchor="middle"
+        font-size="17" font-weight="300" font-style="italic" fill="#6B5740" opacity="0.8"
+        font-family="${FONT_PRICE}" letter-spacing="1">${esc(SIGN_TAGLINE_TEXT)}</text>
+    `;
+  }
+
+  // ---- section label introducing the items (the open tab's name) ----
+  out += `
+    <text x="${cx}" y="${sectionLabelY}" text-anchor="middle"
+      font-size="${sectionLabelSize}" font-weight="700" fill="#722F37"
+      font-family="${FONT_NAME}" letter-spacing="2">${esc(title)}</text>
+  `;
+
+  // ---- diamonds with wrapped text scaled to match their size ----
   for(const it of state.items){
     const p = sToScreen(it.gx, it.gy);
     out += diamondItem(p.x, p.y, s, it.color, "#722F37", it.nibble);
     out += specialPattern(it, p.x, p.y, s);
-    out += itemTexts(it, p.x, p.y, s);
+    out += itemTexts(it, p.x, p.y, s, fontScale);
   }
 
-  // ---- footer ----
-  out += `
-    <line x1="${cx-90}" y1="${PAGE_H-MARGIN-64}" x2="${cx+90}" y2="${PAGE_H-MARGIN-64}" stroke="#CC5500" stroke-width="1.5" opacity="0.6"/>
-    <text x="${cx}" y="${PAGE_H-MARGIN-32}" text-anchor="middle"
-      font-size="14" font-weight="300" fill="#6B5740" opacity="0.85"
-      font-family="${FONT_NOTE}" letter-spacing="2">${FOOTER_TEXT}</text>
-  `;
+  // ---- footer: a small bookend diamond echoing the header mark,
+  // centred in whatever space is left below the cluster ----
+  const bottomLimit = PAGE_H - MARGIN - 40;
+  const footerDiamondY = Math.min(bottomLimit, clusterBottom + Math.max(60, (bottomLimit - clusterBottom) / 2));
+  out += logoDiamond(cx, footerDiamondY, 40, "#722F37");
 
   out += `</svg>`;
 
