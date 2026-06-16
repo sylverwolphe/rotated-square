@@ -154,6 +154,48 @@ button:hover{
   letter-spacing:1.5px;
 }
 
+.dropdown{
+  position:relative;
+}
+
+.dropdown-menu{
+  position:absolute;
+  top:calc(100% + 6px);
+  right:0;
+  min-width:180px;
+  flex-direction:column;
+  background:var(--cream);
+  border:2px solid var(--deep-red);
+  box-shadow:0 10px 24px rgba(114, 47, 55, 0.18);
+  z-index:20;
+  display:none;
+}
+
+.dropdown-menu.open{
+  display:flex;
+}
+
+.dropdown-item{
+  padding:9px 14px;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:1px;
+  text-transform:lowercase;
+  color:var(--deep-red);
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background 0.2s ease, color 0.2s ease;
+}
+
+.dropdown-item:hover{
+  background:var(--deep-red);
+  color:var(--cream);
+}
+
+.dropdown-item + .dropdown-item{
+  border-top:1px solid rgba(114, 47, 55, 0.15);
+}
+
 /* ---------------------------
    Menu tabs — one design per tab
    (single-click switch, double-click
@@ -267,7 +309,13 @@ svg:active{ cursor:grabbing; }
   <input type="color" id="color" value="#E6C89C"/>
   <button onclick="addItem()">Add Item</button>
   <button onclick="del()">Delete</button>
-  <button onclick="exportSVG()">Export SVG</button>
+  <div class="dropdown" id="exportDropdown">
+    <button id="exportToggle" type="button">export ▾</button>
+    <div class="dropdown-menu" id="exportMenu">
+      <div class="dropdown-item" data-action="menu">menu (svg)</div>
+      <div class="dropdown-item" data-action="sign">14"x22" sign (svg)</div>
+    </div>
+  </div>
 </div>
 
 <div id="tabs">
@@ -579,6 +627,9 @@ const FONT_PRICE = "Satoshi, system-ui, sans-serif";
 const FONT_NAME  = "'Bluu Next', Georgia, serif";
 const FONT_NOTE  = "Satoshi, system-ui, sans-serif";
 
+const TAGLINE_TEXT = "hot or iced &#160;//&#160; dairy or oat";
+const FOOTER_TEXT  = "prices include tax &#160;//&#160; suggested 50&#162; tip";
+
 /* escape user text so "tea & honey" doesn't break the SVG */
 function esc(str){
   return String(str)
@@ -642,6 +693,17 @@ function wrapText(text, font, widthAt, dyOf, maxLines){
       .concat(lines.slice(maxLines - 1).join(" "));
   }
   return lines;
+}
+
+/* shrink a single line of text to fit a max pixel width by
+   scaling font-size down proportionally. The menu export's
+   canvas auto-sizes to its content, so its title never
+   overflows — but the sign export's page width is fixed, and
+   tab names vary a lot in length, so its headline needs this. */
+function fitSingleLine(text, weight, family, baseSize, maxW){
+  const w = textW(String(text || ""), `${weight} ${baseSize}px ${family}`);
+  if(!w || w <= maxW) return baseSize;
+  return Math.max(26, baseSize * maxW / w);
 }
 
 const NAME_FS = 14, NAME_LH = 15;
@@ -850,6 +912,14 @@ function diamond(x,y,s,fill,stroke){
 function diamondItem(x,y,s,fill,stroke,nibble){
   const si = s*0.82;
   if(nibble){
+    // dark fills (deep red, charcoal, olive bronze, etc.) get a
+    // faint brand-coloured inset line instead of the bright cream
+    // one below — otherwise the cream line reads as a glowing
+    // white halo around the inner diamond
+    const dark = isDarkFill(fill);
+    const insetStroke = dark ? stroke : "#EDE8E0";
+    const insetStrokeOpacity = dark ? 0.35 : 0.9;
+    const insetFillOpacity = dark ? 1 : 0.9;
     return `
       <polygon
         points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
@@ -861,10 +931,11 @@ function diamondItem(x,y,s,fill,stroke,nibble){
       <polygon
         points="${x},${y-si} ${x+si},${y} ${x},${y+si} ${x-si},${y}"
         fill="${fill}"
-        stroke="#EDE8E0"
+        fill-opacity="${insetFillOpacity}"
+        stroke="${insetStroke}"
         stroke-width="0.8"
         stroke-linejoin="round"
-        opacity="0.9"
+        stroke-opacity="${insetStrokeOpacity}"
       />
     `;
   }
@@ -1146,7 +1217,33 @@ function del(){
 }
 
 /* ---------------------------
-   Export SVG — the final menu.
+   Export dropdown — "menu" and "14x22 sign" both
+   draw from the live state.items, just laid out
+   differently (see the two functions below).
+----------------------------*/
+
+const exportToggle = document.getElementById("exportToggle");
+const exportMenuEl = document.getElementById("exportMenu");
+
+exportToggle.addEventListener("click", (e)=>{
+  e.stopPropagation();
+  exportMenuEl.classList.toggle("open");
+});
+
+exportMenuEl.addEventListener("click", (e)=>{
+  const opt = e.target.closest(".dropdown-item");
+  if(!opt) return;
+  exportMenuEl.classList.remove("open");
+  if(opt.dataset.action === "menu") exportMenuSVG();
+  else if(opt.dataset.action === "sign") exportSignSVG();
+});
+
+document.addEventListener("click", ()=>{
+  exportMenuEl.classList.remove("open");
+});
+
+/* ---------------------------
+   Export SVG — the menu.
    Auto-crops to your diamonds, adds the
    title (the current tab's name), brand
    background washes, and a whisper-faint
@@ -1154,7 +1251,7 @@ function del(){
    so the composition feels of-a-piece.
 ----------------------------*/
 
-function exportSVG(){
+function exportMenuSVG(){
 
   if(!state.items.length){
     alert("Add some menu items first :)");
@@ -1240,7 +1337,7 @@ function exportSVG(){
 
     <text x="${cx}" y="${titleY + 26}" text-anchor="middle"
       font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_NOTE}" letter-spacing="1.5">hot or iced &#160;//&#160; dairy or oat</text>
+      font-family="${FONT_NOTE}" letter-spacing="1.5">${TAGLINE_TEXT}</text>
   `;
 
   // ---- footer service line (same format as the one under the title) ----
@@ -1249,7 +1346,7 @@ function exportSVG(){
   out += `
     <text x="${cx}" y="${footY}" text-anchor="middle"
       font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_NOTE}" letter-spacing="1.5">prices include tax &#160;//&#160; suggested 50&#162; tip</text>
+      font-family="${FONT_NOTE}" letter-spacing="1.5">${FOOTER_TEXT}</text>
   `;
 
   // ---- diamonds with double borders + wrapped text ----
@@ -1270,12 +1367,162 @@ function exportSVG(){
   a.click();
 }
 
+/* ---------------------------
+   Export SVG — 14"x22" sign.
+   A fixed-page poster version of the same brand system.
+   It doesn't read the canvas's current pan/zoom — instead
+   it keeps your items' relative grid arrangement, then
+   auto-scales + centres that cluster to fit a true-to-size
+   14"x22" page with room for a bigger header/footer. Works
+   best with a fairly compact arrangement; a very spread-out
+   layout will shrink diamonds a lot to keep everything on
+   the fixed page.
+----------------------------*/
+
+function exportSignSVG(){
+
+  if(!state.items.length){
+    alert("Add some menu items first :)");
+    return;
+  }
+
+  const PT_PER_IN = 72;
+  const PAGE_W = 14 * PT_PER_IN;
+  const PAGE_H = 22 * PT_PER_IN;
+  const MARGIN = 56;
+  const HEADER_H = 240;
+  const FOOTER_H = 100;
+
+  const title = currentMenuName();
+
+  // bounding box of items, in grid units
+  let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
+  for(const it of state.items){
+    gx0 = Math.min(gx0, it.gx); gx1 = Math.max(gx1, it.gx);
+    gy0 = Math.min(gy0, it.gy); gy1 = Math.max(gy1, it.gy);
+  }
+  const spanX = gx1 - gx0;
+  const spanY = gy1 - gy0;
+
+  const contentTop = MARGIN + HEADER_H;
+  const contentBottom = PAGE_H - MARGIN - FOOTER_H;
+  const availW = PAGE_W - MARGIN*2;
+  const availH = contentBottom - contentTop;
+
+  // solve for a diamond scale that fits the cluster's footprint
+  // — spanX/Y*(s/2)+2*s, the same geometry toScreen() uses — into
+  // the page's available space, then take whichever axis binds
+  const sW = availW / (spanX/2 + 2);
+  const sH = availH / (spanY/2 + 2);
+  const s = Math.max(16, Math.min(sW, sH, 120));
+  const u = s * 0.5;
+
+  // centre the cluster's grid-space midpoint on the content area
+  const gxMid = (gx0 + gx1) / 2;
+  const gyMid = (gy0 + gy1) / 2;
+  const cx = PAGE_W / 2;
+  const cy = (contentTop + contentBottom) / 2;
+  const sox = cx - gxMid * u;
+  const soy = cy - gyMid * u;
+  const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
+
+  const titleSize = fitSingleLine(title, 700, FONT_NAME, 64, PAGE_W - MARGIN*2 - 60);
+
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="14in" height="22in">`;
+
+  out += `
+    <style>
+      @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&amp;display=swap');
+      @import url('https://fonts.cdnfonts.com/css/bluu-next');
+    </style>
+
+    <defs>
+      <radialGradient id="signWashRed" cx="20%" cy="10%" r="65%">
+        <stop offset="0%" stop-color="#722F37" stop-opacity="0.06"/>
+        <stop offset="100%" stop-color="#722F37" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="signWashOrange" cx="85%" cy="92%" r="65%">
+        <stop offset="0%" stop-color="#CC5500" stop-opacity="0.05"/>
+        <stop offset="100%" stop-color="#CC5500" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="#EDE8E0"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signWashRed)"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signWashOrange)"/>
+    <rect x="40" y="40" width="${PAGE_W-80}" height="${PAGE_H-80}" fill="none" stroke="#722F37" stroke-width="1.5" opacity="0.3"/>
+  `;
+
+  // ---- whisper lattice across the whole sheet ----
+  {
+    const lgx0 = Math.floor((0 - sox)/u) - 1;
+    const lgx1 = Math.ceil((PAGE_W - sox)/u) + 1;
+    const lgy0 = Math.floor((0 - soy)/u) - 1;
+    const lgy1 = Math.ceil((PAGE_H - soy)/u) + 1;
+    if((lgx1-lgx0)*(lgy1-lgy0) <= 60000){
+      for(let gx=lgx0; gx<=lgx1; gx++){
+        for(let gy=lgy0; gy<=lgy1; gy++){
+          if(isLatticeCentre(gx,gy)){
+            const p = sToScreen(gx,gy);
+            out += `
+              <polygon
+                points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
+                fill="none" stroke="#722F37" stroke-opacity="0.045" stroke-width="1"
+              />`;
+          }
+        }
+      }
+    }
+  }
+
+  // ---- brand eyebrow + headline + tagline ----
+  out += `
+    <text x="${cx}" y="${MARGIN + 44}" text-anchor="middle"
+      font-size="19" font-weight="700" fill="#CC5500"
+      font-family="${FONT_PRICE}" letter-spacing="6">GRATIFIED</text>
+
+    <text x="${cx}" y="${MARGIN + 140}" text-anchor="middle"
+      font-size="${titleSize}" font-weight="700" fill="#722F37"
+      font-family="${FONT_NAME}" letter-spacing="1">${esc(title)}</text>
+
+    <text x="${cx}" y="${MARGIN + 182}" text-anchor="middle"
+      font-size="15" font-weight="300" fill="#6B5740" opacity="0.85"
+      font-family="${FONT_NOTE}" letter-spacing="2">${TAGLINE_TEXT}</text>
+
+    <line x1="${cx-90}" y1="${MARGIN+206}" x2="${cx+90}" y2="${MARGIN+206}" stroke="#CC5500" stroke-width="1.5" opacity="0.6"/>
+  `;
+
+  // ---- diamonds with double borders + wrapped text ----
+  for(const it of state.items){
+    const p = sToScreen(it.gx, it.gy);
+    out += diamondItem(p.x, p.y, s, it.color, "#722F37", it.nibble);
+    out += specialPattern(it, p.x, p.y, s);
+    out += itemTexts(it, p.x, p.y, s);
+  }
+
+  // ---- footer ----
+  out += `
+    <line x1="${cx-90}" y1="${PAGE_H-MARGIN-64}" x2="${cx+90}" y2="${PAGE_H-MARGIN-64}" stroke="#CC5500" stroke-width="1.5" opacity="0.6"/>
+    <text x="${cx}" y="${PAGE_H-MARGIN-32}" text-anchor="middle"
+      font-size="14" font-weight="300" fill="#6B5740" opacity="0.85"
+      font-family="${FONT_NOTE}" letter-spacing="2">${FOOTER_TEXT}</text>
+  `;
+
+  out += `</svg>`;
+
+  const blob = new Blob([out],{type:"image/svg+xml"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  a.download = "gratified-sign-" + (slug || "menu") + ".svg";
+  a.click();
+}
+
 /* --------------------------- */
 
 // module scope: expose handlers for the toolbar's onclick attributes
 window.addItem = addItem;
 window.del = del;
-window.exportSVG = exportSVG;
 
 render(); // show grid immediately
 
