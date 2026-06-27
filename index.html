@@ -1430,7 +1430,7 @@ async function exportMenuSVG(){
   let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" width="${w}" height="${h}">`;
 
   out += `
-    <style>${fontStyle}</style>
+    <style><![CDATA[${fontStyle}]]></style>
 
     <defs>
       <!-- soft white glow inside each diamond fill -->
@@ -1609,7 +1609,7 @@ async function exportRegularSignSVG(){
   let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="14in" height="22in">`;
 
   out += `
-    <style>${fontStyle}</style>
+    <style><![CDATA[${fontStyle}]]></style>
 
     <defs>
       <radialGradient id="softFill" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
@@ -1751,7 +1751,7 @@ async function exportEntrySignSVG(){
   let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="14in" height="22in">`;
 
   out += `
-    <style>${fontStyle}</style>
+    <style><![CDATA[${fontStyle}]]></style>
     <defs>
       <radialGradient id="softFill" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
         <stop offset="0%"   stop-color="white" stop-opacity="0.18"/>
