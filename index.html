@@ -322,6 +322,27 @@ svg:active{ cursor:grabbing; }
   pointer-events:none;
   user-select:none;
 }
+
+/* ---- export toast ---- */
+#exportToast{
+  position:fixed;
+  bottom:24px;
+  left:50%;
+  transform:translateX(-50%);
+  background:var(--deep-red);
+  color:var(--cream);
+  padding:10px 22px;
+  font-family:var(--font-note);
+  font-size:12px;
+  letter-spacing:1px;
+  z-index:100;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity 0.3s ease;
+  white-space:nowrap;
+  box-shadow:0 4px 16px rgba(114,47,55,0.25);
+}
+#exportToast.visible{ opacity:1; }
 </style>
 <base target="_blank">
 </head>
@@ -362,6 +383,9 @@ svg:active{ cursor:grabbing; }
 <svg id="svg"></svg>
 </div>
 
+<!-- export toast -->
+<div id="exportToast"></div>
+
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -394,26 +418,15 @@ let state = {
 
 /* ---------------------------
    Persistence — multi-menu tabs
-
-   menuIndex (cloud node "menuIndex",
-   local key INDEX_KEY) lists the tabs:
-   [{id, name}]. Each menu's data lives
-   at menus/{id} in Firebase, mirrored
-   to localStorage per-id.
-
-   Your original single menu at
-   menus/default is adopted as the
-   first tab on first run — nothing
-   is lost.
 ----------------------------*/
 
 const STORE_PREFIX = "diamond-menu-v2:";
-const LEGACY_STORE_KEY = "diamond-menu-v1"; // pre-tabs local cache
+const LEGACY_STORE_KEY = "diamond-menu-v1";
 const INDEX_KEY = "diamond-menu-index-v1";
 const SNAPSHOT_VERSION = 2;
 let saveTimer = null;
 
-let menuIndex = [];      // [{id, name}]
+let menuIndex = [];
 let currentMenuId = null;
 
 const menuRef = id => ref(db, "menus/" + id);
@@ -432,13 +445,6 @@ function snapshot(){
 function applySnapshot(data){
   if(!data) return;
   const v = data.v || 1;
-
-  /* migrations:
-     v0: items stored as (q,r)        → gx=(q-r)*2, gy=q+r
-     v1: gx in full-scale units       → gx*2
-     v2: gx AND gy in half-scale units (current — diamonds can sit
-         on any half-step intersection, so a one-line diagonal
-         nudge is just gx±1, gy±1) */
   state.items = (data.items || []).map(raw=>{
     const it = { ...raw };
     if(it.gx === undefined && it.q !== undefined){
@@ -460,46 +466,27 @@ function save(){
   if(!currentMenuId) return;
   const data = snapshot();
   const id = currentMenuId;
-
-  // instant local cache
-  try{
-    localStorage.setItem(STORE_PREFIX + id, JSON.stringify(data));
-  }catch(err){ /* private mode etc. */ }
-
-  // debounced cloud write
+  try{ localStorage.setItem(STORE_PREFIX + id, JSON.stringify(data)); }catch(err){}
   clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>{
-    set(menuRef(id), data).catch(err=>{
-      console.error("Firebase save failed:", err);
-    });
+    set(menuRef(id), data).catch(err=>{ console.error("Firebase save failed:", err); });
   }, 400);
 }
 
-/* immediate save (no debounce) — used right before
-   switching tabs so nothing in-flight is lost */
 function flushSave(){
   if(!currentMenuId) return;
   clearTimeout(saveTimer);
   const data = snapshot();
-  try{
-    localStorage.setItem(STORE_PREFIX + currentMenuId, JSON.stringify(data));
-  }catch(err){}
-  set(menuRef(currentMenuId), data).catch(err=>{
-    console.error("Firebase save failed:", err);
-  });
+  try{ localStorage.setItem(STORE_PREFIX + currentMenuId, JSON.stringify(data)); }catch(err){}
+  set(menuRef(currentMenuId), data).catch(err=>{ console.error("Firebase save failed:", err); });
 }
 
 function saveIndex(){
-  try{
-    localStorage.setItem(INDEX_KEY, JSON.stringify(menuIndex));
-  }catch(err){}
-  set(indexRef, menuIndex).catch(err=>{
-    console.error("Firebase index save failed:", err);
-  });
+  try{ localStorage.setItem(INDEX_KEY, JSON.stringify(menuIndex)); }catch(err){}
+  set(indexRef, menuIndex).catch(err=>{ console.error("Firebase index save failed:", err); });
 }
 
 async function loadIndex(){
-  // try cloud first
   try{
     const snap = await get(indexRef);
     if(snap.exists()){
@@ -507,21 +494,11 @@ async function loadIndex(){
       menuIndex = Array.isArray(v) ? v.filter(Boolean) : Object.values(v);
       if(menuIndex.length) return;
     }
-  }catch(err){
-    console.error("Firebase index load failed, trying local:", err);
-  }
-
-  // fall back to local cache
+  }catch(err){ console.error("Firebase index load failed, trying local:", err); }
   try{
     const raw = localStorage.getItem(INDEX_KEY);
-    if(raw){
-      menuIndex = JSON.parse(raw);
-      if(menuIndex.length) return;
-    }
+    if(raw){ menuIndex = JSON.parse(raw); if(menuIndex.length) return; }
   }catch(err){}
-
-  // first run on the tab scheme: adopt the original single
-  // menu (menus/default) as tab #1 so existing work carries over
   menuIndex = [{ id:"default", name:"Drinks and nibbles" }];
   saveIndex();
 }
@@ -529,26 +506,15 @@ async function loadIndex(){
 async function loadMenu(id){
   state.items = [];
   state.selected = null;
-
-  // try cloud first
   try{
     const snap = await get(menuRef(id));
-    if(snap.exists()){
-      applySnapshot(snap.val());
-      return;
-    }
-  }catch(err){
-    console.error("Firebase load failed, using local cache:", err);
-  }
-
-  // fall back to local cache (incl. the pre-tabs key for "default")
+    if(snap.exists()){ applySnapshot(snap.val()); return; }
+  }catch(err){ console.error("Firebase load failed, using local cache:", err); }
   try{
     const raw = localStorage.getItem(STORE_PREFIX + id) ||
                 (id === "default" ? localStorage.getItem(LEGACY_STORE_KEY) : null);
     if(raw) applySnapshot(JSON.parse(raw));
-  }catch(err){
-    console.error("Local load failed:", err);
-  }
+  }catch(err){ console.error("Local load failed:", err); }
 }
 
 /* ---------------------------
@@ -568,36 +534,20 @@ function renderTabs(){
     const el = document.createElement("div");
     el.className = "tab" + (m.id === currentMenuId ? " active" : "");
     el.title = "click to open · double-click to rename";
-
     const lbl = document.createElement("span");
     lbl.textContent = m.name;
     el.appendChild(lbl);
-
     const x = document.createElement("span");
     x.className = "tab-close";
     x.textContent = "\u00d7";
     x.title = "delete menu";
     el.appendChild(x);
-
-    el.addEventListener("click", (e)=>{
-      if(e.target === x) return;
-      switchMenu(m.id);
-    });
-
+    el.addEventListener("click", (e)=>{ if(e.target === x) return; switchMenu(m.id); });
     el.addEventListener("dblclick", ()=>{
       const name = prompt("Rename menu:", m.name);
-      if(name && name.trim()){
-        m.name = name.trim();
-        saveIndex();
-        renderTabs();
-      }
+      if(name && name.trim()){ m.name = name.trim(); saveIndex(); renderTabs(); }
     });
-
-    x.addEventListener("click", (e)=>{
-      e.stopPropagation();
-      deleteMenu(m.id);
-    });
-
+    x.addEventListener("click", (e)=>{ e.stopPropagation(); deleteMenu(m.id); });
     tabList.appendChild(el);
   }
 }
@@ -615,48 +565,34 @@ function newMenu(){
   flushSave();
   const id = crypto.randomUUID();
   const name = prompt("Name the new menu:", "Menu " + (menuIndex.length + 1));
-  if(name === null) return; // cancelled
+  if(name === null) return;
   menuIndex.push({ id, name: (name.trim() || "Menu " + menuIndex.length) });
   saveIndex();
-
   currentMenuId = id;
   state.items = [];
   state.selected = null;
   renderTabs();
   render();
-  save(); // create the empty cloud record
+  save();
 }
 
 function deleteMenu(id){
   const m = menuIndex.find(t=>t.id===id);
   if(!m) return;
-  if(menuIndex.length <= 1){
-    alert("Can't delete the last menu — make a new one first.");
-    return;
-  }
+  if(menuIndex.length <= 1){ alert("Can't delete the last menu — make a new one first."); return; }
   if(!confirm(`Delete "${m.name}"? This can't be undone.`)) return;
-
   menuIndex = menuIndex.filter(t=>t.id!==id);
   saveIndex();
-
   try{ localStorage.removeItem(STORE_PREFIX + id); }catch(err){}
   set(menuRef(id), null).catch(()=>{});
-
-  if(currentMenuId === id){
-    currentMenuId = null;
-    switchMenu(menuIndex[0].id);
-  }else{
-    renderTabs();
-  }
+  if(currentMenuId === id){ currentMenuId = null; switchMenu(menuIndex[0].id); }
+  else{ renderTabs(); }
 }
 
 document.getElementById("newTab").addEventListener("click", newMenu);
 
 /* ---------------------------
    Typography (trad layout)
-   PRICE (top)   → Satoshi 700
-   NAME (middle) → Bluu Next
-   NOTE (bottom) → Satoshi 300, lighter
 ----------------------------*/
 
 const FONT_PRICE = "Satoshi, system-ui, sans-serif";
@@ -666,23 +602,16 @@ const FONT_NOTE  = "Satoshi, system-ui, sans-serif";
 const TAGLINE_TEXT = "hot or iced &#160;//&#160; dairy or oat";
 const FOOTER_TEXT  = "prices include tax &#160;//&#160; suggested 50&#162; tip";
 
-/* sign-only copy — edit these directly if the wording changes */
 const SIGN_FIND_US_LINE = "find us on the";
 const SIGN_LOCATION_LINE = "Lower Level";
 const SIGN_HOURS_LINE = "open during all library hours";
 const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
 
-/* sign colour scheme — dark and rich instead of the menu's
-   light cream, so it reads as a destination/wayfinding sign
-   rather than a blown-up paper menu. Diamonds turn a uniform
-   parchment (their old per-drink fill colour moves to the text
-   instead, see deepenColor below); amber/gold carry the accents. */
 const SIGN_BG = "#722F37";
 const SIGN_PARCHMENT = "#EDE8E0";
 const SIGN_GOLD = "#E6C89C";
 const SIGN_AMBER = "#D2691E";
 
-/* escape user text so "tea & honey" doesn't break the SVG */
 function esc(str){
   return String(str)
     .replace(/&/g,"&amp;")
@@ -693,15 +622,6 @@ function esc(str){
 
 /* ---------------------------
    Diamond-aware text wrapping
-
-   SVG text doesn't wrap on its own, so we measure each word
-   with a canvas and break lines ourselves. The trick: the
-   max width isn't a box — it follows the diamond's slanted
-   edges. At vertical offset dy from the centre, the diamond
-   is 2*(S - |dy|) wide, so a line near the middle can run
-   nearly the full width and only wraps when it genuinely
-   kisses the border. Nibbles wrap against the inner border
-   (S * 0.82) instead of the outer one.
 ----------------------------*/
 
 const measCtx = document.createElement("canvas").getContext("2d");
@@ -710,10 +630,6 @@ function textW(text, font){
   return measCtx.measureText(text).width;
 }
 
-/* wrap `text` where each line's max width depends on its
-   vertical position. dyOf(i, n) = offset of line i of n from
-   the diamond centre; widthAt(dy) = max width at that offset.
-   Line count changes the offsets, so we run to a fixed point. */
 function wrapText(text, font, widthAt, dyOf, maxLines){
   const words = String(text || "").trim().split(/\s+/).filter(Boolean);
   if(!words.length) return [];
@@ -726,20 +642,14 @@ function wrapText(text, font, widthAt, dyOf, maxLines){
       const li = Math.min(out.length, n - 1);
       const maxW = widthAt(dyOf(li, n));
       const test = cur ? cur + " " + w : w;
-      if(cur && textW(test, font) > maxW){
-        out.push(cur);
-        cur = w;
-      }else{
-        cur = test;
-      }
+      if(cur && textW(test, font) > maxW){ out.push(cur); cur = w; }
+      else{ cur = test; }
     }
     if(cur) out.push(cur);
     if(out.length === n){ lines = out; break; }
     n = out.length;
     lines = out;
   }
-  // cap the line count: rather than spilling past the diamond's
-  // points, fold the remainder onto the last allowed line
   if(maxLines && lines.length > maxLines){
     lines = lines.slice(0, maxLines - 1)
       .concat(lines.slice(maxLines - 1).join(" "));
@@ -747,11 +657,6 @@ function wrapText(text, font, widthAt, dyOf, maxLines){
   return lines;
 }
 
-/* shrink a single line of text to fit a max pixel width by
-   scaling font-size down proportionally. The menu export's
-   canvas auto-sizes to its content, so its title never
-   overflows — but the sign export's page width is fixed, and
-   tab names vary a lot in length, so its headline needs this. */
 function fitSingleLine(text, weight, family, baseSize, maxW){
   const w = textW(String(text || ""), `${weight} ${baseSize}px ${family}`);
   if(!w || w <= maxW) return baseSize;
@@ -761,10 +666,8 @@ function fitSingleLine(text, weight, family, baseSize, maxW){
 const NAME_FS = 14, NAME_LH = 15;
 const NOTE_FS = 9,  NOTE_LH = 11;
 const PRICE_FS = 9.5;
-const EDGE_PAD = 5; /* how close text may get to the border */
+const EDGE_PAD = 5;
 
-/* trad readability: on dark fills (espresso browns, deep reds)
-   flip the text to cream so notes stay legible */
 function isDarkFill(hex){
   const c = String(hex || "").replace("#","");
   if(c.length !== 6) return false;
@@ -774,9 +677,6 @@ function isDarkFill(hex){
   return (0.2126*r + 0.7152*g + 0.0722*b) < 0.55;
 }
 
-/* the sign export turns each item's own colour (currently used
-   as the diamond fill everywhere else) into deep, jewel-toned
-   text instead — these are the HSL plumbing deepenColor needs */
 function hexToRgb(hex){
   const c = String(hex || "").replace("#","");
   return { r: parseInt(c.slice(0,2),16)||0, g: parseInt(c.slice(2,4),16)||0, b: parseInt(c.slice(4,6),16)||0 };
@@ -815,11 +715,6 @@ function hslToRgb(h,s,l){
 }
 function toHex2(n){ return Math.max(0,Math.min(255,n)).toString(16).padStart(2,"0"); }
 
-/* caps a colour's lightness so it reads as deep/rich text on the
-   parchment diamonds, regardless of how light the original swatch
-   was, while keeping its hue (and a bit more saturation) intact —
-   a pale golden-sand item still ends up a recognisable deep gold,
-   not generic dark grey */
 function deepenColor(hex, maxL){
   maxL = maxL===undefined ? 0.30 : maxL;
   const {r,g,b} = hexToRgb(hex);
@@ -830,22 +725,13 @@ function deepenColor(hex, maxL){
   return "#" + toHex2(out.r) + toHex2(out.g) + toHex2(out.b);
 }
 
-/* price (top) / name (middle, vertically centred) / note
-   (below name) — all wrapped against the diamond's edges.
-   Shared by the live canvas and the export so they match.
-   fontScale (default 1) scales every absolute number here as
-   a unit — used by the sign export, whose diamonds can be much
-   bigger than a normal menu's, so the base sizes below would
-   otherwise look lost inside them. */
 function itemTexts(it, x, y, s, fontScale, colorOverride){
   fontScale = fontScale || 1;
   const nameFS = NAME_FS*fontScale, nameLH = NAME_LH*fontScale;
   const noteFS = NOTE_FS*fontScale, noteLH = NOTE_LH*fontScale;
   const priceFS = PRICE_FS*fontScale, edgePad = EDGE_PAD*fontScale;
-
   const S = it.nibble ? s * 0.82 : s;
   const widthAt = dy => Math.max(10, 2 * (S - Math.abs(dy)) - edgePad * 2);
-
   let nameCol, subCol, subOp;
   if(colorOverride){
     nameCol = colorOverride.nameCol;
@@ -857,64 +743,45 @@ function itemTexts(it, x, y, s, fontScale, colorOverride){
     subCol  = dark ? "#E6C89C" : "#6B5740";
     subOp   = dark ? 0.95 : 0.85;
   }
-
   const nameFont = `700 ${nameFS}px ${FONT_NAME}`;
   const noteFont = `300 ${noteFS}px ${FONT_NOTE}`;
-
-  // name: block centred on the diamond's widest band (max 3 lines)
   const nameLines = wrapText(it.name, nameFont, widthAt,
     (i, n) => (i - (n - 1) / 2) * nameLH, 3);
   const nN = Math.max(1, nameLines.length);
   const nameTop = -((nN - 1) / 2) * nameLH - nameFS * 0.55;
   const nameBot =  ((nN - 1) / 2) * nameLH + nameFS * 0.45;
-
-  // note: grows downward from under the name (max 2 lines)
   const noteStart = nameBot + 10*fontScale;
   const noteLines = wrapText(it.note, noteFont, widthAt,
     (i) => noteStart + i * noteLH - noteFS * 0.35, 2);
-
   let out = "";
-
   if(String(it.price || "").trim()){
     out += `
       <text x="${x}" y="${y + nameTop - 9*fontScale}" text-anchor="middle"
         font-size="${priceFS}" font-weight="500" fill="${subCol}" opacity="${subOp}"
         font-family="${FONT_PRICE}" letter-spacing="1">${esc(it.price)}</text>`;
   }
-
   nameLines.forEach((ln, i)=>{
     out += `
       <text x="${x}" y="${y + (i - (nN - 1) / 2) * nameLH + 5*fontScale}" text-anchor="middle"
         font-size="${nameFS}" font-weight="700" fill="${nameCol}"
         font-family="${FONT_NAME}">${esc(ln)}</text>`;
   });
-
   noteLines.forEach((ln, i)=>{
     out += `
       <text x="${x}" y="${y + noteStart + i * noteLH}" text-anchor="middle"
         font-size="${noteFS}" font-weight="300" fill="${subCol}" opacity="${subOp}"
         font-family="${FONT_NOTE}">${esc(ln)}</text>`;
   });
-
   return out;
 }
 
 /* ---------------------------
-   "Special" treatment — a chill,
-   half-opacity sprinkle of whole-food
-   glyphs (carrots, beets, sunflowers)
-   scattered inside the diamond, under
-   the text. Seeded by item id so the
-   scatter is stable across renders
-   and exports.
+   Special pattern glyphs
 ----------------------------*/
 
 function hashStr(str){
   let h = 2166136261;
-  for(const c of String(str)){
-    h ^= c.charCodeAt(0);
-    h = Math.imul(h, 16777619);
-  }
+  for(const c of String(str)){ h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
   return h >>> 0;
 }
 
@@ -946,23 +813,15 @@ function specialPattern(it, x, y, s){
   if(!it.special) return "";
   const Si = (it.nibble ? s * 0.82 : s) - 9;
   if(Si < 22) return "";
-
-  /* regular diamond lattice of glyphs: positions are an even
-     grid (uniform coverage corner to corner). Species follow a
-     3-coloring of the lattice — (a + 2b) mod 3 in diagonal
-     coordinates — which guarantees every glyph's nearest
-     neighbours are the other two species: no two beets can
-     ever sit together. Tilt is hashed per point for a
-     hand-placed feel. Fully deterministic. */
   const h = 18;
   const N = Math.ceil(Si / h);
-  const off = hashStr(it.id || "") % 3; // rotate the colouring per item
+  const off = hashStr(it.id || "") % 3;
   let g = `<g opacity="0.5">`;
   for(let j = -N; j <= N; j++){
     for(let i = -N; i <= N; i++){
-      if((i + j) % 2 !== 0) continue;                  // diamond lattice
+      if((i + j) % 2 !== 0) continue;
       const dx = i * h, dy = j * h;
-      if(Math.abs(dx) + Math.abs(dy) > Si * 0.9) continue; // stay inside
+      if(Math.abs(dx) + Math.abs(dy) > Si * 0.9) continue;
       const a = (i + j) / 2, b = (i - j) / 2;
       const kind = ((a + 2 * b) % 3 + 3 + off) % 3;
       const hsh = hashStr(i + "," + j + "," + (it.id || ""));
@@ -978,36 +837,22 @@ function specialPattern(it, x, y, s){
 
 /* ---------------------------
    Diamond coordinate system
-   BOTH axes now run in half-scale steps, so every
-   intersection — including the midpoint of a lattice
-   edge — is placeable. A one-line diagonal move is
-   simply (gx±1, gy±1); no more hopping.
 ----------------------------*/
 
 function toScreen(gx,gy){
   const u = state.scale * 0.5;
-  return {
-    x: gx * u + state.ox,
-    y: gy * u + state.oy
-  };
+  return { x: gx * u + state.ox, y: gy * u + state.oy };
 }
 
 function toGrid(x,y){
   const u = state.scale * 0.5;
-  return {
-    gx: Math.round((x - state.ox) / u),
-    gy: Math.round((y - state.oy) / u)
-  };
+  return { gx: Math.round((x - state.ox) / u), gy: Math.round((y - state.oy) / u) };
 }
 
-/* true when (gx,gy) is a centre of the edge-to-edge
-   diamond tiling (the classic lattice look) */
 function isLatticeCentre(gx, gy){
   return gx % 2 === 0 && gy % 2 === 0 && ((gx + gy) / 2) % 2 === 0;
 }
 
-/* mouse coords → svg-local coords
-   (fixes the toolbar-offset drift) */
 function svgPoint(e){
   const r = svg.getBoundingClientRect();
   return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -1015,6 +860,11 @@ function svgPoint(e){
 
 /* ---------------------------
    Diamond shape
+   The soft inner glow — a radial white gradient overlay — is
+   applied after the fill so each diamond feels lit from within
+   rather than flat. The gradient id "softFill" is defined in
+   <defs> by the render() function (live canvas) or inline in
+   the export SVG's own <defs>.
 ----------------------------*/
 
 function diamond(x,y,s,fill,stroke){
@@ -1027,12 +877,6 @@ function diamond(x,y,s,fill,stroke){
   `;
 }
 
-/* Replicates the actual website logo mark — a square rotated
-   45° (rect + transform="rotate(45 ...)"), filled and stroked
-   in one colour, sized by its overall tip-to-tip span D — used
-   by the sign export's header (and as a small closing flourish
-   in its footer), so the sign carries the real brand mark
-   rather than a re-improvised diamond. */
 function logoDiamond(cx, cy, D, color){
   const inset = D * 0.15;
   const rs = D * 0.7;
@@ -1048,10 +892,6 @@ function logoDiamond(cx, cy, D, color){
   `;
 }
 
-/* A simple downward chevron, drawn (not a font glyph) so its line
-   weight matches the rest of the brand's accent lines exactly.
-   Real wayfinding signage leans on directional arrows constantly —
-   this is the sign's "go downstairs" cue, sized by overall width w. */
 function downChevron(cx, cy, w, color){
   const hw = w/2, h = w*0.55;
   return `
@@ -1060,10 +900,6 @@ function downChevron(cx, cy, w, color){
   `;
 }
 
-/* ---------------------------
-   Big architectural arrow for
-   entry/wayfinding signs.
-----------------------------*/
 function bigArrow(cx, cy, w, color){
   const headW = w;
   const headH = w * 0.65;
@@ -1080,14 +916,8 @@ function bigArrow(cx, cy, w, color){
   `;
 }
 
-/* Gratified signature: a single solid outer border in deep
-   red (or orange when selected). Nibbles get a band — deep red
-   by default, but callers can override it (the sign export does,
-   since its own background IS deep red) — around a smaller inner
-   diamond in the item's own colour; the colour change alone marks
-   the boundary, so no inset line is needed (it used to read as a
-   stray white/pale ring on most fills, light or dark, so it's
-   gone for good). */
+/* diamondItem — solid fill + optional nibble band + soft white glow overlay.
+   The "softFill" gradient must be defined in defs before this markup is used. */
 function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand){
   const si = s*0.82;
   if(nibble){
@@ -1103,6 +933,10 @@ function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand){
         points="${x},${y-si} ${x+si},${y} ${x},${y+si} ${x-si},${y}"
         fill="${fill}"
       />
+      <polygon
+        points="${x},${y-si} ${x+si},${y} ${x},${y+si} ${x-si},${y}"
+        fill="url(#softFill)"
+      />
     `;
   }
   return `
@@ -1113,18 +947,20 @@ function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand){
       stroke-width="1.6"
       stroke-linejoin="round"
     />
+    <polygon
+      points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
+      fill="url(#softFill)"
+    />
   `;
 }
 
 /* ---------------------------
    Render menu item
-   (price top / name middle / note bottom)
 ----------------------------*/
 
 function renderItem(it){
   const p = toScreen(it.gx,it.gy);
   const isSel = state.selected === it;
-
   return `
     <g class="item" data-id="${it.id}">
       ${diamondItem(
@@ -1142,13 +978,24 @@ function renderItem(it){
 
 /* ---------------------------
    Render loop
+   Adds <defs> with the softFill gradient so diamonds glow
+   from within; also slightly crisper lattice dots at lattice
+   centres to make the background pattern read more on screen.
 ----------------------------*/
 
 function render(){
 
-  let out = "";
+  /* softFill: a radial white gradient using objectBoundingBox so
+     it scales automatically to whichever size polygon it's applied to.
+     The result is a subtle "lit from within" sheen rather than a flat fill. */
+  let out = `<defs>
+    <radialGradient id="softFill" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
+      <stop offset="0%"   stop-color="white" stop-opacity="0.18"/>
+      <stop offset="60%"  stop-color="white" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </radialGradient>
+  </defs>`;
 
-  // grid: computed from the visible viewport so it never runs out when panning
   const w = svg.clientWidth || 800;
   const h = svg.clientHeight || 600;
   const s = state.scale;
@@ -1160,19 +1007,19 @@ function render(){
   const gy1 = Math.ceil((h - state.oy)/u) + 2;
 
   const cells = (gx1-gx0)*(gy1-gy0);
-  const showDots = u >= 9; // skip the dots when zoomed way out
+  const showDots = u >= 9;
 
   if(cells <= 30000){
     for(let gx=gx0; gx<=gx1; gx++){
       for(let gy=gy0; gy<=gy1; gy++){
         const p = toScreen(gx,gy);
         if(isLatticeCentre(gx,gy)){
-          // tiling outline (the classic lattice look)
-          out += diamond(p.x,p.y,s,"none","rgba(114, 47, 55, 0.08)");
+          out += diamond(p.x,p.y,s,"none","rgba(114, 47, 55, 0.10)");
         }
         if(showDots){
-          // dot at every placeable centre (now every half-step)
-          out += `<circle cx="${p.x}" cy="${p.y}" r="1.2" fill="rgba(114, 47, 55, 0.14)"/>`;
+          /* slightly larger dot at lattice centres for a more legible grid */
+          const isLC = isLatticeCentre(gx,gy);
+          out += `<circle cx="${p.x}" cy="${p.y}" r="${isLC ? 1.8 : 1.1}" fill="rgba(114, 47, 55, ${isLC ? 0.18 : 0.12})"/>`;
         }
       }
     }
@@ -1209,18 +1056,14 @@ function populateFields(it){
 }
 
 svg.addEventListener("mousedown",(e)=>{
-
   const g = e.target.closest?.("g");
   const pt = svgPoint(e);
-
   if(g && g.dataset.id){
     const id = g.dataset.id;
     const it = state.items.find(x=>x.id===id);
     if(it){
       state.selected = it;
       draggingItem = it;
-      // remember where inside the diamond you grabbed,
-      // so it doesn't jump to centre-on-cursor
       const p = toScreen(it.gx, it.gy);
       dragOffset = { x: p.x - pt.x, y: p.y - pt.y };
       populateFields(it);
@@ -1228,8 +1071,6 @@ svg.addEventListener("mousedown",(e)=>{
       return;
     }
   }
-
-  // empty canvas: deselect + start panning
   state.selected = null;
   state.dragging = true;
   state.dragStart = {x:e.clientX,y:e.clientY};
@@ -1237,14 +1078,12 @@ svg.addEventListener("mousedown",(e)=>{
 });
 
 window.addEventListener("mousemove",(e)=>{
-
   if(state.dragging && !draggingItem){
     state.ox += e.clientX - state.dragStart.x;
     state.oy += e.clientY - state.dragStart.y;
     state.dragStart = {x:e.clientX,y:e.clientY};
     render();
   }
-
   if(draggingItem){
     const pt = svgPoint(e);
     const g = toGrid(pt.x + dragOffset.x, pt.y + dragOffset.y);
@@ -1256,7 +1095,6 @@ window.addEventListener("mousemove",(e)=>{
   }
 });
 
-/* live edit: typing updates the selected diamond */
 function liveEdit(field, input){
   input.addEventListener("input", ()=>{
     if(!state.selected) return;
@@ -1270,7 +1108,6 @@ liveEdit("price", fPrice);
 liveEdit("note",  fNote);
 liveEdit("color", fColor);
 
-/* nibble + special checkboxes: live toggle on the selected diamond */
 fNibble.addEventListener("change", ()=>{
   if(!state.selected) return;
   state.selected.nibble = fNibble.checked;
@@ -1309,11 +1146,7 @@ for(const c of BRAND_COLORS){
     fColor.value = c.hex;
     swatchBox.querySelectorAll(".swatch").forEach(s=>s.classList.remove("current"));
     el.classList.add("current");
-    if(state.selected){
-      state.selected.color = c.hex;
-      render();
-      save();
-    }
+    if(state.selected){ state.selected.color = c.hex; render(); save(); }
   });
   swatchBox.appendChild(el);
 }
@@ -1327,13 +1160,10 @@ window.addEventListener("mouseup",()=>{
 window.addEventListener("resize", render);
 
 /* ---------------------------
-   Zoom — the wheel is good for quick adjustments; the
-   toolbar's −/+ buttons and % field are for precise ones.
-   All three funnel through setScale() so they can't drift
-   out of sync with each other.
+   Zoom
 ----------------------------*/
 
-const SCALE_MIN = 10, SCALE_MAX = 120, SCALE_BASE = 40; // SCALE_BASE == 100%
+const SCALE_MIN = 10, SCALE_MAX = 120, SCALE_BASE = 40;
 const ZOOM_STEP_PCT = 10;
 
 const zoomInput = document.getElementById("zoomInput");
@@ -1343,9 +1173,6 @@ const zoomInBtn = document.getElementById("zoomIn");
 function scaleToPct(sc){ return Math.round(sc / SCALE_BASE * 100); }
 function pctToScale(pct){ return pct / 100 * SCALE_BASE; }
 
-/* keep the toolbar field showing whatever state.scale actually
-   is — called after any zoom action, and after loading a menu
-   (which can carry its own saved scale) */
 function syncZoomInput(){
   zoomInput.value = scaleToPct(state.scale);
 }
@@ -1360,22 +1187,15 @@ function setScale(newScale){
 zoomOutBtn.addEventListener("click", ()=>{
   setScale(pctToScale(scaleToPct(state.scale) - ZOOM_STEP_PCT));
 });
-
 zoomInBtn.addEventListener("click", ()=>{
   setScale(pctToScale(scaleToPct(state.scale) + ZOOM_STEP_PCT));
 });
-
-/* "change" (not "input") so it commits on blur/Enter rather
-   than re-rendering on every keystroke */
 zoomInput.addEventListener("change", ()=>{
   const pct = parseFloat(zoomInput.value);
   if(Number.isFinite(pct)) setScale(pctToScale(pct));
   else syncZoomInput();
 });
-
-zoomInput.addEventListener("keydown", (e)=>{
-  if(e.key === "Enter") zoomInput.blur();
-});
+zoomInput.addEventListener("keydown", (e)=>{ if(e.key === "Enter") zoomInput.blur(); });
 
 svg.addEventListener("wheel",(e)=>{
   e.preventDefault();
@@ -1384,16 +1204,14 @@ svg.addEventListener("wheel",(e)=>{
 });
 
 /* ---------------------------
-   Add menu item
+   Add / delete
 ----------------------------*/
 
 function addItem(){
-
   const centre = toGrid(
     (svg.clientWidth || 800)/2,
     (svg.clientHeight || 600)/2
   );
-
   const it = {
     id:crypto.randomUUID(),
     gx:centre.gx,
@@ -1405,10 +1223,8 @@ function addItem(){
     nibble:fNibble.checked,
     special:fSpecial.checked
   };
-
   state.items.push(it);
   state.selected = it;
-
   render();
   save();
 }
@@ -1422,20 +1238,124 @@ function del(){
 }
 
 /* ---------------------------
-   Export dropdown — "menu" and "14x22 sign" both
-   draw from the live state.items, just laid out
-   differently (see the two functions below).
+   Toast notification
+----------------------------*/
+
+const toastEl = document.getElementById("exportToast");
+let toastTimer = null;
+
+function showToast(msg, duration){
+  duration = duration || 3000;
+  toastEl.textContent = msg;
+  toastEl.classList.add("visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ toastEl.classList.remove("visible"); }, duration);
+}
+
+/* ---------------------------
+   Font embedding for print-safe SVG export.
+
+   Web @import() rules are ignored by Inkscape (it doesn't
+   make HTTP requests when opening an SVG file), so any
+   custom font just falls back to a system face and your
+   Bluu Next / Satoshi glyphs disappear.
+
+   The fix: fetch the font CSS from both providers, then
+   fetch every woff2 file they reference and inline it as
+   a base64 data: URI inside the @font-face block. Inkscape
+   (and Illustrator, and most PDF exporters) can read fonts
+   embedded this way without any network access at all.
+
+   Result is cached so subsequent exports are instant.
+   If a CDN is unreachable the SVG falls back to @import
+   (same as before), but a toast warns you.
+----------------------------*/
+
+let _cachedFontStyle = null;
+let _fontEmbedInProgress = null;
+
+async function toBase64DataUrl(buffer, mimeType){
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunk = 0x8000;
+  for(let i = 0; i < bytes.length; i += chunk){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return `data:${mimeType};base64,${btoa(binary)}`;
+}
+
+async function buildFontStyle(){
+  if(_cachedFontStyle !== null) return _cachedFontStyle;
+  if(_fontEmbedInProgress) return _fontEmbedInProgress;
+
+  _fontEmbedInProgress = (async ()=>{
+    const cssUrls = [
+      "https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap",
+      "https://fonts.cdnfonts.com/css/bluu-next"
+    ];
+
+    let combined = "";
+    let anyEmbedFailed = false;
+
+    for(const cssUrl of cssUrls){
+      try{
+        const cssRes = await fetch(cssUrl);
+        if(!cssRes.ok) throw new Error(`HTTP ${cssRes.status}`);
+        let css = await cssRes.text();
+
+        /* strip @import wrapper lines — we're inlining @font-face directly */
+        css = css.replace(/@import\s+url\([^)]+\)\s*;?\n?/g, "");
+
+        /* find every font file URL and replace with base64 data URI */
+        const urlRegex = /url\(["']?(https?:\/\/[^"'\)\s]+)["']?\)/g;
+        const matches = [...css.matchAll(urlRegex)];
+
+        for(const m of matches){
+          const fontUrl = m[1];
+          try{
+            const fontRes = await fetch(fontUrl);
+            if(!fontRes.ok) throw new Error(`HTTP ${fontRes.status}`);
+            const buf = await fontRes.arrayBuffer();
+            const rawExt = fontUrl.split(".").pop().split("?")[0].toLowerCase();
+            const mime = rawExt === "woff2" ? "font/woff2"
+                       : rawExt === "woff"  ? "font/woff"
+                       : rawExt === "ttf"   ? "font/truetype"
+                       : "font/opentype";
+            const dataUrl = await toBase64DataUrl(buf, mime);
+            /* escape the original URL for safe use in a RegExp */
+            const escaped = fontUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            css = css.replace(new RegExp(escaped, "g"), dataUrl);
+          }catch(e){
+            console.warn("Font file embed failed:", fontUrl, e);
+            anyEmbedFailed = true;
+          }
+        }
+        combined += css + "\n";
+      }catch(e){
+        console.warn("Font CSS fetch failed:", cssUrl, e);
+        combined += `@import url('${cssUrl}');\n`;
+        anyEmbedFailed = true;
+      }
+    }
+
+    _cachedFontStyle = combined ||
+      ["@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap');",
+       "@import url('https://fonts.cdnfonts.com/css/bluu-next');"].join("\n");
+
+    return { style: _cachedFontStyle, anyEmbedFailed };
+  })();
+
+  return _fontEmbedInProgress;
+}
+
+/* ---------------------------
+   Export dropdown
 ----------------------------*/
 
 const exportToggle = document.getElementById("exportToggle");
 const exportMenuEl = document.getElementById("exportMenu");
 
 function openExportMenu(){
-  // pin the menu below BOTH bars (the toolbar is 56px, the tabs
-  // row below it ends at 92px) rather than positioning relative
-  // to the toggle button itself, which sits inside the 56px
-  // toolbar and would otherwise drop the menu right over the
-  // tabs row
   const r = exportToggle.getBoundingClientRect();
   exportMenuEl.style.top = "98px";
   exportMenuEl.style.right = Math.max(8, window.innerWidth - r.right) + "px";
@@ -1459,41 +1379,36 @@ exportMenuEl.addEventListener("click", (e)=>{
   else if(opt.dataset.action === "sign") exportSignSVG();
 });
 
-document.addEventListener("click", ()=>{
-  exportMenuEl.classList.remove("open");
-});
-
-window.addEventListener("resize", ()=>{
-  exportMenuEl.classList.remove("open");
-});
+document.addEventListener("click", ()=>{ exportMenuEl.classList.remove("open"); });
+window.addEventListener("resize", ()=>{ exportMenuEl.classList.remove("open"); });
 
 /* ---------------------------
-   Export SVG — the menu.
-   Auto-crops to your diamonds, adds the
-   title (the current tab's name), brand
-   background washes, and a whisper-faint
-   diamond lattice across the whole sheet
-   so the composition feels of-a-piece.
+   Export SVG — menu.
+   Auto-crops to your diamonds, adds the title, brand
+   background washes, and a richer dot+diamond lattice
+   across the whole sheet so it reads well when printed.
+
+   Fonts are embedded as base64 data URIs so Inkscape /
+   Illustrator render Bluu Next and Satoshi correctly
+   without needing the fonts installed on the host machine.
 ----------------------------*/
 
-function exportMenuSVG(){
+async function exportMenuSVG(){
 
-  if(!state.items.length){
-    alert("Add some menu items first :)");
-    return;
-  }
+  if(!state.items.length){ alert("Add some menu items first :)"); return; }
+
+  showToast("embedding fonts for print… one moment", 12000);
+
+  const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
 
   const s = state.scale;
   const title = currentMenuName();
 
-  // bounds of all diamonds
   let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
   for(const it of state.items){
     const p = toScreen(it.gx,it.gy);
-    minX = Math.min(minX, p.x - s);
-    maxX = Math.max(maxX, p.x + s);
-    minY = Math.min(minY, p.y - s);
-    maxY = Math.max(maxY, p.y + s);
+    minX = Math.min(minX, p.x - s); maxX = Math.max(maxX, p.x + s);
+    minY = Math.min(minY, p.y - s); maxY = Math.max(maxY, p.y + s);
   }
 
   const pad = 48;
@@ -1505,31 +1420,50 @@ function exportMenuSVG(){
   const h  = (maxY - minY) + pad*2 + headerH + footerH;
   const cx = (minX + maxX)/2;
 
+  /* dot-grid pattern: a simple repeating 10×10 cell with a
+     tiny dot at its centre. Small enough to be a background
+     texture rather than a design element, combined with the
+     diamond lattice it gives the print a deliberate paper-menu
+     feel rather than a flat computer printout. */
+  const DOT_SPACING = 10;
+
   let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" width="${w}" height="${h}">`;
 
   out += `
-    <style>
-      @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&amp;display=swap');
-      @import url('https://fonts.cdnfonts.com/css/bluu-next');
-    </style>
+    <style>${fontStyle}</style>
 
     <defs>
+      <!-- soft white glow inside each diamond fill -->
+      <radialGradient id="softFill" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
+        <stop offset="0%"   stop-color="white" stop-opacity="0.18"/>
+        <stop offset="60%"  stop-color="white" stop-opacity="0.06"/>
+        <stop offset="100%" stop-color="white" stop-opacity="0"/>
+      </radialGradient>
+      <!-- colour washes for the cream background -->
       <radialGradient id="washRed" cx="25%" cy="25%" r="60%">
-        <stop offset="0%" stop-color="#722F37" stop-opacity="0.04"/>
+        <stop offset="0%"   stop-color="#722F37" stop-opacity="0.05"/>
         <stop offset="100%" stop-color="#722F37" stop-opacity="0"/>
       </radialGradient>
       <radialGradient id="washOrange" cx="75%" cy="75%" r="60%">
-        <stop offset="0%" stop-color="#CC5500" stop-opacity="0.03"/>
+        <stop offset="0%"   stop-color="#CC5500" stop-opacity="0.04"/>
         <stop offset="100%" stop-color="#CC5500" stop-opacity="0"/>
       </radialGradient>
+      <!-- repeating dot grid -->
+      <pattern id="dotGrid" x="${x0 % DOT_SPACING}" y="${y0 % DOT_SPACING}"
+        width="${DOT_SPACING}" height="${DOT_SPACING}" patternUnits="userSpaceOnUse">
+        <circle cx="${DOT_SPACING/2}" cy="${DOT_SPACING/2}" r="0.75"
+          fill="#722F37" opacity="0.13"/>
+      </pattern>
     </defs>
 
     <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#EDE8E0"/>
     <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#washRed)"/>
     <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#washOrange)"/>
+    <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#dotGrid)"/>
   `;
 
-  // ---- whisper lattice across the whole sheet (aligned to the working grid) ----
+  /* diamond lattice — slightly bolder than before (0.08 vs 0.05)
+     so it reads through the dot grid on a physical print */
   {
     const u = s * 0.5;
     const lgx0 = Math.floor((x0 - state.ox)/u) - 1;
@@ -1544,16 +1478,15 @@ function exportMenuSVG(){
             out += `
               <polygon
                 points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
-                fill="none" stroke="#722F37" stroke-opacity="0.05" stroke-width="1"
-              />`;
+                fill="none" stroke="#722F37" stroke-opacity="0.08" stroke-width="1"
+              />
+              <circle cx="${p.x}" cy="${p.y}" r="2" fill="#722F37" fill-opacity="0.08"/>`;
           }
         }
       }
     }
   }
 
-  // ---- title (current tab name) + service line ----
-  // baseline sits low in the header so air above ≈ air below (optical centering)
   const titleY = y0 + 78;
   out += `
     <text x="${cx}" y="${titleY}" text-anchor="middle"
@@ -1565,16 +1498,13 @@ function exportMenuSVG(){
       font-family="${FONT_NOTE}" letter-spacing="1.5">${TAGLINE_TEXT}</text>
   `;
 
-  // ---- footer service line (same format as the one under the title) ----
   const footY = maxY + pad + 28;
-
   out += `
     <text x="${cx}" y="${footY}" text-anchor="middle"
       font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
       font-family="${FONT_NOTE}" letter-spacing="1.5">${FOOTER_TEXT}</text>
   `;
 
-  // ---- diamonds with double borders + wrapped text ----
   for(const it of state.items){
     const p = toScreen(it.gx,it.gy);
     out += diamondItem(p.x, p.y, s, it.color, "#722F37", it.nibble);
@@ -1582,7 +1512,15 @@ function exportMenuSVG(){
     out += itemTexts(it, p.x, p.y, s);
   }
 
-  out += `</svg>`;
+  out += `
+  <!--
+    INKSCAPE / ILLUSTRATOR TIP:
+    Fonts (Satoshi + Bluu Next) are embedded as base64 data URIs above,
+    so you should not need them installed. If glyphs still appear wrong,
+    select all text in Inkscape and run: Text > Convert to Paths
+    (or Path > Object to Path) before exporting to PDF for print.
+  -->
+  </svg>`;
 
   const blob = new Blob([out],{type:"image/svg+xml"});
   const a = document.createElement("a");
@@ -1590,40 +1528,30 @@ function exportMenuSVG(){
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
   a.download = "gratified-" + (slug || "menu") + ".svg";
   a.click();
+
+  showToast(
+    anyEmbedFailed
+      ? "exported — some fonts may need installing for Inkscape"
+      : "exported with embedded fonts ✓ — opens in Inkscape print-ready",
+    5000
+  );
 }
 
 /* ---------------------------
    Export SVG — 14"x22" sign.
-   A standee sign for upstairs near the library entrance, not
-   just a bigger menu — so the header carries the real logo
-   lockup (wordmark / "coffee + art" / diamond mark, matching
-   the website exactly), the middle is a small, deliberately-
-   oversized cluster of items, and the close is a bold "find us"
-   block with a directional cue — closer to how an actual
-   wayfinding sign is built than a menu blown up to poster size.
-   Doesn't read the canvas's pan/zoom — it keeps your items'
-   relative grid arrangement, then auto-scales that cluster to
-   fill the space between header and footer. Works best with a
-   fairly compact, small arrangement (a few specials) — that's
-   exactly what lets the diamonds get big and legible from a few
-   feet away; a much larger item count will shrink them back
-   toward normal menu-diamond size to keep everything on the page.
 ----------------------------*/
 
-function exportSignSVG(){
+async function exportSignSVG(){
   const isEntry = currentMenuName().toLowerCase().includes("entry");
-  if(!state.items.length && !isEntry){
-    alert("Add some menu items first :)");
-    return;
-  }
-  if(isEntry){
-    exportEntrySignSVG();
-    return;
-  }
-  exportRegularSignSVG();
+  if(!state.items.length && !isEntry){ alert("Add some menu items first :)"); return; }
+  if(isEntry){ await exportEntrySignSVG(); return; }
+  await exportRegularSignSVG();
 }
 
-function exportRegularSignSVG(){
+async function exportRegularSignSVG(){
+
+  showToast("embedding fonts for print… one moment", 12000);
+  const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
 
   const PT_PER_IN = 72;
   const PAGE_W = 14 * PT_PER_IN;
@@ -1633,37 +1561,18 @@ function exportRegularSignSVG(){
   const title = currentMenuName();
   const cx = PAGE_W / 2;
 
-  // ---- header cursor: logo lockup, tagline, section label.
-  // Shorter than it used to be — wayfinding lives in the footer
-  // now, as its own bold closing statement instead ----
   let y = MARGIN;
-
   const WORD_FS = 90, WORD_LETTER = 6;
-  y += 92;
-  const wordmarkY = y;
-
+  y += 92; const wordmarkY = y;
   const SUB_FS = 36;
-  y += 58;
-  const subtitleY = y;
-
+  y += 58; const subtitleY = y;
   const LOGO_D = 82;
-  y += 36 + LOGO_D/2;
-  const logoDiamondY = y;
+  y += 36 + LOGO_D/2; const logoDiamondY = y;
   y += LOGO_D/2;
+  y += 54; const taglineY = y;
+  y += 50; const sectionLabelY = y;
+  y += 32; const contentTop = y;
 
-  y += 54;
-  const taglineY = y;
-
-  y += 50;
-  const sectionLabelY = y;
-
-  y += 32;
-  const contentTop = y;
-
-  // ---- footer cursor, built bottom-up: a bold "find us" block,
-  // not a small afterthought — sized and weighted like an actual
-  // directional sign would, with a hand-drawn chevron pointing
-  // at "Lower Level" the way a real sign would use an arrow ----
   const hoursY = PAGE_H - MARGIN - 40;
   const LOWER_FS = 68;
   const lowerLevelY = hoursY - 80;
@@ -1672,7 +1581,6 @@ function exportRegularSignSVG(){
   const footerDividerY = findUsY - 52;
   const contentBottom = footerDividerY - 36;
 
-  // bounding box of items, in grid units
   let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
   for(const it of state.items){
     gx0 = Math.min(gx0, it.gx); gx1 = Math.max(gx1, it.gx);
@@ -1680,69 +1588,56 @@ function exportRegularSignSVG(){
   }
   const spanX = gx1 - gx0;
   const spanY = gy1 - gy0;
-
   const availW = PAGE_W - MARGIN*2;
   const availH = contentBottom - contentTop;
 
-  // solve for a diamond scale that fits the cluster's footprint
-  // — spanX/Y*(s/2)+2*s, the same geometry toScreen() uses —
-  // into the page's available space. The cap is much higher
-  // than a normal menu diamond would ever need, on purpose: with
-  // only a few items (as intended here) this lets them grow into
-  // genuinely large, sign-legible diamonds instead of leaving a
-  // small tiled cluster stranded in a sea of empty page.
   const sW = availW / (spanX/2 + 2);
   const sH = availH / (spanY/2 + 2);
   const s = Math.max(16, Math.min(sW, sH, 230));
   const u = s * 0.5;
 
-  // centre the cluster horizontally, but anchor it to the TOP of
-  // the content area rather than centring it vertically too —
-  // with a small item count (the common case here) the cluster
-  // is often much shorter than availH, and centring it would
-  // strand it in the middle of the page with a dead gap above
   const gxMid = (gx0 + gx1) / 2;
   const sox = cx - gxMid * u;
   const clusterGap = 32;
   const soy = (contentTop + clusterGap) + s - gy0 * u;
   const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
 
-  // text inside each diamond uses fixed absolute sizes tuned for
-  // normal menu-diamond scale — fine most of the time, but these
-  // sign diamonds can run 2-3x bigger, so scale text up to match
-  // (never down: a denser sign with smaller diamonds should just
-  // look like a normal menu, not shrink its text further)
   const TEXT_REF_SCALE = 100;
   const fontScale = Math.max(1, s / TEXT_REF_SCALE);
-
   const sectionLabelSize = fitSingleLine(title, 700, FONT_NAME, 26, PAGE_W - MARGIN*2 - 60);
 
   let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="14in" height="22in">`;
 
   out += `
-    <style>
-      @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&amp;display=swap');
-      @import url('https://fonts.cdnfonts.com/css/bluu-next');
-    </style>
+    <style>${fontStyle}</style>
 
     <defs>
+      <radialGradient id="softFill" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
+        <stop offset="0%"   stop-color="white" stop-opacity="0.18"/>
+        <stop offset="60%"  stop-color="white" stop-opacity="0.06"/>
+        <stop offset="100%" stop-color="white" stop-opacity="0"/>
+      </radialGradient>
       <radialGradient id="signGlow" cx="50%" cy="14%" r="55%">
-        <stop offset="0%" stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
+        <stop offset="0%"   stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
         <stop offset="100%" stop-color="${SIGN_AMBER}" stop-opacity="0"/>
       </radialGradient>
       <radialGradient id="signVignette" cx="50%" cy="50%" r="75%">
-        <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+        <stop offset="60%"  stop-color="#000000" stop-opacity="0"/>
         <stop offset="100%" stop-color="#000000" stop-opacity="0.18"/>
       </radialGradient>
+      <pattern id="dotGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+        <circle cx="5" cy="5" r="0.65" fill="${SIGN_PARCHMENT}" opacity="0.12"/>
+      </pattern>
     </defs>
 
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${SIGN_BG}"/>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signGlow)"/>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signVignette)"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
     <rect x="40" y="40" width="${PAGE_W-80}" height="${PAGE_H-80}" fill="none" stroke="${SIGN_AMBER}" stroke-width="1.5" opacity="0.55"/>
   `;
 
-  // ---- whisper lattice across the whole sheet ----
+  /* diamond lattice on dark background */
   {
     const lgx0 = Math.floor((0 - sox)/u) - 1;
     const lgx1 = Math.ceil((PAGE_W - sox)/u) + 1;
@@ -1756,17 +1651,15 @@ function exportRegularSignSVG(){
             out += `
               <polygon
                 points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
-                fill="none" stroke="${SIGN_PARCHMENT}" stroke-opacity="0.05" stroke-width="1"
-              />`;
+                fill="none" stroke="${SIGN_PARCHMENT}" stroke-opacity="0.07" stroke-width="1"
+              />
+              <circle cx="${p.x}" cy="${p.y}" r="2" fill="${SIGN_PARCHMENT}" fill-opacity="0.07"/>`;
           }
         }
       }
     }
   }
 
-  // ---- logo lockup: wordmark / "coffee + art" / diamond mark,
-  // matching the website's landing-page hero exactly (just in
-  // parchment now, to read against the dark background) ----
   out += `
     <text x="${cx}" y="${wordmarkY}" text-anchor="middle"
       font-size="${WORD_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
@@ -1778,8 +1671,6 @@ function exportRegularSignSVG(){
   `;
   out += logoDiamond(cx, logoDiamondY, LOGO_D, SIGN_PARCHMENT);
 
-  // ---- optional tagline — kept small and light so it reads as
-  // a little aside, not competition for the headline or menu ----
   if(SIGN_TAGLINE_TEXT.trim()){
     out += `
       <text x="${cx}" y="${taglineY}" text-anchor="middle"
@@ -1788,16 +1679,12 @@ function exportRegularSignSVG(){
     `;
   }
 
-  // ---- section label introducing the items (the open tab's name) ----
   out += `
     <text x="${cx}" y="${sectionLabelY}" text-anchor="middle"
       font-size="${sectionLabelSize}" font-weight="700" fill="${SIGN_PARCHMENT}"
       font-family="${FONT_NAME}" letter-spacing="2">${esc(title)}</text>
   `;
 
-  // ---- diamonds: uniform parchment now — each item's own colour
-  // (used everywhere else as the fill) shows up as deep, jewel-
-  // toned text instead, via deepenColor ----
   for(const it of state.items){
     const p = sToScreen(it.gx, it.gy);
     out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER);
@@ -1806,13 +1693,6 @@ function exportRegularSignSVG(){
     out += itemTexts(it, p.x, p.y, s, fontScale, { nameCol: deepColor, subCol: deepColor, subOp: 0.7 });
   }
 
-  // ---- footer: the bold "find us" close. Same fonts throughout
-  // (Bluu Next wouldn't fit here — this stays in Satoshi like the
-  // rest of the body copy), just sized and weighted with real
-  // conviction, plus a chevron doing what a real sign's arrow
-  // would do. Parchment for the destination itself so it's the
-  // brightest thing on the page after the wordmark; gold for the
-  // supporting lines ----
   out += `
     <line x1="${cx-130}" y1="${footerDividerY}" x2="${cx+130}" y2="${footerDividerY}" stroke="${SIGN_AMBER}" stroke-width="1.5" opacity="0.7"/>
     <text x="${cx}" y="${findUsY}" text-anchor="middle"
@@ -1829,7 +1709,14 @@ function exportRegularSignSVG(){
       font-family="${FONT_PRICE}" letter-spacing="1.2">${esc(SIGN_HOURS_LINE)}</text>
   `;
 
-  out += `</svg>`;
+  out += `
+  <!--
+    INKSCAPE / ILLUSTRATOR TIP:
+    Fonts are embedded as base64 data URIs — open directly.
+    If any glyph looks wrong, select all text and run:
+    Text > Convert to Paths (Inkscape) before printing.
+  -->
+  </svg>`;
 
   const blob = new Blob([out],{type:"image/svg+xml"});
   const a = document.createElement("a");
@@ -1837,52 +1724,60 @@ function exportRegularSignSVG(){
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
   a.download = "gratified-sign-" + (slug || "menu") + ".svg";
   a.click();
+
+  showToast(
+    anyEmbedFailed
+      ? "exported — some fonts may need installing for Inkscape"
+      : "exported with embedded fonts ✓ — opens in Inkscape print-ready",
+    5000
+  );
 }
 
 /* ---------------------------
    Export SVG — 14"x22" Entry / Wayfinding Sign.
-   Optimized for library wayfinding: from 20-40 feet away people
-   should instantly understand that Gratified exists, it's downstairs,
-   coffee is available, and it feels worth finding.
-
-   Triggered automatically when the current tab name contains "entry".
-   Works with or without diamonds in the tab — empty Entry tabs render
-   five decorative parchment diamonds so the sign still feels complete.
 ----------------------------*/
 
-function exportEntrySignSVG(){
+async function exportEntrySignSVG(){
+
+  showToast("embedding fonts for print… one moment", 12000);
+  const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
+
   const PT_PER_IN = 72;
-  const PAGE_W = 14 * PT_PER_IN;   // 1008
-  const PAGE_H = 22 * PT_PER_IN;   // 1584
+  const PAGE_W = 14 * PT_PER_IN;
+  const PAGE_H = 22 * PT_PER_IN;
   const MARGIN = 60;
   const cx = PAGE_W / 2;
 
   let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="14in" height="22in">`;
 
   out += `
-    <style>
-      @import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&amp;display=swap');
-      @import url('https://fonts.cdnfonts.com/css/bluu-next');
-    </style>
+    <style>${fontStyle}</style>
     <defs>
+      <radialGradient id="softFill" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
+        <stop offset="0%"   stop-color="white" stop-opacity="0.18"/>
+        <stop offset="60%"  stop-color="white" stop-opacity="0.06"/>
+        <stop offset="100%" stop-color="white" stop-opacity="0"/>
+      </radialGradient>
       <radialGradient id="signGlow" cx="50%" cy="14%" r="55%">
-        <stop offset="0%" stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
+        <stop offset="0%"   stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
         <stop offset="100%" stop-color="${SIGN_AMBER}" stop-opacity="0"/>
       </radialGradient>
       <radialGradient id="signVignette" cx="50%" cy="50%" r="75%">
-        <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+        <stop offset="60%"  stop-color="#000000" stop-opacity="0"/>
         <stop offset="100%" stop-color="#000000" stop-opacity="0.18"/>
       </radialGradient>
+      <pattern id="dotGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
+        <circle cx="5" cy="5" r="0.65" fill="${SIGN_PARCHMENT}" opacity="0.12"/>
+      </pattern>
     </defs>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${SIGN_BG}"/>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signGlow)"/>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signVignette)"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
     <rect x="40" y="40" width="${PAGE_W-80}" height="${PAGE_H-80}" fill="none" stroke="${SIGN_AMBER}" stroke-width="1.5" opacity="0.55"/>
   `;
 
-  // ---- Header: wordmark, subtitle, diamond mark, tagline ----
   let y = MARGIN + 30;
-
   const WORD_FS = 112;
   y += WORD_FS;
   out += `
@@ -1913,13 +1808,11 @@ function exportEntrySignSVG(){
     `;
   }
 
-  // ---- Giant architectural arrow ----
   y += 92;
   const ARROW_W = 72;
   out += bigArrow(cx, y, ARROW_W, SIGN_PARCHMENT);
   y += 70;
 
-  // ---- Destination: LOWER LEVEL (the loudest text on the page) ----
   const LOWER_FS = 100;
   y += LOWER_FS;
   out += `
@@ -1936,15 +1829,12 @@ function exportEntrySignSVG(){
       font-family="${FONT_PRICE}" letter-spacing="1.5">Open during library hours</text>
   `;
 
-  // ---- Bottom diamond cluster ----
   y += 84;
   const contentTop = y;
   const contentBottom = PAGE_H - MARGIN - 30;
   const availH = contentBottom - contentTop;
 
   if(state.items.length > 0){
-    // Fit the user's diamonds into the bottom band — names only, no prices,
-    // scaled as large as the cluster allows so they read from a distance.
     let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
     for(const it of state.items){
       gx0 = Math.min(gx0, it.gx); gx1 = Math.max(gx1, it.gx);
@@ -1953,7 +1843,6 @@ function exportEntrySignSVG(){
     const spanX = Math.max(gx1 - gx0, 1);
     const spanY = Math.max(gy1 - gy0, 1);
     const availW = PAGE_W - MARGIN*2;
-
     const sW = availW / (spanX/2 + 2);
     const sH = availH / (spanY/2 + 2);
     const s = Math.max(28, Math.min(sW, sH, 220));
@@ -1962,22 +1851,17 @@ function exportEntrySignSVG(){
     const sox = cx - gxMid * u;
     const soy = contentTop + s - gy0 * u;
     const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
-
     const fontScale = Math.max(1, s / 100);
 
     for(const it of state.items){
       const p = sToScreen(it.gx, it.gy);
-      // Parchment diamond with amber border; nibble band in amber
       out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER);
       out += specialPattern(it, p.x, p.y, s);
-
-      // Name only — no price, no note. Deep jewel-toned text.
       const nameFS = Math.round(NAME_FS * fontScale * 1.3);
       const nameLH = Math.round(NAME_LH * fontScale * 1.3);
       const nameFont = `700 ${nameFS}px ${FONT_NAME}`;
       const widthAt = dy => Math.max(10, 2 * (s - Math.abs(dy)) - 12);
-      const nameLines = wrapText(it.name, nameFont, widthAt,
-        (i, n) => (i - (n-1)/2) * nameLH, 3);
+      const nameLines = wrapText(it.name, nameFont, widthAt, (i, n) => (i - (n-1)/2) * nameLH, 3);
       const nN = Math.max(1, nameLines.length);
       const deepColor = deepenColor(it.color);
       nameLines.forEach((ln, i) => {
@@ -1989,8 +1873,6 @@ function exportEntrySignSVG(){
       });
     }
   } else {
-    // No items: render five decorative empty diamonds so the sign
-    // still feels complete and balanced.
     const DECO_S = Math.min(170, availH / 3.0, (PAGE_W - MARGIN*2) / 3.2);
     const decoY = contentTop + availH/2;
     const hSpread = DECO_S * 1.7;
@@ -1998,7 +1880,7 @@ function exportEntrySignSVG(){
     const positions = [
       {x: cx - hSpread, y: decoY - vSpread},
       {x: cx + hSpread, y: decoY - vSpread},
-      {x: cx,         y: decoY},
+      {x: cx,           y: decoY},
       {x: cx - hSpread, y: decoY + vSpread},
       {x: cx + hSpread, y: decoY + vSpread}
     ];
@@ -2007,7 +1889,14 @@ function exportEntrySignSVG(){
     });
   }
 
-  out += `</svg>`;
+  out += `
+  <!--
+    INKSCAPE / ILLUSTRATOR TIP:
+    Fonts are embedded as base64 data URIs — open directly.
+    If any glyph looks wrong, select all text and run:
+    Text > Convert to Paths (Inkscape) before printing.
+  -->
+  </svg>`;
 
   const blob = new Blob([out],{type:"image/svg+xml"});
   const a = document.createElement("a");
@@ -2015,18 +1904,22 @@ function exportEntrySignSVG(){
   const slug = currentMenuName().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
   a.download = "gratified-entry-" + (slug || "sign") + ".svg";
   a.click();
+
+  showToast(
+    anyEmbedFailed
+      ? "exported — some fonts may need installing for Inkscape"
+      : "exported with embedded fonts ✓ — opens in Inkscape print-ready",
+    5000
+  );
 }
 
-/* --------------------------- */
+/* ----------------------------------- */
 
-// module scope: expose handlers for the toolbar's onclick attributes
 window.addItem = addItem;
 window.del = del;
 
-render(); // show grid immediately
+render();
 
-// boot: load the tab index, open the first tab,
-// then hydrate that menu from Firebase
 (async ()=>{
   await loadIndex();
   currentMenuId = menuIndex[0].id;
@@ -2035,8 +1928,6 @@ render(); // show grid immediately
   render();
 })();
 
-// re-render once webfonts arrive so text wrapping
-// is measured with the real Bluu Next / Satoshi metrics
 if(document.fonts && document.fonts.ready){
   document.fonts.ready.then(render);
 }
