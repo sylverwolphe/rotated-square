@@ -599,8 +599,16 @@ const FONT_PRICE = "Satoshi, system-ui, sans-serif";
 const FONT_NAME  = "'Bluu Next', Georgia, serif";
 const FONT_NOTE  = "Satoshi, system-ui, sans-serif";
 
-const TAGLINE_TEXT = "hot or iced &#160;//&#160; dairy or oat";
+/* The "hot or iced // dairy or oat" line only belongs on drink
+   menus, so it's applied by name: any tab whose name contains
+   "drink" gets it, everything else (Food, etc.) exports with
+   just its title and no drink-related messaging. */
+const TAGLINE_DRINKS = "hot or iced &#160;//&#160; dairy or oat";
 const FOOTER_TEXT  = "prices include tax &#160;//&#160; suggested 50&#162; tip";
+
+function menuTagline(title){
+  return String(title || "").toLowerCase().includes("drink") ? TAGLINE_DRINKS : "";
+}
 
 const SIGN_FIND_US_LINE = "find us on the";
 const SIGN_LOCATION_LINE = "Lower Level";
@@ -859,12 +867,8 @@ function svgPoint(e){
 }
 
 /* ---------------------------
-   Diamond shape
-   The soft inner glow — a radial white gradient overlay — is
-   applied after the fill so each diamond feels lit from within
-   rather than flat. The gradient id "softFill" is defined in
-   <defs> by the render() function (live canvas) or inline in
-   the export SVG's own <defs>.
+   Diamond shape — flat solid fills throughout,
+   no gradient overlays.
 ----------------------------*/
 
 function diamond(x,y,s,fill,stroke){
@@ -916,8 +920,8 @@ function bigArrow(cx, cy, w, color){
   `;
 }
 
-/* diamondItem — solid fill + optional nibble band + soft white glow overlay.
-   The "softFill" gradient must be defined in defs before this markup is used. */
+/* diamondItem — flat solid fill + optional nibble band.
+   No gradient overlays: colours print exactly as picked. */
 function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand){
   const si = s*0.82;
   if(nibble){
@@ -933,10 +937,6 @@ function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand){
         points="${x},${y-si} ${x+si},${y} ${x},${y+si} ${x-si},${y}"
         fill="${fill}"
       />
-      <polygon
-        points="${x},${y-si} ${x+si},${y} ${x},${y+si} ${x-si},${y}"
-        fill="url(#softFill)"
-      />
     `;
   }
   return `
@@ -946,10 +946,6 @@ function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand){
       stroke="${stroke}"
       stroke-width="1.6"
       stroke-linejoin="round"
-    />
-    <polygon
-      points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
-      fill="url(#softFill)"
     />
   `;
 }
@@ -978,23 +974,13 @@ function renderItem(it){
 
 /* ---------------------------
    Render loop
-   Adds <defs> with the softFill gradient so diamonds glow
-   from within; also slightly crisper lattice dots at lattice
-   centres to make the background pattern read more on screen.
+   Flat fills; slightly crisper lattice dots at lattice
+   centres make the background pattern read more on screen.
 ----------------------------*/
 
 function render(){
 
-  /* softFill: a radial white gradient using objectBoundingBox so
-     it scales automatically to whichever size polygon it's applied to.
-     The result is a subtle "lit from within" sheen rather than a flat fill. */
-  let out = `<defs>
-    <radialGradient id="softFill" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
-      <stop offset="0%"   stop-color="white" stop-opacity="0.18"/>
-      <stop offset="60%"  stop-color="white" stop-opacity="0.06"/>
-      <stop offset="100%" stop-color="white" stop-opacity="0"/>
-    </radialGradient>
-  </defs>`;
+  let out = "";
 
   const w = svg.clientWidth || 800;
   const h = svg.clientHeight || 600;
@@ -1384,9 +1370,9 @@ window.addEventListener("resize", ()=>{ exportMenuEl.classList.remove("open"); }
 
 /* ---------------------------
    Export SVG — menu.
-   Auto-crops to your diamonds, adds the title, brand
-   background washes, and a richer dot+diamond lattice
-   across the whole sheet so it reads well when printed.
+   Auto-crops to your diamonds, adds the title on a flat
+   cream sheet (no gradient washes) with the dot+diamond
+   lattice across the whole page so it reads well printed.
 
    Fonts are embedded as base64 data URIs so Inkscape /
    Illustrator render Bluu Next and Satoshi correctly
@@ -1403,6 +1389,7 @@ async function exportMenuSVG(){
 
   const s = state.scale;
   const title = currentMenuName();
+  const tagline = menuTagline(title);
 
   let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
   for(const it of state.items){
@@ -1412,7 +1399,7 @@ async function exportMenuSVG(){
   }
 
   const pad = 48;
-  const headerH = 128;
+  const headerH = tagline ? 128 : 108;
   const footerH = 60;
   const x0 = minX - pad;
   const y0 = minY - pad - headerH;
@@ -1433,21 +1420,6 @@ async function exportMenuSVG(){
     <style><![CDATA[${fontStyle}]]></style>
 
     <defs>
-      <!-- soft white glow inside each diamond fill -->
-      <radialGradient id="softFill" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
-        <stop offset="0%"   stop-color="white" stop-opacity="0.18"/>
-        <stop offset="60%"  stop-color="white" stop-opacity="0.06"/>
-        <stop offset="100%" stop-color="white" stop-opacity="0"/>
-      </radialGradient>
-      <!-- colour washes for the cream background -->
-      <radialGradient id="washRed" cx="25%" cy="25%" r="60%">
-        <stop offset="0%"   stop-color="#722F37" stop-opacity="0.05"/>
-        <stop offset="100%" stop-color="#722F37" stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id="washOrange" cx="75%" cy="75%" r="60%">
-        <stop offset="0%"   stop-color="#CC5500" stop-opacity="0.04"/>
-        <stop offset="100%" stop-color="#CC5500" stop-opacity="0"/>
-      </radialGradient>
       <!-- repeating dot grid -->
       <pattern id="dotGrid" x="${x0 % DOT_SPACING}" y="${y0 % DOT_SPACING}"
         width="${DOT_SPACING}" height="${DOT_SPACING}" patternUnits="userSpaceOnUse">
@@ -1457,8 +1429,6 @@ async function exportMenuSVG(){
     </defs>
 
     <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#EDE8E0"/>
-    <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#washRed)"/>
-    <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#washOrange)"/>
     <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#dotGrid)"/>
   `;
 
@@ -1492,11 +1462,14 @@ async function exportMenuSVG(){
     <text x="${cx}" y="${titleY}" text-anchor="middle"
       font-size="32" font-weight="700" fill="#722F37"
       font-family="${FONT_NAME}" letter-spacing="3">${esc(title)}</text>
-
+  `;
+  if(tagline){
+    out += `
     <text x="${cx}" y="${titleY + 26}" text-anchor="middle"
       font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_NOTE}" letter-spacing="1.5">${TAGLINE_TEXT}</text>
+      font-family="${FONT_NOTE}" letter-spacing="1.5">${tagline}</text>
   `;
+  }
 
   const footY = maxY + pad + 28;
   out += `
@@ -1612,11 +1585,6 @@ async function exportRegularSignSVG(){
     <style><![CDATA[${fontStyle}]]></style>
 
     <defs>
-      <radialGradient id="softFill" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
-        <stop offset="0%"   stop-color="white" stop-opacity="0.18"/>
-        <stop offset="60%"  stop-color="white" stop-opacity="0.06"/>
-        <stop offset="100%" stop-color="white" stop-opacity="0"/>
-      </radialGradient>
       <radialGradient id="signGlow" cx="50%" cy="14%" r="55%">
         <stop offset="0%"   stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
         <stop offset="100%" stop-color="${SIGN_AMBER}" stop-opacity="0"/>
@@ -1753,11 +1721,6 @@ async function exportEntrySignSVG(){
   out += `
     <style><![CDATA[${fontStyle}]]></style>
     <defs>
-      <radialGradient id="softFill" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
-        <stop offset="0%"   stop-color="white" stop-opacity="0.18"/>
-        <stop offset="60%"  stop-color="white" stop-opacity="0.06"/>
-        <stop offset="100%" stop-color="white" stop-opacity="0"/>
-      </radialGradient>
       <radialGradient id="signGlow" cx="50%" cy="14%" r="55%">
         <stop offset="0%"   stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
         <stop offset="100%" stop-color="${SIGN_AMBER}" stop-opacity="0"/>
