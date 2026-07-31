@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Gratified — 24×36 Menu Designer</title>
+
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap" rel="stylesheet">
+<link href="https://fonts.cdnfonts.com/css/bluu-next" rel="stylesheet">
+
+<style>
+:root {
+  --deep-red: #722F37;
+  --bright-orange: #CC5500;
+  --warm-amber: #D2691E;
+  --olive-bronze: #6B5740;
+  --cream: #EDE8E0;
+  --charcoal: #3C3C3C;
+  --golden-sand: #E6C89C;
+  --dark-bg: #2A2424;
+
+  --font-name: 'Bluu Next', Georgia, serif;
+  --font-body: 'Satoshi', system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  height: 100%;
+  font-family: var(--font-body);
+  background: var(--dark-bg);
+  color: var(--cream);
+  overflow: hidden;
+}
+
+/* ─── Top Bar ─── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 50px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 16px;
+  background: var(--deep-red);
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+}
+
+#topbar .brand {
+  font-family: var(--font-name);
+  font-weight: 700; font-size: 18px;
+  letter-spacing: 3px;
+  color: var(--cream);
+  margin-right: 12px;
+}
+
+#topbar .sep {
+  width: 1px; height: 28px;
+  background: rgba(237,232,224,0.25);
+}
+
+/* Menu selector tabs */
+.menu-tabs {
+  display: flex; gap: 2px;
+  margin-right: 8px;
+}
+
+.menu-tab {
+  padding: 6px 16px;
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  border: 2px solid transparent;
+  background: rgba(237,232,224,0.12);
+  color: var(--cream);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.menu-tab:hover { background: rgba(237,232,224,0.22); }
+.menu-tab.active {
+  background: var(--cream);
+  color: var(--deep-red);
+  border-color: var(--golden-sand);
+}
+
+/* Inputs */
+.field-group {
+  display: flex; align-items: center; gap: 6px;
+}
+
+.field-group label {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--golden-sand);
+  opacity: 0.8;
+}
+
+#topbar input[type="text"] {
+  width: 140px; padding: 5px 8px;
+  font-size: 12px; font-family: var(--font-body);
+  border: 1.5px solid rgba(237,232,224,0.3);
+  border-radius: 3px;
+  background: rgba(0,0,0,0.25);
+  color: var(--cream);
+  outline: none;
+  transition: border-color 0.2s;
+}
+#topbar input[type="text"]:focus { border-color: var(--golden-sand); }
+#topbar input[type="text"]::placeholder { color: rgba(237,232,224,0.4); }
+
+#topbar input[type="color"] {
+  width: 28px; height: 28px;
+  padding: 2px; cursor: pointer;
+  border: 1.5px solid rgba(237,232,224,0.3);
+  border-radius: 3px;
+  background: transparent;
+}
+
+.check-label {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--golden-sand);
+  cursor: pointer;
+}
+.check-label input { accent-color: var(--bright-orange); cursor: pointer; }
+
+/* Buttons */
+.btn {
+  padding: 6px 14px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  border: 2px solid var(--golden-sand);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--golden-sand);
+  cursor: pointer;
+  transition: all 0.25s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--golden-sand); color: var(--deep-red); }
+.btn.primary { background: var(--golden-sand); color: var(--deep-red); }
+.btn.primary:hover { background: var(--cream); }
+.btn.danger { border-color: #c0392b; color: #e88; }
+.btn.danger:hover { background: #c0392b; color: #fff; }
+
+/* Zoom */
+.zoom-ctrl {
+  display: flex; align-items: center; gap: 4px;
+  margin-left: auto;
+}
+.zoom-ctrl .btn { padding: 5px 10px; font-size: 13px; }
+#zoomVal {
+  width: 42px; text-align: center;
+  font-size: 11px; font-weight: 600;
+  color: var(--golden-sand);
+}
+
+/* ─── Canvas Area ─── */
+#canvas-wrap {
+  position: absolute;
+  top: 50px; left: 0; right: 0; bottom: 0;
+  overflow: hidden;
+  background: var(--dark-bg);
+}
+
+#canvas-wrap svg {
+  width: 100%; height: 100%;
+  cursor: grab;
+}
+#canvas-wrap svg:active { cursor: grabbing; }
+.item text { pointer-events: none; user-select: none; }
+
+/* ─── Side Panel ─── */
+#sidepanel {
+  position: fixed; top: 50px; right: 0;
+  width: 260px; bottom: 0;
+  background: rgba(42,36,36,0.96);
+  border-left: 1px solid rgba(237,232,224,0.1);
+  padding: 16px;
+  overflow-y: auto;
+  z-index: 50;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+#sidepanel h3 {
+  margin: 0;
+  font-family: var(--font-name);
+  font-size: 14px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--golden-sand);
+}
+
+.sp-section {
+  display: flex; flex-direction: column; gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(237,232,224,0.08);
+}
+
+.sp-row { display: flex; gap: 6px; align-items: center; }
+.sp-row input[type="text"] {
+  flex: 1; padding: 6px 8px;
+  font-size: 12px; font-family: var(--font-body);
+  border: 1.5px solid rgba(237,232,224,0.2);
+  border-radius: 3px;
+  background: rgba(0,0,0,0.3);
+  color: var(--cream);
+  outline: none;
+}
+.sp-row input[type="text"]:focus { border-color: var(--golden-sand); }
+.sp-row input[type="text"]::placeholder { color: rgba(237,232,224,0.35); }
+
+.sp-row input[type="color"] {
+  width: 32px; height: 32px;
+  padding: 2px; cursor: pointer;
+  border: 1.5px solid rgba(237,232,224,0.2);
+  border-radius: 3px;
+  background: transparent;
+}
+
+/* Swatches */
+.swatch-row {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.swatch {
+  width: 22px; height: 22px;
+  transform: rotate(45deg);
+  cursor: pointer;
+  border: 2px solid rgba(237,232,224,0.2);
+  transition: all 0.2s;
+}
+.swatch:hover { transform: rotate(45deg) scale(1.2); border-color: var(--cream); }
+.swatch.active { border-color: var(--bright-orange); }
+
+/* Item list */
+#itemList {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 240px; overflow-y: auto;
+}
+.item-entry {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 11px;
+}
+.item-entry:hover { background: rgba(237,232,224,0.08); }
+.item-entry.selected { background: rgba(204,85,0,0.2); border-left: 3px solid var(--bright-orange); }
+.item-entry .swatch-mini {
+  width: 12px; height: 12px;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+.item-entry .item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-entry .item-price { color: var(--golden-sand); opacity: 0.7; }
+.item-entry .del-btn {
+  opacity: 0; cursor: pointer;
+  color: #e88; font-size: 14px;
+  transition: opacity 0.15s;
+}
+.item-entry:hover .del-btn { opacity: 0.7; }
+.item-entry .del-btn:hover { opacity: 1; }
+
+/* Export panel */
+.export-section { margin-top: auto; }
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--deep-red);
+  color: var(--cream);
+  padding: 10px 24px;
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 1px;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+  z-index: 200;
+}
+#toast.show { opacity: 1; }
+
+/* Info tooltip */
+.info-tip {
+  font-size: 10px; color: var(--golden-sand);
+  opacity: 0.6; line-height: 1.4;
+}
+</style>
+</head>
+<body>
+
+<!-- ─── Top Bar ─── -->
+<div id="topbar">
+  <span class="brand">Gratified</span>
+  <span class="sep"></span>
+
+  <div class="menu-tabs" id="menuTabs"></div>
+
+  <span class="sep"></span>
+
+  <div class="field-group">
+    <label>Item</label>
+    <input type="text" id="fName" placeholder="name"/>
+  </div>
+  <div class="field-group">
+    <label>Price</label>
+    <input type="text" id="fPrice" placeholder="$0"/>
+  </div>
+  <div class="field-group">
+    <label>Note</label>
+    <input type="text" id="fNote" placeholder="optional"/>
+  </div>
+  <input type="color" id="fColor" value="#E6C89C" title="item color"/>
+  <label class="check-label"><input type="checkbox" id="fNibble"/> Nibble</label>
+  <label class="check-label"><input type="checkbox" id="fSpecial"/> Special</label>
+
+  <button class="btn primary" id="btnAdd">+ Add</button>
+
+  <div class="zoom-ctrl">
+    <button class="btn" id="zoomOut">−</button>
+    <span id="zoomVal">100%</span>
+    <button class="btn" id="zoomIn">+</button>
+  </div>
+</div>
+
+<!-- ─── Canvas ─── -->
+<div id="canvas-wrap">
+  <svg id="svg"></svg>
+</div>
+
+<!-- ─── Side Panel ─── -->
+<div id="sidepanel">
+
+  <div class="sp-section">
+    <h3>Menu Settings</h3>
+    <div class="sp-row">
+      <input type="text" id="menuTitle" placeholder="Menu title" value="Drinks & Nibbles"/>
+    </div>
+    <div class="sp-row">
+      <input type="text" id="menuSubtitle" placeholder="Subtitle / tagline"/>
+    </div>
+    <div class="sp-row">
+      <input type="text" id="menuFooter" placeholder="Footer text" value="prices include tax"/>
+    </div>
+  </div>
+
+  <div class="sp-section">
+    <h3>Brand Colors</h3>
+    <div class="swatch-row" id="swatchRow"></div>
+  </div>
+
+  <div class="sp-section">
+    <h3>Items</h3>
+    <div id="itemList"></div>
+  </div>
+
+  <div class="sp-section export-section">
+    <h3>Export 24×36″ Print</h3>
+    <p class="info-tip">Exports SVG at 24×36 inches (1728×2592pt) with embedded fonts. Open in Inkscape/Illustrator, convert text to paths, then send to your magnetic printer.</p>
+    <div class="sp-row">
+      <button class="btn primary" id="btnExportA" style="flex:1">Export Menu A</button>
+      <button class="btn primary" id="btnExportB" style="flex:1">Export Menu B</button>
+    </div>
+    <div class="sp-row" style="margin-top:6px">
+      <button class="btn" id="btnExportBoth" style="flex:1">Export Both (ZIP)</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script type="module">
+
+/* ─── Config ─── */
+const FONT_NAME = "'Bluu Next', Georgia, serif";
+const FONT_BODY = "Satoshi, system-ui, sans-serif";
+
+const BRAND_COLORS = [
+  { name: "Deep Red",      hex: "#722F37" },
+  { name: "Bright Orange", hex: "#CC5500" },
+  { name: "Warm Amber",    hex: "#D2691E" },
+  { name: "Olive Bronze",  hex: "#6B5740" },
+  { name: "Golden Sand",   hex: "#E6C89C" },
+  { name: "Cream",         hex: "#EDE8E0" },
+  { name: "Charcoal",      hex: "#3C3C3C" },
+];
+
+/* 24×36 inches at 72 pt/in */
+const PAGE_W = 24 * 72;  /* 1728pt */
+const PAGE_H = 36 * 72;  /* 2592pt */
+const BLEED = 18;         /* 0.25" bleed */
+
+/* ─── State ─── */
+let menus = [
+  { id: "a", name: "Menu A", title: "Drinks & Nibbles", subtitle: "", footer: "prices include tax", items: [] },
+  { id: "b", name: "Menu B", title: "Food & Plates",    subtitle: "", footer: "prices include tax", items: [] },
+];
+let activeMenuId = "a";
+
+let viewState = {
+  scale: 32,
+  ox: 0, oy: 0,
+  dragging: false,
+  dragStart: null,
+  selected: null,
+};
+
+/* ─── DOM refs ─── */
+const svg = document.getElementById("svg");
+const fName   = document.getElementById("fName");
+const fPrice  = document.getElementById("fPrice");
+const fNote   = document.getElementById("fNote");
+const fColor  = document.getElementById("fColor");
+const fNibble = document.getElementById("fNibble");
+const fSpecial = document.getElementById("fSpecial");
+const menuTitle    = document.getElementById("menuTitle");
+const menuSubtitle = document.getElementById("menuSubtitle");
+const menuFooter   = document.getElementById("menuFooter");
+
+/* ─── Helpers ─── */
+function activeMenu() { return menus.find(m => m.id === activeMenuId); }
+
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function isDark(hex) {
+  const c = String(hex||"").replace("#","");
+  if (c.length !== 6) return false;
+  const r = parseInt(c.slice(0,2),16)/255;
+  const g = parseInt(c.slice(2,4),16)/255;
+  const b = parseInt(c.slice(4,6),16)/255;
+  return (0.2126*r + 0.7152*g + 0.0722*b) < 0.55;
+}
+
+function hexToRgb(h) {
+  const c = String(h||"").replace("#","");
+  return { r: parseInt(c.slice(0,2),16)||0, g: parseInt(c.slice(2,4),16)||0, b: parseInt(c.slice(4,6),16)||0 };
+}
+function rgbToHsl(r,g,b) {
+  r/=255; g/=255; b/=255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+  let h,s,l=(mx+mn)/2;
+  if(mx===mn){ h=s=0; } else {
+    const d=mx-mn;
+    s = l>0.5 ? d/(2-mx-mn) : d/(mx+mn);
+    if(mx===r) h=((g-b)/d+(g<b?6:0));
+    else if(mx===g) h=(b-r)/d+2;
+    else h=(r-g)/d+4;
+    h/=6;
+  }
+  return {h,s,l};
+}
+function hslToRgb(h,s,l) {
+  if(s===0) return {r:Math.round(l*255), g:Math.round(l*255), b:Math.round(l*255)};
+  const hue2rgb=(p,q,t)=>{ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; };
+  const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+  return { r:Math.round(hue2rgb(p,q,h+1/3)*255), g:Math.round(hue2rgb(p,q,h)*255), b:Math.round(hue2rgb(p,q,h-1/3)*255) };
+}
+function toHex2(n) { return Math.max(0,Math.min(255,n)).toString(16).padStart(2,"0"); }
+function deepen(hex, maxL) {
+  maxL = maxL ?? 0.30;
+  const {r,g,b} = hexToRgb(hex);
+  let {h,s,l} = rgbToHsl(r,g,b);
+  if(l > maxL) l = maxL;
+  s = Math.min(1, s*1.15);
+  const o = hslToRgb(h,s,l);
+  return "#"+toHex2(o.r)+toHex2(o.g)+toHex2(o.b);
+}
+
+/* Text measurement */
+const _ctx = document.createElement("canvas").getContext("2d");
+function tw(text, font) { _ctx.font = font; return _ctx.measureText(text).width; }
+
+function wrapText(text, font, maxW, maxLines) {
+  const words = String(text||"").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  let lines = [words.join(" ")];
+  for (let pass = 0; pass < 5; pass++) {
+    const out = []; let cur = "";
+    for (const w of words) {
+      const test = cur ? cur+" "+w : w;
+      if (cur && tw(test, font) > maxW) { out.push(cur); cur = w; }
+      else cur = test;
+    }
+    if (cur) out.push(cur);
+    if (out.length === lines.length && out.every((l,i)=>l===lines[i])) break;
+    lines = out;
+  }
+  if (maxLines && lines.length > maxLines) {
+    lines = lines.slice(0, maxLines-1).concat(lines.slice(maxLines-1).join(" "));
+  }
+  return lines;
+}
+
+function fitSize(text, weight, family, base, maxW) {
+  const w = tw(text, `${weight} ${base}px ${family}`);
+  return (!w || w <= maxW) ? base : Math.max(20, base * maxW / w);
+}
+
+/* ─── Diamond coord system ─── */
+function toScreen(gx, gy) {
+  const u = viewState.scale * 0.5;
+  return { x: gx * u + viewState.ox, y: gy * u + viewState.oy };
+}
+function toGrid(x, y) {
+  const u = viewState.scale * 0.5;
+  return { gx: Math.round((x - viewState.ox)/u), gy: Math.round((y - viewState.oy)/u) };
+}
+function isLattice(gx, gy) {
+  return gx%2===0 && gy%2===0 && ((gx+gy)/2)%2===0;
+}
+
+/* ─── Render (on-screen) ─── */
+function render() {
+  const W = svg.clientWidth || 800;
+  const H = svg.clientHeight || 600;
+  const s = viewState.scale;
+  const u = s * 0.5;
+
+  const gx0 = Math.floor(-viewState.ox/u)-2;
+  const gx1 = Math.ceil((W-viewState.ox)/u)+2;
+  const gy0 = Math.floor(-viewState.oy/u)-2;
+  const gy1 = Math.ceil((H-viewState.oy)/u)+2;
+
+  let out = "";
+
+  /* Grid */
+  if ((gx1-gx0)*(gy1-gy0) <= 30000) {
+    for (let gx=gx0; gx<=gx1; gx++) {
+      for (let gy=gy0; gy<=gy1; gy++) {
+        const p = toScreen(gx, gy);
+        if (isLattice(gx, gy)) {
+          out += `<polygon points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}" fill="none" stroke="rgba(237,232,224,0.06)" stroke-width="0.8"/>`;
+          out += `<circle cx="${p.x}" cy="${p.y}" r="1.5" fill="rgba(237,232,224,0.10)"/>`;
+        } else {
+          out += `<circle cx="${p.x}" cy="${p.y}" r="0.8" fill="rgba(237,232,224,0.05)"/>`;
+        }
+      }
+    }
+  }
+
+  /* Items */
+  const menu = activeMenu();
+  for (const it of menu.items) {
+    const p = toScreen(it.gx, it.gy);
+    const sel = viewState.selected === it;
+    out += renderItemOnScreen(it, p.x, p.y, s, sel);
+  }
+
+  svg.innerHTML = out;
+}
+
+function renderItemOnScreen(it, x, y, s, sel) {
+  const S = it.nibble ? s * 0.82 : s;
+  const stroke = sel ? "#CC5500" : "rgba(237,232,224,0.25)";
+  const sw = sel ? 2.5 : 1.2;
+  let g = `<g class="item" data-id="${it.id}">`;
+
+  if (it.nibble) {
+    const si = s * 0.82;
+    g += `<polygon points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}" fill="${it.color}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    g += `<polygon points="${x},${y-si} ${x+si},${y} ${x},${y+si} ${x-si},${y}" fill="rgba(42,36,36,0.6)"/>`;
+  } else {
+    g += `<polygon points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}" fill="${it.color}" stroke="${stroke}" stroke-width="${sw}"/>`;
+  }
+
+  /* Text */
+  const dark = isDark(it.color);
+  const nameCol = dark ? "#EDE8E0" : "#722F37";
+  const subCol  = dark ? "#E6C89C" : "#6B5740";
+  const nameFS = Math.max(8, 12 * (s/40));
+  const noteFS = Math.max(5, 7.5 * (s/40));
+  const priceFS = Math.max(5, 8 * (s/40));
+  const maxW = 2 * (S - 8);
+  const nameFont = `700 ${nameFS}px ${FONT_NAME}`;
+  const nameLines = wrapText(it.name, nameFont, maxW, 3);
+  const nN = nameLines.length;
+  const lh = nameFS * 1.1;
+
+  if (it.price) {
+    g += `<text x="${x}" y="${y - (nN-1)*lh/2 - nameFS*0.6}" text-anchor="middle" font-size="${priceFS}" font-weight="500" fill="${subCol}" opacity="0.8" font-family="${FONT_BODY}">${esc(it.price)}</text>`;
+  }
+  nameLines.forEach((ln, i) => {
+    g += `<text x="${x}" y="${y + (i-(nN-1)/2)*lh + nameFS*0.35}" text-anchor="middle" font-size="${nameFS}" font-weight="700" fill="${nameCol}" font-family="${FONT_NAME}">${esc(ln)}</text>`;
+  });
+  if (it.note) {
+    const noteY = y + (nN-1)*lh/2 + nameFS*0.5 + noteFS*1.2;
+    g += `<text x="${x}" y="${noteY}" text-anchor="middle" font-size="${noteFS}" font-weight="300" fill="${subCol}" opacity="0.75" font-family="${FONT_BODY}">${esc(it.note)}</text>`;
+  }
+
+  g += `</g>`;
+  return g;
+}
+
+/* ─── Interaction ─── */
+let draggingItem = null;
+let dragOff = {x:0, y:0};
+
+svg.addEventListener("mousedown", (e) => {
+  const g = e.target.closest?.("g");
+  const pt = { x: e.clientX - svg.getBoundingClientRect().left, y: e.clientY - svg.getBoundingClientRect().top };
+  if (g?.dataset.id) {
+    const it = activeMenu().items.find(x => x.id === g.dataset.id);
+    if (it) {
+      viewState.selected = it;
+      draggingItem = it;
+      const p = toScreen(it.gx, it.gy);
+      dragOff = { x: p.x - pt.x, y: p.y - pt.y };
+      populateFields(it);
+      render(); renderItemList();
+      return;
+    }
+  }
+  viewState.selected = null;
+  viewState.dragging = true;
+  viewState.dragStart = { x: e.clientX, y: e.clientY };
+  render(); renderItemList();
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (viewState.dragging && !draggingItem) {
+    viewState.ox += e.clientX - viewState.dragStart.x;
+    viewState.oy += e.clientY - viewState.dragStart.y;
+    viewState.dragStart = { x: e.clientX, y: e.clientY };
+    render();
+  }
+  if (draggingItem) {
+    const pt = { x: e.clientX - svg.getBoundingClientRect().left, y: e.clientY - svg.getBoundingClientRect().top };
+    const g = toGrid(pt.x + dragOff.x, pt.y + dragOff.y);
+    if (g.gx !== draggingItem.gx || g.gy !== draggingItem.gy) {
+      draggingItem.gx = g.gx; draggingItem.gy = g.gy;
+      render();
+    }
+  }
+});
+
+window.addEventListener("mouseup", () => {
+  viewState.dragging = false;
+  draggingItem = null;
+  saveLocal();
+});
+
+/* Zoom */
+const SCALE_MIN = 10, SCALE_MAX = 150, SCALE_BASE = 40;
+function setScale(sc) {
+  viewState.scale = Math.max(SCALE_MIN, Math.min(SCALE_MAX, sc));
+  document.getElementById("zoomVal").textContent = Math.round(viewState.scale/SCALE_BASE*100) + "%";
+  render();
+}
+document.getElementById("zoomOut").addEventListener("click", () => setScale(viewState.scale * 0.85));
+document.getElementById("zoomIn").addEventListener("click", () => setScale(viewState.scale * 1.15));
+svg.addEventListener("wheel", (e) => { e.preventDefault(); setScale(viewState.scale * (e.deltaY < 0 ? 1.1 : 0.9)); });
+
+/* ─── Fields ─── */
+function populateFields(it) {
+  fName.value = it.name || "";
+  fPrice.value = it.price || "";
+  fNote.value = it.note || "";
+  fColor.value = it.color || "#E6C89C";
+  fNibble.checked = !!it.nibble;
+  fSpecial.checked = !!it.special;
+}
+
+function syncSelected() {
+  const it = viewState.selected;
+  if (!it) return;
+  it.name = fName.value;
+  it.price = fPrice.value;
+  it.note = fNote.value;
+  it.color = fColor.value;
+  it.nibble = fNibble.checked;
+  it.special = fSpecial.checked;
+  render(); renderItemList(); saveLocal();
+}
+
+[fName, fPrice, fNote].forEach(el => el.addEventListener("input", syncSelected));
+fColor.addEventListener("input", syncSelected);
+fNibble.addEventListener("change", syncSelected);
+fSpecial.addEventListener("change", syncSelected);
+
+/* Menu settings */
+function syncMenuField() {
+  const m = activeMenu();
+  m.title = menuTitle.value;
+  m.subtitle = menuSubtitle.value;
+  m.footer = menuFooter.value;
+  saveLocal();
+}
+[menuTitle, menuSubtitle, menuFooter].forEach(el => el.addEventListener("input", syncMenuField));
+
+/* ─── Add / Delete ─── */
+document.getElementById("btnAdd").addEventListener("click", () => {
+  const c = toGrid((svg.clientWidth||800)/2, (svg.clientHeight||600)/2);
+  const it = {
+    id: crypto.randomUUID(),
+    gx: c.gx, gy: c.gy,
+    name: fName.value || "Item",
+    price: fPrice.value || "",
+    note: fNote.value || "",
+    color: fColor.value,
+    nibble: fNibble.checked,
+    special: fSpecial.checked,
+  };
+  activeMenu().items.push(it);
+  viewState.selected = it;
+  populateFields(it);
+  render(); renderItemList(); saveLocal();
+});
+
+function deleteItem(id) {
+  const m = activeMenu();
+  m.items = m.items.filter(x => x.id !== id);
+  if (viewState.selected?.id === id) viewState.selected = null;
+  render(); renderItemList(); saveLocal();
+}
+
+/* ─── Item List (side panel) ─── */
+function renderItemList() {
+  const el = document.getElementById("itemList");
+  const items = activeMenu().items;
+  if (!items.length) {
+    el.innerHTML = '<div class="info-tip" style="padding:8px 0">No items yet. Use the top bar to add.</div>';
+    return;
+  }
+  el.innerHTML = items.map(it => `
+    <div class="item-entry ${viewState.selected===it?'selected':''}" data-id="${it.id}">
+      <div class="swatch-mini" style="background:${it.color}"></div>
+      <span class="item-name">${esc(it.name||'Untitled')}</span>
+      <span class="item-price">${esc(it.price||'')}</span>
+      <span class="del-btn" data-del="${it.id}" title="delete">×</span>
+    </div>
+  `).join("");
+
+  el.querySelectorAll(".item-entry").forEach(row => {
+    row.addEventListener("click", (e) => {
+      if (e.target.dataset.del) { deleteItem(e.target.dataset.del); return; }
+      const it = activeMenu().items.find(x => x.id === row.dataset.id);
+      if (it) { viewState.selected = it; populateFields(it); render(); renderItemList(); }
+    });
+  });
+}
+
+/* ─── Swatches ─── */
+(function buildSwatches() {
+  const row = document.getElementById("swatchRow");
+  BRAND_COLORS.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "swatch";
+    el.style.background = c.hex;
+    el.title = c.name;
+    el.addEventListener("click", () => {
+      fColor.value = c.hex;
+      row.querySelectorAll(".swatch").forEach(s => s.classList.remove("active"));
+      el.classList.add("active");
+      syncSelected();
+    });
+    row.appendChild(el);
+  });
+})();
+
+/* ─── Menu Tabs ─── */
+function renderTabs() {
+  const el = document.getElementById("menuTabs");
+  el.innerHTML = menus.map(m => `
+    <div class="menu-tab ${m.id===activeMenuId?'active':''}" data-id="${m.id}">${esc(m.name)}</div>
+  `).join("");
+  el.querySelectorAll(".menu-tab").forEach(tab => {
+    tab.addEventListener("click", () => switchMenu(tab.dataset.id));
+    tab.addEventListener("dblclick", () => {
+      const name = prompt("Rename menu:", activeMenu().name);
+      if (name?.trim()) { activeMenu().name = name.trim(); renderTabs(); saveLocal(); }
+    });
+  });
+}
+
+function switchMenu(id) {
+  activeMenuId = id;
+  const m = activeMenu();
+  menuTitle.value = m.title || "";
+  menuSubtitle.value = m.subtitle || "";
+  menuFooter.value = m.footer || "";
+  viewState.selected = null;
+  renderTabs(); render(); renderItemList();
+}
+
+/* ─── Font embedding for export ─── */
+let _fontCache = null;
+async function embedFonts() {
+  if (_fontCache) return _fontCache;
+  const urls = [
+    "https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap",
+    "https://fonts.cdnfonts.com/css/bluu-next"
+  ];
+  let css = "";
+  let ok = true;
+  for (const u of urls) {
+    try {
+      const r = await fetch(u);
+      if (!r.ok) throw new Error(r.status);
+      let t = await r.text();
+      t = t.replace(/@import\s+url\([^)]+\)\s*;?\n?/g, "");
+      const matches = [...t.matchAll(/url\(["']?(https?:\/\/[^"')\s]+)["']?\)/g)];
+      for (const m of matches) {
+        try {
+          const fr = await fetch(m[1]);
+          const buf = await fr.arrayBuffer();
+          const ext = m[1].split(".").pop().split("?")[0].toLowerCase();
+          const mime = ext==="woff2"?"font/woff2":ext==="woff"?"font/woff":ext==="ttf"?"font/truetype":"font/opentype";
+          const b64 = "data:"+mime+";base64,"+btoa(String.fromCharCode(...new Uint8Array(buf)));
+          t = t.replace(new RegExp(m[1].replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"g"), b64);
+        } catch(e) { ok = false; }
+      }
+      css += t + "\n";
+    } catch(e) { ok = false; css += `@import url('${u}');\n`; }
+  }
+  _fontCache = { css, ok };
+  return _fontCache;
+}
+
+/* ─── Export 24×36 SVG ─── */
+async function exportMenuSVG(menuId) {
+  const menu = menus.find(m => m.id === menuId);
+  if (!menu) return;
+  if (!menu.items.length) { toast("Add items first!"); return; }
+
+  toast("Embedding fonts…");
+  const { css: fontStyle, ok: fontsOk } = await embedFonts();
+
+  const s = viewState.scale;
+  const u = s * 0.5;
+  const cx = PAGE_W / 2;
+
+  /* Compute content bounds */
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+  for (const it of menu.items) {
+    const p = toScreen(it.gx, it.gy);
+    minX = Math.min(minX, p.x - s); maxX = Math.max(maxX, p.x + s);
+    minY = Math.min(minY, p.y - s); maxY = Math.max(maxY, p.y + s);
+  }
+
+  const title = menu.title || menu.name;
+  const subtitle = menu.subtitle || "";
+  const footer = menu.footer || "";
+
+  /* Layout: title at top, items centered, footer at bottom */
+  const headerH = subtitle ? 160 : 130;
+  const footerH = 80;
+  const contentH = PAGE_H - headerH - footerH;
+  const contentW = PAGE_W - 120;
+
+  /* Scale items to fit */
+  const spanX = maxX - minX || 1;
+  const spanY = maxY - minY || 1;
+  const sW = contentW / (spanX / u + 2);
+  const sH = contentH / (spanY / u + 2);
+  const exportS = Math.max(20, Math.min(sW, sH, 280));
+  const exportU = exportS * 0.5;
+  const fontScale = Math.max(1, exportS / 80);
+
+  /* Center items */
+  const gxMid = (menu.items.reduce((a,it) => a+it.gx, 0) / menu.items.length);
+  const gyMid = (menu.items.reduce((a,it) => a+it.gy, 0) / menu.items.length);
+  const eox = cx - gxMid * exportU;
+  const eoy = headerH + (contentH - spanY*exportU/u)/2 + exportS - gyMid * exportU;
+  const eScreen = (gx, gy) => ({ x: gx*exportU + eox, y: gy*exportU + eoy });
+
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
+
+  out += `<style><![CDATA[${fontStyle}]]></style>`;
+
+  /* Defs */
+  out += `
+    <defs>
+      <pattern id="dotGrid" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
+        <circle cx="7" cy="7" r="0.8" fill="#722F37" opacity="0.10"/>
+      </pattern>
+    </defs>
+  `;
+
+  /* Background */
+  out += `<rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="#EDE8E0"/>`;
+  out += `<rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>`;
+
+  /* Bleed marks (crop marks) */
+  const bm = 12;
+  out += `
+    <g stroke="#722F37" stroke-width="0.5" opacity="0.4">
+      <line x1="${BLEED}" y1="0" x2="${BLEED}" y2="${bm}"/>
+      <line x1="0" y1="${BLEED}" x2="${bm}" y2="${BLEED}"/>
+      <line x1="${PAGE_W-BLEED}" y1="0" x2="${PAGE_W-BLEED}" y2="${bm}"/>
+      <line x1="${PAGE_W}" y1="${BLEED}" x2="${PAGE_W-bm}" y2="${BLEED}"/>
+      <line x1="${BLEED}" y1="${PAGE_H}" x2="${BLEED}" y2="${PAGE_H-bm}"/>
+      <line x1="0" y1="${PAGE_H-BLEED}" x2="${bm}" y2="${PAGE_H-BLEED}"/>
+      <line x1="${PAGE_W-BLEED}" y1="${PAGE_H}" x2="${PAGE_W-BLEED}" y2="${PAGE_H-bm}"/>
+      <line x1="${PAGE_W}" y1="${PAGE_H-BLEED}" x2="${PAGE_W-bm}" y2="${PAGE_H-BLEED}"/>
+    </g>
+  `;
+
+  /* Diamond lattice background */
+  {
+    const lgx0 = Math.floor((0-eox)/exportU)-1;
+    const lgx1 = Math.ceil((PAGE_W-eox)/exportU)+1;
+    const lgy0 = Math.floor((0-eoy)/exportU)-1;
+    const lgy1 = Math.ceil((PAGE_H-eoy)/exportU)+1;
+    if ((lgx1-lgx0)*(lgy1-lgy0) <= 60000) {
+      for (let gx=lgx0; gx<=lgx1; gx++) {
+        for (let gy=lgy0; gy<=lgy1; gy++) {
+          if (isLattice(gx,gy)) {
+            const p = eScreen(gx,gy);
+            out += `<polygon points="${p.x},${p.y-exportS} ${p.x+exportS},${p.y} ${p.x},${p.y+exportS} ${p.x-exportS},${p.y}" fill="none" stroke="#722F37" stroke-opacity="0.06" stroke-width="0.8"/>`;
+            out += `<circle cx="${p.x}" cy="${p.y}" r="2" fill="#722F37" fill-opacity="0.06"/>`;
+          }
+        }
+      }
+    }
+  }
+
+  /* Title */
+  const titleY = 90;
+  out += `<text x="${cx}" y="${titleY}" text-anchor="middle" font-size="48" font-weight="700" fill="#722F37" font-family="${FONT_NAME}" letter-spacing="4">${esc(title)}</text>`;
+  if (subtitle) {
+    out += `<text x="${cx}" y="${titleY+38}" text-anchor="middle" font-size="16" font-weight="300" fill="#6B5740" opacity="0.8" font-family="${FONT_BODY}" letter-spacing="2">${esc(subtitle)}</text>`;
+  }
+
+  /* Decorative line under header */
+  out += `<line x1="${cx-200}" y1="${headerH-20}" x2="${cx+200}" y2="${headerH-20}" stroke="#722F37" stroke-width="1.5" opacity="0.3"/>`;
+
+  /* Items */
+  for (const it of menu.items) {
+    const p = eScreen(it.gx, it.gy);
+    const S = it.nibble ? exportS*0.82 : exportS;
+
+    if (it.nibble) {
+      const si = exportS*0.82;
+      out += `<polygon points="${p.x},${p.y-exportS} ${p.x+exportS},${p.y} ${p.x},${p.y+exportS} ${p.x-exportS},${p.y}" fill="${it.color}" stroke="#722F37" stroke-width="1.5"/>`;
+      out += `<polygon points="${p.x},${p.y-si} ${p.x+si},${p.y} ${p.x},${p.y+si} ${p.x-si},${p.y}" fill="#722F37" fill-opacity="0.15"/>`;
+    } else {
+      out += `<polygon points="${p.x},${p.y-exportS} ${p.x+exportS},${p.y} ${p.x},${p.y+exportS} ${p.x-exportS},${p.y}" fill="${it.color}" stroke="#722F37" stroke-width="1.5"/>`;
+    }
+
+    /* Text */
+    const dark = isDark(it.color);
+    const nameCol = dark ? "#EDE8E0" : "#722F37";
+    const subCol  = dark ? "#E6C89C" : "#6B5740";
+    const nfs = Math.round(14 * fontScale);
+    const nlh = Math.round(15 * fontScale);
+    const pfs = Math.round(9.5 * fontScale);
+    const notefs = Math.round(9 * fontScale);
+    const notelh = Math.round(11 * fontScale);
+    const maxW = 2 * (S - 8*fontScale);
+    const nameFont = `700 ${nfs}px ${FONT_NAME}`;
+    const nameLines = wrapText(it.name, nameFont, maxW, 3);
+    const nN = nameLines.length;
+
+    if (it.price) {
+      out += `<text x="${p.x}" y="${p.y - (nN-1)*nlh/2 - nfs*0.6}" text-anchor="middle" font-size="${pfs}" font-weight="500" fill="${subCol}" opacity="0.85" font-family="${FONT_BODY}" letter-spacing="1">${esc(it.price)}</text>`;
+    }
+    nameLines.forEach((ln, i) => {
+      out += `<text x="${p.x}" y="${p.y + (i-(nN-1)/2)*nlh + nfs*0.35}" text-anchor="middle" font-size="${nfs}" font-weight="700" fill="${nameCol}" font-family="${FONT_NAME}">${esc(ln)}</text>`;
+    });
+    if (it.note) {
+      const noteFont = `300 ${notefs}px ${FONT_BODY}`;
+      const noteLines = wrapText(it.note, noteFont, maxW, 2);
+      noteLines.forEach((ln, i) => {
+        const ny = p.y + (nN-1)*nlh/2 + nfs*0.5 + notefs*1.2 + i*notelh;
+        out += `<text x="${p.x}" y="${ny}" text-anchor="middle" font-size="${notefs}" font-weight="300" fill="${subCol}" opacity="0.75" font-family="${FONT_BODY}">${esc(ln)}</text>`;
+      });
+    }
+  }
+
+  /* Footer */
+  if (footer) {
+    out += `<line x1="${cx-200}" y1="${PAGE_H-footerH+10}" x2="${cx+200}" y2="${PAGE_H-footerH+10}" stroke="#722F37" stroke-width="1.5" opacity="0.3"/>`;
+    out += `<text x="${cx}" y="${PAGE_H-36}" text-anchor="middle" font-size="14" font-weight="300" fill="#6B5740" opacity="0.75" font-family="${FONT_BODY}" letter-spacing="1.5">${esc(footer)}</text>`;
+  }
+
+  out += `
+  <!--
+    GRATIFIED — ${title}
+    24×36 inches (1728×2592 pt) + 0.25" bleed
+    Fonts embedded as base64. If glyphs look wrong,
+    select all text: Text > Convert to Paths (Inkscape).
+    Ready for magnetic printing.
+  -->
+  </svg>`;
+
+  /* Download */
+  const blob = new Blob([out], { type: "image/svg+xml" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  a.download = `gratified-${slug || menu.id}-24x36.svg`;
+  a.click();
+
+  toast(fontsOk ? "Exported with embedded fonts ✓" : "Exported — some fonts may need manual install");
+}
+
+/* ─── Export Both ─── */
+async function exportBoth() {
+  await exportMenuSVG("a");
+  setTimeout(() => exportMenuSVG("b"), 500);
+}
+
+/* ─── Toast ─── */
+let _tt;
+function toast(msg, ms) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(_tt);
+  _tt = setTimeout(() => el.classList.remove("show"), ms || 3500);
+}
+
+/* ─── Local Storage ─── */
+const STORE_KEY = "gratified-menu-v3";
+function saveLocal() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({ menus, activeMenuId, viewState: { scale: viewState.scale, ox: viewState.ox, oy: viewState.oy } }));
+  } catch(e) {}
+}
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d.menus?.length) menus = d.menus;
+    if (d.activeMenuId) activeMenuId = d.activeMenuId;
+    if (d.viewState) {
+      viewState.scale = d.viewState.scale || 32;
+      viewState.ox = d.viewState.ox || 0;
+      viewState.oy = d.viewState.oy || 0;
+    }
+  } catch(e) {}
+}
+
+/* ─── Button bindings ─── */
+document.getElementById("btnExportA").addEventListener("click", () => exportMenuSVG("a"));
+document.getElementById("btnExportB").addEventListener("click", () => exportMenuSVG("b"));
+document.getElementById("btnExportBoth").addEventListener("click", exportBoth);
+
+/* ─── Init ─── */
+loadLocal();
+const m = activeMenu();
+menuTitle.value = m.title || "";
+menuSubtitle.value = m.subtitle || "";
+menuFooter.value = m.footer || "";
+renderTabs();
+render();
+renderItemList();
+
+if (document.fonts?.ready) document.fonts.ready.then(render);
+window.addEventListener("resize", render);
+
+</script>
+</body>
+</html>
