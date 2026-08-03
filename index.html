@@ -1383,13 +1383,15 @@ window.addEventListener("resize", ()=>{ exportMenuEl.classList.remove("open"); }
 
 /* ---------------------------
    Export SVG — menu.
-   Always a fixed 24" x 36" portrait page (Arch D / standard
-   large-format poster), so every file that leaves this tool
-   is the same physical size no matter the zoom level or how
-   the diamonds are arranged. The item cluster auto-fits and
-   centres between the title block and the footer, and text,
-   borders, and the special pattern all scale with the
-   diamonds so the print matches the editor's 100% look.
+   Always a fixed 24" x 36" portrait sheet (Arch D poster).
+   The drawing itself is the classic export — your diamonds at
+   the editor's current zoom, the same text sizes, the same
+   wrapping you see on screen — and that whole design is then
+   uniformly scaled + centred to fill the sheet, with the
+   lattice background extended to the page edges. What prints
+   is exactly what you see in the editor, sized for the shop.
+   (Zoom is your text-density control: text size relative to
+   the diamonds matches your working zoom, like it always did.)
 
    Pass an override ({title, tagline}) to force a format —
    the "food menu" dropdown option uses this to export the
@@ -1411,47 +1413,43 @@ async function exportMenuSVG(override){
   const PT_PER_IN = 72;
   const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
   const PAGE_H = 36 * PT_PER_IN;   /* 36" tall — vertical */
-  const MARGIN = 96;
-  const cx = PAGE_W / 2;
+  const PAGE_MARGIN = 54;          /* 0.75" quiet zone on the sheet */
 
+  const s = state.scale;
   const title = (override && override.title) || currentMenuName();
   const tagline = (override && override.tagline !== undefined)
     ? override.tagline
     : menuTagline(title);
 
-  /* header + footer anchors */
-  const titleFS = fitSingleLine(title, 700, FONT_NAME, 104, PAGE_W - MARGIN*2 - 120);
-  const titleY = MARGIN + 130;
-  const taglineY = titleY + 64;
-  const footY = PAGE_H - MARGIN - 26;
-
-  /* band the diamonds live in */
-  const contentTop = (tagline ? taglineY : titleY) + 70;
-  const contentBottom = footY - 80;
-
-  /* fit + centre the item cluster in the band */
-  let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
+  /* ---- lay the design out in editor coordinates, exactly
+     like the classic auto-crop export ---- */
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
   for(const it of state.items){
-    gx0 = Math.min(gx0, it.gx); gx1 = Math.max(gx1, it.gx);
-    gy0 = Math.min(gy0, it.gy); gy1 = Math.max(gy1, it.gy);
+    const p = toScreen(it.gx,it.gy);
+    minX = Math.min(minX, p.x - s); maxX = Math.max(maxX, p.x + s);
+    minY = Math.min(minY, p.y - s); maxY = Math.max(maxY, p.y + s);
   }
-  const spanX = gx1 - gx0;
-  const spanY = gy1 - gy0;
-  const availW = PAGE_W - MARGIN*2;
-  const availH = contentBottom - contentTop;
-  const sW = availW / (spanX/2 + 2);
-  const sH = availH / (spanY/2 + 2);
-  const s = Math.max(24, Math.min(sW, sH, 320));
-  const u = s * 0.5;
-  const sox = cx - ((gx0 + gx1) / 2) * u;
-  const soy = (contentTop + contentBottom) / 2 - ((gy0 + gy1) / 2) * u;
-  const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
 
-  /* everything scales off the editor's 100% look (s = 40) */
-  const fontScale = s / SCALE_BASE;
-  const itemStroke = Math.max(1.6, s * 0.04);
-  const latticeStroke = Math.max(1, s * 0.022);
-  const latticeDot = Math.max(2, s * 0.05);
+  const pad = 48;
+  const headerH = tagline ? 128 : 108;
+  const footerH = 60;
+  const x0 = minX - pad;
+  const y0 = minY - pad - headerH;
+  const w  = (maxX - minX) + pad*2;
+  const h  = (maxY - minY) + pad*2 + headerH + footerH;
+  const cx = (minX + maxX)/2;
+
+  /* ---- uniform scale + centre onto the fixed sheet ---- */
+  const F = Math.min((PAGE_W - PAGE_MARGIN*2) / w, (PAGE_H - PAGE_MARGIN*2) / h);
+  const tx = (PAGE_W - w * F) / 2 - x0 * F;
+  const ty = (PAGE_H - h * F) / 2 - y0 * F;
+
+  /* editor-space region visible through the full sheet, so the
+     paper texture + lattice run edge to edge on the print */
+  const vx0 = (0 - tx) / F;
+  const vy0 = (0 - ty) / F;
+  const vw = PAGE_W / F;
+  const vh = PAGE_H / F;
 
   /* dot-grid pattern: a simple repeating 10×10 cell with a
      tiny dot at its centre. Small enough to be a background
@@ -1467,69 +1465,75 @@ async function exportMenuSVG(override){
 
     <defs>
       <!-- repeating dot grid -->
-      <pattern id="dotGrid" x="0" y="0"
+      <pattern id="dotGrid" x="${vx0 % DOT_SPACING}" y="${vy0 % DOT_SPACING}"
         width="${DOT_SPACING}" height="${DOT_SPACING}" patternUnits="userSpaceOnUse">
         <circle cx="${DOT_SPACING/2}" cy="${DOT_SPACING/2}" r="0.75"
           fill="#722F37" opacity="0.13"/>
       </pattern>
     </defs>
 
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="#EDE8E0"/>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
+    <g transform="translate(${tx},${ty}) scale(${F})">
+
+    <rect x="${vx0}" y="${vy0}" width="${vw}" height="${vh}" fill="#EDE8E0"/>
+    <rect x="${vx0}" y="${vy0}" width="${vw}" height="${vh}" fill="url(#dotGrid)"/>
   `;
 
-  /* diamond lattice across the whole page, aligned to the items,
-     slightly bolder so it reads through the dot grid on a
-     physical print */
+  /* diamond lattice — slightly bolder than on screen (0.08 vs 0.05)
+     so it reads through the dot grid on a physical print */
   {
-    const lgx0 = Math.floor((0 - sox)/u) - 1;
-    const lgx1 = Math.ceil((PAGE_W - sox)/u) + 1;
-    const lgy0 = Math.floor((0 - soy)/u) - 1;
-    const lgy1 = Math.ceil((PAGE_H - soy)/u) + 1;
+    const u = s * 0.5;
+    const lgx0 = Math.floor((vx0 - state.ox)/u) - 1;
+    const lgx1 = Math.ceil((vx0 + vw - state.ox)/u) + 1;
+    const lgy0 = Math.floor((vy0 - state.oy)/u) - 1;
+    const lgy1 = Math.ceil((vy0 + vh - state.oy)/u) + 1;
     if((lgx1-lgx0)*(lgy1-lgy0) <= 60000){
       for(let gx=lgx0; gx<=lgx1; gx++){
         for(let gy=lgy0; gy<=lgy1; gy++){
           if(isLatticeCentre(gx,gy)){
-            const p = sToScreen(gx,gy);
+            const p = toScreen(gx,gy);
             out += `
               <polygon
                 points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
-                fill="none" stroke="#722F37" stroke-opacity="0.08" stroke-width="${latticeStroke}"
+                fill="none" stroke="#722F37" stroke-opacity="0.08" stroke-width="1"
               />
-              <circle cx="${p.x}" cy="${p.y}" r="${latticeDot}" fill="#722F37" fill-opacity="0.08"/>`;
+              <circle cx="${p.x}" cy="${p.y}" r="2" fill="#722F37" fill-opacity="0.08"/>`;
           }
         }
       }
     }
   }
 
+  const titleFS = fitSingleLine(title, 700, FONT_NAME, 32, w - 80);
+  const titleY = y0 + 78;
   out += `
     <text x="${cx}" y="${titleY}" text-anchor="middle"
       font-size="${titleFS}" font-weight="700" fill="#722F37"
-      font-family="${FONT_NAME}" letter-spacing="6">${esc(title)}</text>
+      font-family="${FONT_NAME}" letter-spacing="3">${esc(title)}</text>
   `;
   if(tagline){
     out += `
-    <text x="${cx}" y="${taglineY}" text-anchor="middle"
-      font-size="30" font-weight="300" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_NOTE}" letter-spacing="4">${tagline}</text>
+    <text x="${cx}" y="${titleY + 26}" text-anchor="middle"
+      font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
+      font-family="${FONT_NOTE}" letter-spacing="1.5">${tagline}</text>
   `;
   }
 
+  const footY = maxY + pad + 28;
   out += `
     <text x="${cx}" y="${footY}" text-anchor="middle"
-      font-size="28" font-weight="300" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_NOTE}" letter-spacing="4">${FOOTER_TEXT}</text>
+      font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
+      font-family="${FONT_NOTE}" letter-spacing="1.5">${FOOTER_TEXT}</text>
   `;
 
   for(const it of state.items){
-    const p = sToScreen(it.gx,it.gy);
-    out += diamondItem(p.x, p.y, s, it.color, "#722F37", it.nibble, undefined, itemStroke);
-    out += specialPattern(it, p.x, p.y, s, fontScale);
-    out += itemTexts(it, p.x, p.y, s, fontScale);
+    const p = toScreen(it.gx,it.gy);
+    out += diamondItem(p.x, p.y, s, it.color, "#722F37", it.nibble);
+    out += specialPattern(it, p.x, p.y, s);
+    out += itemTexts(it, p.x, p.y, s);
   }
 
   out += `
+    </g>
   <!--
     PRINT: 24in x 36in portrait (Arch D). Fonts (Satoshi + Bluu Next)
     are embedded as base64 data URIs above, so you should not need
@@ -1622,7 +1626,7 @@ async function exportRegularSignSVG(){
 
   const TEXT_REF_SCALE = 100;
   const fontScale = Math.max(1, s / TEXT_REF_SCALE);
-  const itemStroke = Math.max(2, s * 0.03);
+  const itemStroke = 1.6 * K;
   const sectionLabelSize = fitSingleLine(title, 700, FONT_NAME, Math.round(26*K), PAGE_W - MARGIN*2 - Math.round(60*K));
   const B = Math.round(40*K);
 
@@ -1658,8 +1662,8 @@ async function exportRegularSignSVG(){
     const lgx1 = Math.ceil((PAGE_W - sox)/u) + 1;
     const lgy0 = Math.floor((0 - soy)/u) - 1;
     const lgy1 = Math.ceil((PAGE_H - soy)/u) + 1;
-    const latticeStroke = Math.max(1, s * 0.012);
-    const latticeDot = Math.max(2, s * 0.03);
+    const latticeStroke = 1 * K;
+    const latticeDot = 2 * K;
     if((lgx1-lgx0)*(lgy1-lgy0) <= 60000){
       for(let gx=lgx0; gx<=lgx1; gx++){
         for(let gy=lgy0; gy<=lgy1; gy++){
@@ -1705,7 +1709,7 @@ async function exportRegularSignSVG(){
   for(const it of state.items){
     const p = sToScreen(it.gx, it.gy);
     out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER, itemStroke);
-    out += specialPattern(it, p.x, p.y, s, fontScale);
+    out += specialPattern(it, p.x, p.y, s, K);
     const deepColor = deepenColor(it.color);
     out += itemTexts(it, p.x, p.y, s, fontScale, { nameCol: deepColor, subCol: deepColor, subOp: 0.7 });
   }
@@ -1865,12 +1869,12 @@ async function exportEntrySignSVG(){
     const soy = contentTop + s - gy0 * u;
     const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
     const fontScale = Math.max(1, s / 100);
-    const itemStroke = Math.max(2, s * 0.03);
+    const itemStroke = 1.6 * K;
 
     for(const it of state.items){
       const p = sToScreen(it.gx, it.gy);
       out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER, itemStroke);
-      out += specialPattern(it, p.x, p.y, s, fontScale);
+      out += specialPattern(it, p.x, p.y, s, K);
       const nameFS = Math.round(NAME_FS * fontScale * 1.3);
       const nameLH = Math.round(NAME_LH * fontScale * 1.3);
       const nameFont = `700 ${nameFS}px ${FONT_NAME}`;
@@ -1899,7 +1903,7 @@ async function exportEntrySignSVG(){
       {x: cx + hSpread, y: decoY + vSpread}
     ];
     positions.forEach(pos => {
-      out += diamondItem(pos.x, pos.y, DECO_S, SIGN_PARCHMENT, SIGN_AMBER, false, undefined, Math.max(2, DECO_S * 0.03));
+      out += diamondItem(pos.x, pos.y, DECO_S, SIGN_PARCHMENT, SIGN_AMBER, false, undefined, 1.6 * K);
     });
   }
 
