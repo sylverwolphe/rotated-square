@@ -9,6 +9,9 @@
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap" rel="stylesheet">
 <link href="https://fonts.cdnfonts.com/css/bluu-next" rel="stylesheet">
 
+<!-- jsPDF — used for the print-ready PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <style>
 :root{
   /* Gratified design tokens */
@@ -368,8 +371,11 @@ svg:active{ cursor:grabbing; }
   <div class="dropdown" id="exportDropdown">
     <button id="exportToggle" type="button">export ▾</button>
     <div class="dropdown-menu" id="exportMenu">
+      <div class="dropdown-item" data-action="menu-pdf">menu 24"x36" (pdf)</div>
       <div class="dropdown-item" data-action="menu">menu 24"x36" (svg)</div>
+      <div class="dropdown-item" data-action="food-pdf">food menu 24"x36" (pdf)</div>
       <div class="dropdown-item" data-action="food">food menu 24"x36" (svg)</div>
+      <div class="dropdown-item" data-action="sign-pdf">sign 24"x36" (pdf)</div>
       <div class="dropdown-item" data-action="sign">sign 24"x36" (svg)</div>
     </div>
   </div>
@@ -817,12 +823,12 @@ function glyphBeet(x,y,rot,k){
 }
 
 function glyphSunflower(x,y,k){
+  /* diamond petals — no circles allowed, even on the flowers */
   let out = `<g transform="translate(${x},${y}) scale(${k || 1})">`;
   for(let a = 0; a < 360; a += 45){
-    const r = a * Math.PI / 180;
-    out += `<circle cx="${Math.cos(r)*4}" cy="${Math.sin(r)*4}" r="1.6" fill="#E6B84C"/>`;
+    out += `<g transform="rotate(${a})"><polygon points="2.4,0 4,-1.6 5.6,0 4,1.6" fill="#E6B84C"/></g>`;
   }
-  return out + `<circle cx="0" cy="0" r="2.2" fill="#6B4A1E"/></g>`;
+  return out + `<polygon points="0,-2.2 2.2,0 0,2.2 -2.2,0" fill="#6B4A1E"/></g>`;
 }
 
 function specialPattern(it, x, y, s, k){
@@ -890,6 +896,12 @@ function diamond(x,y,s,fill,stroke){
   `;
 }
 
+/* tiny diamond "dot" — the strict Gratified no-circles policy
+   applies all the way down to the background texture :) */
+function dotDiamond(x, y, r, fill, opacity){
+  return `<polygon points="${x},${y-r} ${x+r},${y} ${x},${y+r} ${x-r},${y}" fill="${fill}"${opacity !== undefined ? ` fill-opacity="${opacity}"` : ""}/>`;
+}
+
 function logoDiamond(cx, cy, D, color){
   const inset = D * 0.15;
   const rs = D * 0.7;
@@ -909,7 +921,7 @@ function downChevron(cx, cy, w, color, sw){
   const hw = w/2, h = w*0.55;
   return `
     <polyline points="${cx-hw},${cy-h/2} ${cx},${cy+h/2} ${cx+hw},${cy-h/2}"
-      fill="none" stroke="${color}" stroke-width="${sw || 3.5}" stroke-linecap="round" stroke-linejoin="round"/>
+      fill="none" stroke="${color}" stroke-width="${sw || 3.5}" stroke-linecap="square" stroke-linejoin="miter"/>
   `;
 }
 
@@ -920,10 +932,9 @@ function bigArrow(cx, cy, w, color){
   const shaftH = w * 1.1;
   const totalH = shaftH + headH;
   const top = cy - totalH/2;
-  const shaftR = Math.max(2, shaftW * 0.15);
   return `
     <g>
-      <rect x="${cx - shaftW/2}" y="${top}" width="${shaftW}" height="${shaftH}" rx="${shaftR}" fill="${color}"/>
+      <rect x="${cx - shaftW/2}" y="${top}" width="${shaftW}" height="${shaftH}" fill="${color}"/>
       <polygon points="${cx},${top + totalH} ${cx - headW/2},${top + shaftH} ${cx + headW/2},${top + shaftH}" fill="${color}"/>
     </g>
   `;
@@ -1015,9 +1026,11 @@ function render(){
           out += diamond(p.x,p.y,s,"none","rgba(114, 47, 55, 0.10)");
         }
         if(showDots){
-          /* slightly larger dot at lattice centres for a more legible grid */
+          /* slightly larger diamond dot at lattice centres for a
+             more legible grid (sized up a touch vs the old round
+             dots so they carry the same visual weight) */
           const isLC = isLatticeCentre(gx,gy);
-          out += `<circle cx="${p.x}" cy="${p.y}" r="${isLC ? 1.8 : 1.1}" fill="rgba(114, 47, 55, ${isLC ? 0.18 : 0.12})"/>`;
+          out += dotDiamond(p.x, p.y, isLC ? 2.1 : 1.3, `rgba(114, 47, 55, ${isLC ? 0.18 : 0.12})`);
         }
       }
     }
@@ -1374,15 +1387,95 @@ exportMenuEl.addEventListener("click", (e)=>{
   if(!opt) return;
   exportMenuEl.classList.remove("open");
   if(opt.dataset.action === "menu") exportMenuSVG();
+  else if(opt.dataset.action === "menu-pdf") exportMenuPDF();
   else if(opt.dataset.action === "food") exportMenuSVG({ title: "Food", tagline: TAGLINE_FOOD });
+  else if(opt.dataset.action === "food-pdf") exportMenuPDF({ title: "Food", tagline: TAGLINE_FOOD });
   else if(opt.dataset.action === "sign") exportSignSVG();
+  else if(opt.dataset.action === "sign-pdf") exportSignPDF();
 });
 
 document.addEventListener("click", ()=>{ exportMenuEl.classList.remove("open"); });
 window.addEventListener("resize", ()=>{ exportMenuEl.classList.remove("open"); });
 
 /* ---------------------------
-   Export SVG — menu.
+   Shared export helpers — SVG download, browser-side
+   rasterisation, and print-PDF wrapping.
+
+   Why the PDF exists: web browsers honour the base64 webfonts
+   embedded in the SVG, but Inkscape / Illustrator / print RIP
+   software mostly ignore SVG @font-face — so the SVG loses
+   Bluu Next + Satoshi anywhere outside a browser. The PDF is
+   rendered BY the browser (which draws the fonts perfectly),
+   rasterised at print resolution onto a true 24" x 36" page.
+   It looks identical everywhere and any commercial printer can
+   run it as-is. Keep the SVG alongside as the editable master.
+----------------------------*/
+
+function downloadBlob(text, filename, mime){
+  const blob = new Blob([text], { type: mime });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function rasterizeSVG(svgText, wIn, hIn, dpi){
+  return new Promise((resolve, reject)=>{
+    const blob = new Blob([svgText], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = ()=>{
+      /* brief settle so the data-URI fonts inside the SVG apply */
+      setTimeout(()=>{
+        try{
+          const w = Math.round(wIn * dpi), h = Math.round(hIn * dpi);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if(!ctx) throw new Error("no 2d context");
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+          URL.revokeObjectURL(url);
+          resolve(dataUrl);
+        }catch(err){
+          URL.revokeObjectURL(url);
+          reject(err);
+        }
+      }, 300);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("SVG could not be rasterised")); };
+    img.src = url;
+  });
+}
+
+async function svgToPdfDownload(svgText, filename){
+  const lib = window.jspdf;
+  if(!lib || !lib.jsPDF){
+    alert("The PDF library didn't load — check your internet connection and reload, or use the SVG export.");
+    return false;
+  }
+  showToast("rendering print pdf… a few seconds", 20000);
+  let dataUrl = null, usedDpi = 0;
+  for(const dpi of [200, 150, 100]){
+    try{ dataUrl = await rasterizeSVG(svgText, 24, 36, dpi); usedDpi = dpi; break; }
+    catch(err){ console.warn("rasterise at " + dpi + "dpi failed:", err); }
+  }
+  if(!dataUrl){
+    alert("Couldn't render the PDF on this machine — the SVG export still works.");
+    return false;
+  }
+  const pdf = new lib.jsPDF({ orientation: "portrait", unit: "in", format: [24, 36], compress: true });
+  pdf.addImage(dataUrl, "JPEG", 0, 0, 24, 36);
+  pdf.save(filename);
+  showToast(`exported 24"x36" pdf \u2713 \u2014 ${usedDpi}dpi, fonts baked in, printer-ready`, 5000);
+  return true;
+}
+
+const SVG_EXPORT_TOAST_OK = "exported 24\"x36\" svg \u2713 \u2014 editable master (send the pdf to print)";
+const SVG_EXPORT_TOAST_WARN = "exported 24\"x36\" svg \u2014 fonts only render in browsers; use the pdf for print";
+
+/* ---------------------------
+   Build SVG — menu.
    Always a fixed 24" x 36" portrait sheet (Arch D poster).
    The drawing itself is the classic export — your diamonds at
    the editor's current zoom, the same text sizes, the same
@@ -1394,17 +1487,16 @@ window.addEventListener("resize", ()=>{ exportMenuEl.classList.remove("open"); }
    the diamonds matches your working zoom, like it always did.)
 
    Pass an override ({title, tagline}) to force a format —
-   the "food menu" dropdown option uses this to export the
+   the "food menu" dropdown options use this to export the
    current tab with the Food title + tagline.
 
-   Fonts are embedded as base64 data URIs so Inkscape /
-   Illustrator render Bluu Next and Satoshi correctly
-   without needing the fonts installed on the host machine.
+   Fonts are embedded as base64 data URIs so browsers render
+   Bluu Next and Satoshi correctly wherever the file opens.
 ----------------------------*/
 
-async function exportMenuSVG(override){
+async function buildMenuSVG(override){
 
-  if(!state.items.length){ alert("Add some menu items first :)"); return; }
+  if(!state.items.length){ alert("Add some menu items first :)"); return null; }
 
   showToast("embedding fonts for print… one moment", 12000);
 
@@ -1451,8 +1543,8 @@ async function exportMenuSVG(override){
   const vw = PAGE_W / F;
   const vh = PAGE_H / F;
 
-  /* dot-grid pattern: a simple repeating 10×10 cell with a
-     tiny dot at its centre. Small enough to be a background
+  /* dot-grid pattern: a simple repeating 10×10 cell with a tiny
+     diamond at its centre. Small enough to be a background
      texture rather than a design element, combined with the
      diamond lattice it gives the print a deliberate paper-menu
      feel rather than a flat computer printout. */
@@ -1464,11 +1556,10 @@ async function exportMenuSVG(override){
     <style><![CDATA[${fontStyle}]]></style>
 
     <defs>
-      <!-- repeating dot grid -->
+      <!-- repeating diamond-dot grid -->
       <pattern id="dotGrid" x="${vx0 % DOT_SPACING}" y="${vy0 % DOT_SPACING}"
         width="${DOT_SPACING}" height="${DOT_SPACING}" patternUnits="userSpaceOnUse">
-        <circle cx="${DOT_SPACING/2}" cy="${DOT_SPACING/2}" r="0.75"
-          fill="#722F37" opacity="0.13"/>
+        ${dotDiamond(DOT_SPACING/2, DOT_SPACING/2, 0.85, "#722F37", 0.13)}
       </pattern>
     </defs>
 
@@ -1496,7 +1587,7 @@ async function exportMenuSVG(override){
                 points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
                 fill="none" stroke="#722F37" stroke-opacity="0.08" stroke-width="1"
               />
-              <circle cx="${p.x}" cy="${p.y}" r="2" fill="#722F37" fill-opacity="0.08"/>`;
+              ${dotDiamond(p.x, p.y, 2.3, "#722F37", 0.08)}`;
           }
         }
       }
@@ -1535,41 +1626,56 @@ async function exportMenuSVG(override){
   out += `
     </g>
   <!--
-    PRINT: 24in x 36in portrait (Arch D). Fonts (Satoshi + Bluu Next)
-    are embedded as base64 data URIs above, so you should not need
-    them installed. If glyphs still appear wrong, select all text in
-    Inkscape and run: Text > Convert to Paths
-    (or Path > Object to Path) before exporting to PDF for print.
+    PRINT: 24in x 36in portrait (Arch D).
+    NOTE: browsers honour the embedded webfonts in this file, but
+    Inkscape / Illustrator mostly ignore SVG @font-face — for
+    commercial printing use the matching PDF export (fonts baked
+    in). If you must print from this SVG via Inkscape, select all
+    text and run Text > Convert to Paths first.
   -->
   </svg>`;
 
-  const blob = new Blob([out],{type:"image/svg+xml"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  a.download = "gratified-" + (slug || "menu") + "-24x36.svg";
-  a.click();
+  return { out, fileBase: "gratified-" + (slug || "menu") + "-24x36", anyEmbedFailed };
+}
 
-  showToast(
-    anyEmbedFailed
-      ? "exported 24\"x36\" — some fonts may need installing for Inkscape"
-      : "exported 24\"x36\" with embedded fonts ✓ — print-ready",
-    5000
-  );
+async function exportMenuSVG(override){
+  const r = await buildMenuSVG(override);
+  if(!r) return;
+  downloadBlob(r.out, r.fileBase + ".svg", "image/svg+xml");
+  showToast(r.anyEmbedFailed ? SVG_EXPORT_TOAST_WARN : SVG_EXPORT_TOAST_OK, 5000);
+}
+
+async function exportMenuPDF(override){
+  const r = await buildMenuSVG(override);
+  if(!r) return;
+  await svgToPdfDownload(r.out, r.fileBase + ".pdf");
 }
 
 /* ---------------------------
-   Export SVG — 24"x36" sign.
+   Build SVG — 24"x36" sign.
 ----------------------------*/
 
-async function exportSignSVG(){
+async function buildSignSVG(){
   const isEntry = currentMenuName().toLowerCase().includes("entry");
-  if(!state.items.length && !isEntry){ alert("Add some menu items first :)"); return; }
-  if(isEntry){ await exportEntrySignSVG(); return; }
-  await exportRegularSignSVG();
+  if(!state.items.length && !isEntry){ alert("Add some menu items first :)"); return null; }
+  return isEntry ? await buildEntrySignSVG() : await buildRegularSignSVG();
 }
 
-async function exportRegularSignSVG(){
+async function exportSignSVG(){
+  const r = await buildSignSVG();
+  if(!r) return;
+  downloadBlob(r.out, r.fileBase + ".svg", "image/svg+xml");
+  showToast(r.anyEmbedFailed ? SVG_EXPORT_TOAST_WARN : SVG_EXPORT_TOAST_OK, 5000);
+}
+
+async function exportSignPDF(){
+  const r = await buildSignSVG();
+  if(!r) return;
+  await svgToPdfDownload(r.out, r.fileBase + ".pdf");
+}
+
+async function buildRegularSignSVG(){
 
   showToast("embedding fonts for print… one moment", 12000);
   const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
@@ -1645,7 +1751,7 @@ async function exportRegularSignSVG(){
         <stop offset="100%" stop-color="#000000" stop-opacity="0.18"/>
       </radialGradient>
       <pattern id="dotGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
-        <circle cx="5" cy="5" r="0.65" fill="${SIGN_PARCHMENT}" opacity="0.12"/>
+        ${dotDiamond(5, 5, 0.75, SIGN_PARCHMENT, 0.12)}
       </pattern>
     </defs>
 
@@ -1663,7 +1769,7 @@ async function exportRegularSignSVG(){
     const lgy0 = Math.floor((0 - soy)/u) - 1;
     const lgy1 = Math.ceil((PAGE_H - soy)/u) + 1;
     const latticeStroke = 1 * K;
-    const latticeDot = 2 * K;
+    const latticeDot = 2.3 * K;
     if((lgx1-lgx0)*(lgy1-lgy0) <= 60000){
       for(let gx=lgx0; gx<=lgx1; gx++){
         for(let gy=lgy0; gy<=lgy1; gy++){
@@ -1674,7 +1780,7 @@ async function exportRegularSignSVG(){
                 points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
                 fill="none" stroke="${SIGN_PARCHMENT}" stroke-opacity="0.07" stroke-width="${latticeStroke}"
               />
-              <circle cx="${p.x}" cy="${p.y}" r="${latticeDot}" fill="${SIGN_PARCHMENT}" fill-opacity="0.07"/>`;
+              ${dotDiamond(p.x, p.y, latticeDot, SIGN_PARCHMENT, 0.07)}`;
           }
         }
       }
@@ -1732,32 +1838,24 @@ async function exportRegularSignSVG(){
 
   out += `
   <!--
-    PRINT: 24in x 36in portrait (Arch D). Fonts are embedded as base64
-    data URIs — open directly. If any glyph looks wrong, select all
-    text and run: Text > Convert to Paths (Inkscape) before printing.
+    PRINT: 24in x 36in portrait (Arch D).
+    NOTE: browsers honour the embedded webfonts in this file, but
+    Inkscape / Illustrator mostly ignore SVG @font-face — for
+    commercial printing use the matching PDF export (fonts baked
+    in). If you must print from this SVG via Inkscape, select all
+    text and run Text > Convert to Paths first.
   -->
   </svg>`;
 
-  const blob = new Blob([out],{type:"image/svg+xml"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  a.download = "gratified-sign-" + (slug || "menu") + "-24x36.svg";
-  a.click();
-
-  showToast(
-    anyEmbedFailed
-      ? "exported 24\"x36\" — some fonts may need installing for Inkscape"
-      : "exported 24\"x36\" with embedded fonts ✓ — print-ready",
-    5000
-  );
+  return { out, fileBase: "gratified-sign-" + (slug || "menu") + "-24x36", anyEmbedFailed };
 }
 
 /* ---------------------------
-   Export SVG — 24"x36" Entry / Wayfinding Sign.
+   Build SVG — 24"x36" Entry / Wayfinding Sign.
 ----------------------------*/
 
-async function exportEntrySignSVG(){
+async function buildEntrySignSVG(){
 
   showToast("embedding fonts for print… one moment", 12000);
   const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
@@ -1784,7 +1882,7 @@ async function exportEntrySignSVG(){
         <stop offset="100%" stop-color="#000000" stop-opacity="0.18"/>
       </radialGradient>
       <pattern id="dotGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
-        <circle cx="5" cy="5" r="0.65" fill="${SIGN_PARCHMENT}" opacity="0.12"/>
+        ${dotDiamond(5, 5, 0.75, SIGN_PARCHMENT, 0.12)}
       </pattern>
     </defs>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${SIGN_BG}"/>
@@ -1909,25 +2007,17 @@ async function exportEntrySignSVG(){
 
   out += `
   <!--
-    PRINT: 24in x 36in portrait (Arch D). Fonts are embedded as base64
-    data URIs — open directly. If any glyph looks wrong, select all
-    text and run: Text > Convert to Paths (Inkscape) before printing.
+    PRINT: 24in x 36in portrait (Arch D).
+    NOTE: browsers honour the embedded webfonts in this file, but
+    Inkscape / Illustrator mostly ignore SVG @font-face — for
+    commercial printing use the matching PDF export (fonts baked
+    in). If you must print from this SVG via Inkscape, select all
+    text and run Text > Convert to Paths first.
   -->
   </svg>`;
 
-  const blob = new Blob([out],{type:"image/svg+xml"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
   const slug = currentMenuName().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  a.download = "gratified-entry-" + (slug || "sign") + "-24x36.svg";
-  a.click();
-
-  showToast(
-    anyEmbedFailed
-      ? "exported 24\"x36\" — some fonts may need installing for Inkscape"
-      : "exported 24\"x36\" with embedded fonts ✓ — print-ready",
-    5000
-  );
+  return { out, fileBase: "gratified-entry-" + (slug || "sign") + "-24x36", anyEmbedFailed };
 }
 
 /* ----------------------------------- */
