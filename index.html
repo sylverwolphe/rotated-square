@@ -368,8 +368,9 @@ svg:active{ cursor:grabbing; }
   <div class="dropdown" id="exportDropdown">
     <button id="exportToggle" type="button">export ▾</button>
     <div class="dropdown-menu" id="exportMenu">
-      <div class="dropdown-item" data-action="menu">menu (svg)</div>
-      <div class="dropdown-item" data-action="sign">14"x22" sign (svg)</div>
+      <div class="dropdown-item" data-action="menu">menu 24"x36" (svg)</div>
+      <div class="dropdown-item" data-action="food">food menu 24"x36" (svg)</div>
+      <div class="dropdown-item" data-action="sign">sign 24"x36" (svg)</div>
     </div>
   </div>
 </div>
@@ -599,15 +600,20 @@ const FONT_PRICE = "Satoshi, system-ui, sans-serif";
 const FONT_NAME  = "'Bluu Next', Georgia, serif";
 const FONT_NOTE  = "Satoshi, system-ui, sans-serif";
 
-/* The "hot or iced // dairy or oat" line only belongs on drink
-   menus, so it's applied by name: any tab whose name contains
-   "drink" gets it, everything else (Food, etc.) exports with
-   just its title and no drink-related messaging. */
+/* Taglines are matched by menu name: tabs whose name contains
+   "drink" get the drinks line and tabs containing "food" get
+   the food line, so a tab named "Food" exports correctly on
+   its own. The dedicated "food menu" export option also forces
+   the Food title + tagline regardless of the current tab. */
 const TAGLINE_DRINKS = "hot or iced &#160;//&#160; dairy or oat";
+const TAGLINE_FOOD = "grab n go &#160;//&#160; pizza";
 const FOOTER_TEXT  = "prices include tax &#160;//&#160; suggested 50&#162; tip";
 
 function menuTagline(title){
-  return String(title || "").toLowerCase().includes("drink") ? TAGLINE_DRINKS : "";
+  const t = String(title || "").toLowerCase();
+  if(t.includes("drink")) return TAGLINE_DRINKS;
+  if(t.includes("food")) return TAGLINE_FOOD;
+  return "";
 }
 
 const SIGN_FIND_US_LINE = "find us on the";
@@ -785,6 +791,8 @@ function itemTexts(it, x, y, s, fontScale, colorOverride){
 
 /* ---------------------------
    Special pattern glyphs
+   (k = scale factor so the pattern keeps its
+   density/size ratio on big print exports)
 ----------------------------*/
 
 function hashStr(str){
@@ -793,35 +801,36 @@ function hashStr(str){
   return h >>> 0;
 }
 
-function glyphCarrot(x,y,rot){
-  return `<g transform="translate(${x},${y}) rotate(${rot})">
+function glyphCarrot(x,y,rot,k){
+  return `<g transform="translate(${x},${y}) rotate(${rot}) scale(${k || 1})">
     <polygon points="-2.2,-4 2.2,-4 0,5.4" fill="#CC5500"/>
     <line x1="0" y1="-4" x2="0" y2="-6.8" stroke="#5E7A3A" stroke-width="1.4"/>
   </g>`;
 }
 
-function glyphBeet(x,y,rot){
-  return `<g transform="translate(${x},${y}) rotate(${rot})">
+function glyphBeet(x,y,rot,k){
+  return `<g transform="translate(${x},${y}) rotate(${rot}) scale(${k || 1})">
     <path d="M0,-2.4 C3.4,-2.4 3.6,1.2 0,5 C-3.6,1.2 -3.4,-2.4 0,-2.4 Z" fill="#8A2E4F"/>
     <line x1="0" y1="-2.4" x2="-1.8" y2="-6" stroke="#5E7A3A" stroke-width="1.3"/>
     <line x1="0" y1="-2.4" x2="1.6" y2="-6" stroke="#5E7A3A" stroke-width="1.3"/>
   </g>`;
 }
 
-function glyphSunflower(x,y){
-  let out = "";
+function glyphSunflower(x,y,k){
+  let out = `<g transform="translate(${x},${y}) scale(${k || 1})">`;
   for(let a = 0; a < 360; a += 45){
     const r = a * Math.PI / 180;
-    out += `<circle cx="${x + Math.cos(r)*4}" cy="${y + Math.sin(r)*4}" r="1.6" fill="#E6B84C"/>`;
+    out += `<circle cx="${Math.cos(r)*4}" cy="${Math.sin(r)*4}" r="1.6" fill="#E6B84C"/>`;
   }
-  return out + `<circle cx="${x}" cy="${y}" r="2.2" fill="#6B4A1E"/>`;
+  return out + `<circle cx="0" cy="0" r="2.2" fill="#6B4A1E"/></g>`;
 }
 
-function specialPattern(it, x, y, s){
+function specialPattern(it, x, y, s, k){
+  k = k || 1;
   if(!it.special) return "";
-  const Si = (it.nibble ? s * 0.82 : s) - 9;
-  if(Si < 22) return "";
-  const h = 18;
+  const Si = (it.nibble ? s * 0.82 : s) - 9*k;
+  if(Si < 22*k) return "";
+  const h = 18*k;
   const N = Math.ceil(Si / h);
   const off = hashStr(it.id || "") % 3;
   let g = `<g opacity="0.5">`;
@@ -835,9 +844,9 @@ function specialPattern(it, x, y, s){
       const hsh = hashStr(i + "," + j + "," + (it.id || ""));
       const tilt = ((hsh >> 3) % 2 ? 1 : -1) * (8 + (hsh >> 5) % 12);
       const gx = x + dx, gy = y + dy;
-      if(kind === 0)      g += glyphCarrot(gx, gy, tilt);
-      else if(kind === 1) g += glyphBeet(gx, gy, tilt);
-      else                g += glyphSunflower(gx, gy);
+      if(kind === 0)      g += glyphCarrot(gx, gy, tilt, k);
+      else if(kind === 1) g += glyphBeet(gx, gy, tilt, k);
+      else                g += glyphSunflower(gx, gy, k);
     }
   }
   return g + `</g>`;
@@ -885,7 +894,7 @@ function logoDiamond(cx, cy, D, color){
   const inset = D * 0.15;
   const rs = D * 0.7;
   const left = cx - D/2, top = cy - D/2;
-  const sw = Math.max(1.5, Math.min(3, D * 0.025));
+  const sw = Math.max(1.5, Math.min(6, D * 0.03));
   return `
     <g transform="translate(${left},${top})">
       <rect x="${inset}" y="${inset}" width="${rs}" height="${rs}"
@@ -896,11 +905,11 @@ function logoDiamond(cx, cy, D, color){
   `;
 }
 
-function downChevron(cx, cy, w, color){
+function downChevron(cx, cy, w, color, sw){
   const hw = w/2, h = w*0.55;
   return `
     <polyline points="${cx-hw},${cy-h/2} ${cx},${cy+h/2} ${cx+hw},${cy-h/2}"
-      fill="none" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      fill="none" stroke="${color}" stroke-width="${sw || 3.5}" stroke-linecap="round" stroke-linejoin="round"/>
   `;
 }
 
@@ -921,8 +930,11 @@ function bigArrow(cx, cy, w, color){
 }
 
 /* diamondItem — flat solid fill + optional nibble band.
-   No gradient overlays: colours print exactly as picked. */
-function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand){
+   No gradient overlays: colours print exactly as picked.
+   strokeW lets the print exports keep the border weight
+   proportional to the diamond size. */
+function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand,strokeW){
+  const sw = strokeW || 1.6;
   const si = s*0.82;
   if(nibble){
     return `
@@ -930,7 +942,7 @@ function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand){
         points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
         fill="${nibbleBand || '#722F37'}"
         stroke="${stroke}"
-        stroke-width="1.6"
+        stroke-width="${sw}"
         stroke-linejoin="round"
       />
       <polygon
@@ -944,7 +956,7 @@ function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand){
       points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
       fill="${fill}"
       stroke="${stroke}"
-      stroke-width="1.6"
+      stroke-width="${sw}"
       stroke-linejoin="round"
     />
   `;
@@ -1271,7 +1283,7 @@ async function toBase64DataUrl(buffer, mimeType){
 }
 
 async function buildFontStyle(){
-  if(_cachedFontStyle !== null) return _cachedFontStyle;
+  if(_cachedFontStyle !== null) return { style: _cachedFontStyle, anyEmbedFailed: false };
   if(_fontEmbedInProgress) return _fontEmbedInProgress;
 
   _fontEmbedInProgress = (async ()=>{
@@ -1362,6 +1374,7 @@ exportMenuEl.addEventListener("click", (e)=>{
   if(!opt) return;
   exportMenuEl.classList.remove("open");
   if(opt.dataset.action === "menu") exportMenuSVG();
+  else if(opt.dataset.action === "food") exportMenuSVG({ title: "Food", tagline: TAGLINE_FOOD });
   else if(opt.dataset.action === "sign") exportSignSVG();
 });
 
@@ -1370,16 +1383,24 @@ window.addEventListener("resize", ()=>{ exportMenuEl.classList.remove("open"); }
 
 /* ---------------------------
    Export SVG — menu.
-   Auto-crops to your diamonds, adds the title on a flat
-   cream sheet (no gradient washes) with the dot+diamond
-   lattice across the whole page so it reads well printed.
+   Always a fixed 24" x 36" portrait page (Arch D / standard
+   large-format poster), so every file that leaves this tool
+   is the same physical size no matter the zoom level or how
+   the diamonds are arranged. The item cluster auto-fits and
+   centres between the title block and the footer, and text,
+   borders, and the special pattern all scale with the
+   diamonds so the print matches the editor's 100% look.
+
+   Pass an override ({title, tagline}) to force a format —
+   the "food menu" dropdown option uses this to export the
+   current tab with the Food title + tagline.
 
    Fonts are embedded as base64 data URIs so Inkscape /
    Illustrator render Bluu Next and Satoshi correctly
    without needing the fonts installed on the host machine.
 ----------------------------*/
 
-async function exportMenuSVG(){
+async function exportMenuSVG(override){
 
   if(!state.items.length){ alert("Add some menu items first :)"); return; }
 
@@ -1387,25 +1408,50 @@ async function exportMenuSVG(){
 
   const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
 
-  const s = state.scale;
-  const title = currentMenuName();
-  const tagline = menuTagline(title);
+  const PT_PER_IN = 72;
+  const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
+  const PAGE_H = 36 * PT_PER_IN;   /* 36" tall — vertical */
+  const MARGIN = 96;
+  const cx = PAGE_W / 2;
 
-  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+  const title = (override && override.title) || currentMenuName();
+  const tagline = (override && override.tagline !== undefined)
+    ? override.tagline
+    : menuTagline(title);
+
+  /* header + footer anchors */
+  const titleFS = fitSingleLine(title, 700, FONT_NAME, 104, PAGE_W - MARGIN*2 - 120);
+  const titleY = MARGIN + 130;
+  const taglineY = titleY + 64;
+  const footY = PAGE_H - MARGIN - 26;
+
+  /* band the diamonds live in */
+  const contentTop = (tagline ? taglineY : titleY) + 70;
+  const contentBottom = footY - 80;
+
+  /* fit + centre the item cluster in the band */
+  let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
   for(const it of state.items){
-    const p = toScreen(it.gx,it.gy);
-    minX = Math.min(minX, p.x - s); maxX = Math.max(maxX, p.x + s);
-    minY = Math.min(minY, p.y - s); maxY = Math.max(maxY, p.y + s);
+    gx0 = Math.min(gx0, it.gx); gx1 = Math.max(gx1, it.gx);
+    gy0 = Math.min(gy0, it.gy); gy1 = Math.max(gy1, it.gy);
   }
+  const spanX = gx1 - gx0;
+  const spanY = gy1 - gy0;
+  const availW = PAGE_W - MARGIN*2;
+  const availH = contentBottom - contentTop;
+  const sW = availW / (spanX/2 + 2);
+  const sH = availH / (spanY/2 + 2);
+  const s = Math.max(24, Math.min(sW, sH, 320));
+  const u = s * 0.5;
+  const sox = cx - ((gx0 + gx1) / 2) * u;
+  const soy = (contentTop + contentBottom) / 2 - ((gy0 + gy1) / 2) * u;
+  const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
 
-  const pad = 48;
-  const headerH = tagline ? 128 : 108;
-  const footerH = 60;
-  const x0 = minX - pad;
-  const y0 = minY - pad - headerH;
-  const w  = (maxX - minX) + pad*2;
-  const h  = (maxY - minY) + pad*2 + headerH + footerH;
-  const cx = (minX + maxX)/2;
+  /* everything scales off the editor's 100% look (s = 40) */
+  const fontScale = s / SCALE_BASE;
+  const itemStroke = Math.max(1.6, s * 0.04);
+  const latticeStroke = Math.max(1, s * 0.022);
+  const latticeDot = Math.max(2, s * 0.05);
 
   /* dot-grid pattern: a simple repeating 10×10 cell with a
      tiny dot at its centre. Small enough to be a background
@@ -1414,83 +1460,81 @@ async function exportMenuSVG(){
      feel rather than a flat computer printout. */
   const DOT_SPACING = 10;
 
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x0} ${y0} ${w} ${h}" width="${w}" height="${h}">`;
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
 
   out += `
     <style><![CDATA[${fontStyle}]]></style>
 
     <defs>
       <!-- repeating dot grid -->
-      <pattern id="dotGrid" x="${x0 % DOT_SPACING}" y="${y0 % DOT_SPACING}"
+      <pattern id="dotGrid" x="0" y="0"
         width="${DOT_SPACING}" height="${DOT_SPACING}" patternUnits="userSpaceOnUse">
         <circle cx="${DOT_SPACING/2}" cy="${DOT_SPACING/2}" r="0.75"
           fill="#722F37" opacity="0.13"/>
       </pattern>
     </defs>
 
-    <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#EDE8E0"/>
-    <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="url(#dotGrid)"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="#EDE8E0"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
   `;
 
-  /* diamond lattice — slightly bolder than before (0.08 vs 0.05)
-     so it reads through the dot grid on a physical print */
+  /* diamond lattice across the whole page, aligned to the items,
+     slightly bolder so it reads through the dot grid on a
+     physical print */
   {
-    const u = s * 0.5;
-    const lgx0 = Math.floor((x0 - state.ox)/u) - 1;
-    const lgx1 = Math.ceil((x0 + w - state.ox)/u) + 1;
-    const lgy0 = Math.floor((y0 - state.oy)/u) - 1;
-    const lgy1 = Math.ceil((y0 + h - state.oy)/u) + 1;
-    if((lgx1-lgx0)*(lgy1-lgy0) <= 40000){
+    const lgx0 = Math.floor((0 - sox)/u) - 1;
+    const lgx1 = Math.ceil((PAGE_W - sox)/u) + 1;
+    const lgy0 = Math.floor((0 - soy)/u) - 1;
+    const lgy1 = Math.ceil((PAGE_H - soy)/u) + 1;
+    if((lgx1-lgx0)*(lgy1-lgy0) <= 60000){
       for(let gx=lgx0; gx<=lgx1; gx++){
         for(let gy=lgy0; gy<=lgy1; gy++){
           if(isLatticeCentre(gx,gy)){
-            const p = toScreen(gx,gy);
+            const p = sToScreen(gx,gy);
             out += `
               <polygon
                 points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
-                fill="none" stroke="#722F37" stroke-opacity="0.08" stroke-width="1"
+                fill="none" stroke="#722F37" stroke-opacity="0.08" stroke-width="${latticeStroke}"
               />
-              <circle cx="${p.x}" cy="${p.y}" r="2" fill="#722F37" fill-opacity="0.08"/>`;
+              <circle cx="${p.x}" cy="${p.y}" r="${latticeDot}" fill="#722F37" fill-opacity="0.08"/>`;
           }
         }
       }
     }
   }
 
-  const titleY = y0 + 78;
   out += `
     <text x="${cx}" y="${titleY}" text-anchor="middle"
-      font-size="32" font-weight="700" fill="#722F37"
-      font-family="${FONT_NAME}" letter-spacing="3">${esc(title)}</text>
+      font-size="${titleFS}" font-weight="700" fill="#722F37"
+      font-family="${FONT_NAME}" letter-spacing="6">${esc(title)}</text>
   `;
   if(tagline){
     out += `
-    <text x="${cx}" y="${titleY + 26}" text-anchor="middle"
-      font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_NOTE}" letter-spacing="1.5">${tagline}</text>
+    <text x="${cx}" y="${taglineY}" text-anchor="middle"
+      font-size="30" font-weight="300" fill="#6B5740" opacity="0.8"
+      font-family="${FONT_NOTE}" letter-spacing="4">${tagline}</text>
   `;
   }
 
-  const footY = maxY + pad + 28;
   out += `
     <text x="${cx}" y="${footY}" text-anchor="middle"
-      font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_NOTE}" letter-spacing="1.5">${FOOTER_TEXT}</text>
+      font-size="28" font-weight="300" fill="#6B5740" opacity="0.8"
+      font-family="${FONT_NOTE}" letter-spacing="4">${FOOTER_TEXT}</text>
   `;
 
   for(const it of state.items){
-    const p = toScreen(it.gx,it.gy);
-    out += diamondItem(p.x, p.y, s, it.color, "#722F37", it.nibble);
-    out += specialPattern(it, p.x, p.y, s);
-    out += itemTexts(it, p.x, p.y, s);
+    const p = sToScreen(it.gx,it.gy);
+    out += diamondItem(p.x, p.y, s, it.color, "#722F37", it.nibble, undefined, itemStroke);
+    out += specialPattern(it, p.x, p.y, s, fontScale);
+    out += itemTexts(it, p.x, p.y, s, fontScale);
   }
 
   out += `
   <!--
-    INKSCAPE / ILLUSTRATOR TIP:
-    Fonts (Satoshi + Bluu Next) are embedded as base64 data URIs above,
-    so you should not need them installed. If glyphs still appear wrong,
-    select all text in Inkscape and run: Text > Convert to Paths
+    PRINT: 24in x 36in portrait (Arch D). Fonts (Satoshi + Bluu Next)
+    are embedded as base64 data URIs above, so you should not need
+    them installed. If glyphs still appear wrong, select all text in
+    Inkscape and run: Text > Convert to Paths
     (or Path > Object to Path) before exporting to PDF for print.
   -->
   </svg>`;
@@ -1499,19 +1543,19 @@ async function exportMenuSVG(){
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  a.download = "gratified-" + (slug || "menu") + ".svg";
+  a.download = "gratified-" + (slug || "menu") + "-24x36.svg";
   a.click();
 
   showToast(
     anyEmbedFailed
-      ? "exported — some fonts may need installing for Inkscape"
-      : "exported with embedded fonts ✓ — opens in Inkscape print-ready",
+      ? "exported 24\"x36\" — some fonts may need installing for Inkscape"
+      : "exported 24\"x36\" with embedded fonts ✓ — print-ready",
     5000
   );
 }
 
 /* ---------------------------
-   Export SVG — 14"x22" sign.
+   Export SVG — 24"x36" sign.
 ----------------------------*/
 
 async function exportSignSVG(){
@@ -1527,32 +1571,33 @@ async function exportRegularSignSVG(){
   const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
 
   const PT_PER_IN = 72;
-  const PAGE_W = 14 * PT_PER_IN;
-  const PAGE_H = 22 * PT_PER_IN;
-  const MARGIN = 56;
+  const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
+  const PAGE_H = 36 * PT_PER_IN;   /* 36" tall — vertical */
+  const K = 1.66;                  /* layout scale-up from the old 14"x22" design */
+  const MARGIN = Math.round(56 * K);
 
   const title = currentMenuName();
   const cx = PAGE_W / 2;
 
   let y = MARGIN;
-  const WORD_FS = 90, WORD_LETTER = 6;
-  y += 92; const wordmarkY = y;
-  const SUB_FS = 36;
-  y += 58; const subtitleY = y;
-  const LOGO_D = 82;
-  y += 36 + LOGO_D/2; const logoDiamondY = y;
+  const WORD_FS = Math.round(90*K), WORD_LETTER = Math.round(6*K);
+  y += Math.round(92*K); const wordmarkY = y;
+  const SUB_FS = Math.round(36*K);
+  y += Math.round(58*K); const subtitleY = y;
+  const LOGO_D = Math.round(82*K);
+  y += Math.round(36*K) + LOGO_D/2; const logoDiamondY = y;
   y += LOGO_D/2;
-  y += 54; const taglineY = y;
-  y += 50; const sectionLabelY = y;
-  y += 32; const contentTop = y;
+  y += Math.round(54*K); const taglineY = y;
+  y += Math.round(50*K); const sectionLabelY = y;
+  y += Math.round(32*K); const contentTop = y;
 
-  const hoursY = PAGE_H - MARGIN - 40;
-  const LOWER_FS = 68;
-  const lowerLevelY = hoursY - 80;
-  const chevronY = lowerLevelY - 74;
-  const findUsY = chevronY - 48;
-  const footerDividerY = findUsY - 52;
-  const contentBottom = footerDividerY - 36;
+  const hoursY = PAGE_H - MARGIN - Math.round(40*K);
+  const LOWER_FS = Math.round(68*K);
+  const lowerLevelY = hoursY - Math.round(80*K);
+  const chevronY = lowerLevelY - Math.round(74*K);
+  const findUsY = chevronY - Math.round(48*K);
+  const footerDividerY = findUsY - Math.round(52*K);
+  const contentBottom = footerDividerY - Math.round(36*K);
 
   let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
   for(const it of state.items){
@@ -1566,20 +1611,22 @@ async function exportRegularSignSVG(){
 
   const sW = availW / (spanX/2 + 2);
   const sH = availH / (spanY/2 + 2);
-  const s = Math.max(16, Math.min(sW, sH, 230));
+  const s = Math.max(Math.round(16*K), Math.min(sW, sH, Math.round(230*K)));
   const u = s * 0.5;
 
   const gxMid = (gx0 + gx1) / 2;
   const sox = cx - gxMid * u;
-  const clusterGap = 32;
+  const clusterGap = Math.round(32*K);
   const soy = (contentTop + clusterGap) + s - gy0 * u;
   const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
 
   const TEXT_REF_SCALE = 100;
   const fontScale = Math.max(1, s / TEXT_REF_SCALE);
-  const sectionLabelSize = fitSingleLine(title, 700, FONT_NAME, 26, PAGE_W - MARGIN*2 - 60);
+  const itemStroke = Math.max(2, s * 0.03);
+  const sectionLabelSize = fitSingleLine(title, 700, FONT_NAME, Math.round(26*K), PAGE_W - MARGIN*2 - Math.round(60*K));
+  const B = Math.round(40*K);
 
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="14in" height="22in">`;
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
 
   out += `
     <style><![CDATA[${fontStyle}]]></style>
@@ -1602,7 +1649,7 @@ async function exportRegularSignSVG(){
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signGlow)"/>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signVignette)"/>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
-    <rect x="40" y="40" width="${PAGE_W-80}" height="${PAGE_H-80}" fill="none" stroke="${SIGN_AMBER}" stroke-width="1.5" opacity="0.55"/>
+    <rect x="${B}" y="${B}" width="${PAGE_W-2*B}" height="${PAGE_H-2*B}" fill="none" stroke="${SIGN_AMBER}" stroke-width="2.5" opacity="0.55"/>
   `;
 
   /* diamond lattice on dark background */
@@ -1611,6 +1658,8 @@ async function exportRegularSignSVG(){
     const lgx1 = Math.ceil((PAGE_W - sox)/u) + 1;
     const lgy0 = Math.floor((0 - soy)/u) - 1;
     const lgy1 = Math.ceil((PAGE_H - soy)/u) + 1;
+    const latticeStroke = Math.max(1, s * 0.012);
+    const latticeDot = Math.max(2, s * 0.03);
     if((lgx1-lgx0)*(lgy1-lgy0) <= 60000){
       for(let gx=lgx0; gx<=lgx1; gx++){
         for(let gy=lgy0; gy<=lgy1; gy++){
@@ -1619,9 +1668,9 @@ async function exportRegularSignSVG(){
             out += `
               <polygon
                 points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
-                fill="none" stroke="${SIGN_PARCHMENT}" stroke-opacity="0.07" stroke-width="1"
+                fill="none" stroke="${SIGN_PARCHMENT}" stroke-opacity="0.07" stroke-width="${latticeStroke}"
               />
-              <circle cx="${p.x}" cy="${p.y}" r="2" fill="${SIGN_PARCHMENT}" fill-opacity="0.07"/>`;
+              <circle cx="${p.x}" cy="${p.y}" r="${latticeDot}" fill="${SIGN_PARCHMENT}" fill-opacity="0.07"/>`;
           }
         }
       }
@@ -1635,54 +1684,53 @@ async function exportRegularSignSVG(){
 
     <text x="${cx}" y="${subtitleY}" text-anchor="middle"
       font-size="${SUB_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_NAME}" letter-spacing="2" style="word-spacing:5px">coffee + art</text>
+      font-family="${FONT_NAME}" letter-spacing="3" style="word-spacing:8px">coffee + art</text>
   `;
   out += logoDiamond(cx, logoDiamondY, LOGO_D, SIGN_PARCHMENT);
 
   if(SIGN_TAGLINE_TEXT.trim()){
     out += `
       <text x="${cx}" y="${taglineY}" text-anchor="middle"
-        font-size="17" font-weight="300" font-style="italic" fill="${SIGN_GOLD}" opacity="0.85"
-        font-family="${FONT_PRICE}" letter-spacing="1">${esc(SIGN_TAGLINE_TEXT)}</text>
+        font-size="${Math.round(17*K)}" font-weight="300" font-style="italic" fill="${SIGN_GOLD}" opacity="0.85"
+        font-family="${FONT_PRICE}" letter-spacing="1.5">${esc(SIGN_TAGLINE_TEXT)}</text>
     `;
   }
 
   out += `
     <text x="${cx}" y="${sectionLabelY}" text-anchor="middle"
       font-size="${sectionLabelSize}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_NAME}" letter-spacing="2">${esc(title)}</text>
+      font-family="${FONT_NAME}" letter-spacing="3">${esc(title)}</text>
   `;
 
   for(const it of state.items){
     const p = sToScreen(it.gx, it.gy);
-    out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER);
-    out += specialPattern(it, p.x, p.y, s);
+    out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER, itemStroke);
+    out += specialPattern(it, p.x, p.y, s, fontScale);
     const deepColor = deepenColor(it.color);
     out += itemTexts(it, p.x, p.y, s, fontScale, { nameCol: deepColor, subCol: deepColor, subOp: 0.7 });
   }
 
   out += `
-    <line x1="${cx-130}" y1="${footerDividerY}" x2="${cx+130}" y2="${footerDividerY}" stroke="${SIGN_AMBER}" stroke-width="1.5" opacity="0.7"/>
+    <line x1="${cx-Math.round(130*K)}" y1="${footerDividerY}" x2="${cx+Math.round(130*K)}" y2="${footerDividerY}" stroke="${SIGN_AMBER}" stroke-width="2.5" opacity="0.7"/>
     <text x="${cx}" y="${findUsY}" text-anchor="middle"
-      font-size="24" font-weight="700" fill="${SIGN_GOLD}"
-      font-family="${FONT_PRICE}" letter-spacing="2">${esc(SIGN_FIND_US_LINE)}</text>
+      font-size="${Math.round(24*K)}" font-weight="700" fill="${SIGN_GOLD}"
+      font-family="${FONT_PRICE}" letter-spacing="3">${esc(SIGN_FIND_US_LINE)}</text>
   `;
-  out += downChevron(cx, chevronY, 30, SIGN_GOLD);
+  out += downChevron(cx, chevronY, Math.round(30*K), SIGN_GOLD, 6);
   out += `
     <text x="${cx}" y="${lowerLevelY}" text-anchor="middle"
       font-size="${LOWER_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_PRICE}" letter-spacing="1">${esc(SIGN_LOCATION_LINE)}</text>
+      font-family="${FONT_PRICE}" letter-spacing="1.5">${esc(SIGN_LOCATION_LINE)}</text>
     <text x="${cx}" y="${hoursY}" text-anchor="middle"
-      font-size="22" font-weight="700" fill="${SIGN_GOLD}" opacity="0.85"
-      font-family="${FONT_PRICE}" letter-spacing="1.2">${esc(SIGN_HOURS_LINE)}</text>
+      font-size="${Math.round(22*K)}" font-weight="700" fill="${SIGN_GOLD}" opacity="0.85"
+      font-family="${FONT_PRICE}" letter-spacing="2">${esc(SIGN_HOURS_LINE)}</text>
   `;
 
   out += `
   <!--
-    INKSCAPE / ILLUSTRATOR TIP:
-    Fonts are embedded as base64 data URIs — open directly.
-    If any glyph looks wrong, select all text and run:
-    Text > Convert to Paths (Inkscape) before printing.
+    PRINT: 24in x 36in portrait (Arch D). Fonts are embedded as base64
+    data URIs — open directly. If any glyph looks wrong, select all
+    text and run: Text > Convert to Paths (Inkscape) before printing.
   -->
   </svg>`;
 
@@ -1690,19 +1738,19 @@ async function exportRegularSignSVG(){
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  a.download = "gratified-sign-" + (slug || "menu") + ".svg";
+  a.download = "gratified-sign-" + (slug || "menu") + "-24x36.svg";
   a.click();
 
   showToast(
     anyEmbedFailed
-      ? "exported — some fonts may need installing for Inkscape"
-      : "exported with embedded fonts ✓ — opens in Inkscape print-ready",
+      ? "exported 24\"x36\" — some fonts may need installing for Inkscape"
+      : "exported 24\"x36\" with embedded fonts ✓ — print-ready",
     5000
   );
 }
 
 /* ---------------------------
-   Export SVG — 14"x22" Entry / Wayfinding Sign.
+   Export SVG — 24"x36" Entry / Wayfinding Sign.
 ----------------------------*/
 
 async function exportEntrySignSVG(){
@@ -1711,12 +1759,14 @@ async function exportEntrySignSVG(){
   const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
 
   const PT_PER_IN = 72;
-  const PAGE_W = 14 * PT_PER_IN;
-  const PAGE_H = 22 * PT_PER_IN;
-  const MARGIN = 60;
+  const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
+  const PAGE_H = 36 * PT_PER_IN;   /* 36" tall — vertical */
+  const K = 1.66;                  /* layout scale-up from the old 14"x22" design */
+  const MARGIN = Math.round(60 * K);
   const cx = PAGE_W / 2;
+  const B = Math.round(40 * K);
 
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="14in" height="22in">`;
+  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
 
   out += `
     <style><![CDATA[${fontStyle}]]></style>
@@ -1737,64 +1787,64 @@ async function exportEntrySignSVG(){
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signGlow)"/>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signVignette)"/>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
-    <rect x="40" y="40" width="${PAGE_W-80}" height="${PAGE_H-80}" fill="none" stroke="${SIGN_AMBER}" stroke-width="1.5" opacity="0.55"/>
+    <rect x="${B}" y="${B}" width="${PAGE_W-2*B}" height="${PAGE_H-2*B}" fill="none" stroke="${SIGN_AMBER}" stroke-width="2.5" opacity="0.55"/>
   `;
 
-  let y = MARGIN + 30;
-  const WORD_FS = 112;
+  let y = MARGIN + Math.round(30*K);
+  const WORD_FS = Math.round(112*K);
   y += WORD_FS;
   out += `
     <text x="${cx}" y="${y}" text-anchor="middle"
       font-size="${WORD_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_NAME}" letter-spacing="6">Gratified</text>
+      font-family="${FONT_NAME}" letter-spacing="${Math.round(6*K)}">Gratified</text>
   `;
 
-  const SUB_FS = 42;
-  y += 62;
+  const SUB_FS = Math.round(42*K);
+  y += Math.round(62*K);
   out += `
     <text x="${cx}" y="${y}" text-anchor="middle"
       font-size="${SUB_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_NAME}" letter-spacing="2" style="word-spacing:6px">coffee + art</text>
+      font-family="${FONT_NAME}" letter-spacing="3" style="word-spacing:10px">coffee + art</text>
   `;
 
-  const LOGO_D = 120;
-  y += 36 + LOGO_D/2;
+  const LOGO_D = Math.round(120*K);
+  y += Math.round(36*K) + LOGO_D/2;
   out += logoDiamond(cx, y, LOGO_D, SIGN_PARCHMENT);
-  y += LOGO_D/2 + 18;
+  y += LOGO_D/2 + Math.round(18*K);
 
   if(SIGN_TAGLINE_TEXT.trim()){
-    y += 32;
+    y += Math.round(32*K);
     out += `
       <text x="${cx}" y="${y}" text-anchor="middle"
-        font-size="18" font-weight="300" font-style="italic" fill="${SIGN_GOLD}" opacity="0.9"
-        font-family="${FONT_PRICE}" letter-spacing="1">${esc(SIGN_TAGLINE_TEXT)}</text>
+        font-size="${Math.round(18*K)}" font-weight="300" font-style="italic" fill="${SIGN_GOLD}" opacity="0.9"
+        font-family="${FONT_PRICE}" letter-spacing="1.5">${esc(SIGN_TAGLINE_TEXT)}</text>
     `;
   }
 
-  y += 92;
-  const ARROW_W = 72;
+  y += Math.round(92*K);
+  const ARROW_W = Math.round(72*K);
   out += bigArrow(cx, y, ARROW_W, SIGN_PARCHMENT);
-  y += 70;
+  y += Math.round(70*K);
 
-  const LOWER_FS = 100;
+  const LOWER_FS = Math.round(100*K);
   y += LOWER_FS;
   out += `
     <text x="${cx}" y="${y}" text-anchor="middle"
       font-size="${LOWER_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_PRICE}" letter-spacing="3">LOWER LEVEL</text>
+      font-family="${FONT_PRICE}" letter-spacing="5">LOWER LEVEL</text>
   `;
 
-  const HOURS_FS = 26;
-  y += 50;
+  const HOURS_FS = Math.round(26*K);
+  y += Math.round(50*K);
   out += `
     <text x="${cx}" y="${y}" text-anchor="middle"
       font-size="${HOURS_FS}" font-weight="700" fill="${SIGN_GOLD}" opacity="0.9"
-      font-family="${FONT_PRICE}" letter-spacing="1.5">Open during library hours</text>
+      font-family="${FONT_PRICE}" letter-spacing="2.5">Open during library hours</text>
   `;
 
-  y += 84;
+  y += Math.round(84*K);
   const contentTop = y;
-  const contentBottom = PAGE_H - MARGIN - 30;
+  const contentBottom = PAGE_H - MARGIN - Math.round(30*K);
   const availH = contentBottom - contentTop;
 
   if(state.items.length > 0){
@@ -1808,18 +1858,19 @@ async function exportEntrySignSVG(){
     const availW = PAGE_W - MARGIN*2;
     const sW = availW / (spanX/2 + 2);
     const sH = availH / (spanY/2 + 2);
-    const s = Math.max(28, Math.min(sW, sH, 220));
+    const s = Math.max(Math.round(28*K), Math.min(sW, sH, Math.round(220*K)));
     const u = s * 0.5;
     const gxMid = (gx0 + gx1) / 2;
     const sox = cx - gxMid * u;
     const soy = contentTop + s - gy0 * u;
     const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
     const fontScale = Math.max(1, s / 100);
+    const itemStroke = Math.max(2, s * 0.03);
 
     for(const it of state.items){
       const p = sToScreen(it.gx, it.gy);
-      out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER);
-      out += specialPattern(it, p.x, p.y, s);
+      out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER, itemStroke);
+      out += specialPattern(it, p.x, p.y, s, fontScale);
       const nameFS = Math.round(NAME_FS * fontScale * 1.3);
       const nameLH = Math.round(NAME_LH * fontScale * 1.3);
       const nameFont = `700 ${nameFS}px ${FONT_NAME}`;
@@ -1836,7 +1887,7 @@ async function exportEntrySignSVG(){
       });
     }
   } else {
-    const DECO_S = Math.min(170, availH / 3.0, (PAGE_W - MARGIN*2) / 3.2);
+    const DECO_S = Math.min(Math.round(170*K), availH / 3.0, (PAGE_W - MARGIN*2) / 3.2);
     const decoY = contentTop + availH/2;
     const hSpread = DECO_S * 1.7;
     const vSpread = DECO_S * 0.95;
@@ -1848,16 +1899,15 @@ async function exportEntrySignSVG(){
       {x: cx + hSpread, y: decoY + vSpread}
     ];
     positions.forEach(pos => {
-      out += diamondItem(pos.x, pos.y, DECO_S, SIGN_PARCHMENT, SIGN_AMBER, false);
+      out += diamondItem(pos.x, pos.y, DECO_S, SIGN_PARCHMENT, SIGN_AMBER, false, undefined, Math.max(2, DECO_S * 0.03));
     });
   }
 
   out += `
   <!--
-    INKSCAPE / ILLUSTRATOR TIP:
-    Fonts are embedded as base64 data URIs — open directly.
-    If any glyph looks wrong, select all text and run:
-    Text > Convert to Paths (Inkscape) before printing.
+    PRINT: 24in x 36in portrait (Arch D). Fonts are embedded as base64
+    data URIs — open directly. If any glyph looks wrong, select all
+    text and run: Text > Convert to Paths (Inkscape) before printing.
   -->
   </svg>`;
 
@@ -1865,13 +1915,13 @@ async function exportEntrySignSVG(){
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   const slug = currentMenuName().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  a.download = "gratified-entry-" + (slug || "sign") + ".svg";
+  a.download = "gratified-entry-" + (slug || "sign") + "-24x36.svg";
   a.click();
 
   showToast(
     anyEmbedFailed
-      ? "exported — some fonts may need installing for Inkscape"
-      : "exported with embedded fonts ✓ — opens in Inkscape print-ready",
+      ? "exported 24\"x36\" — some fonts may need installing for Inkscape"
+      : "exported 24\"x36\" with embedded fonts ✓ — print-ready",
     5000
   );
 }
