@@ -631,8 +631,8 @@ const SIGN_FIND_US_LINE = "find us on the";
 const SIGN_LOCATION_LINE = "Lower Level";
 const SIGN_HOURS_LINE = "open during all library hours";
 const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
-const ENTRY_GREETING = "There's a cafe";
-const ENTRY_GREETING_SUB = "open right now";
+const ENTRY_GREETING = "Gratified";
+const ENTRY_GREETING_SUB = "open library hours";
 
 const SIGN_BG = "#722F37";
 const SIGN_PARCHMENT = "#EDE8E0";
@@ -2162,11 +2162,12 @@ async function buildEntrySignSVG(buildOpts){
   `;
 
   /* ---- masthead: plain announcement — no wordmark, no logo ---- */
-  out += emitText(ENTRY_GREETING_SUB, cx, 300, {
-    size: 44, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5
-  });
+ 
   out += emitText(ENTRY_GREETING, cx, 430, {
     size: 140, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2
+  });
+     out += emitText(ENTRY_GREETING_SUB, cx, 300, {
+    size: 44, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5
   });
 
   /* ---- bottom block: wayfinding ----
