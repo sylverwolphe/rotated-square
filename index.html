@@ -627,12 +627,12 @@ function menuTagline(title){
   return "";
 }
 
-const SIGN_FIND_US_LINE = "open on the";
+const SIGN_FIND_US_LINE = "find us on the";
 const SIGN_LOCATION_LINE = "Lower Level";
 const SIGN_HOURS_LINE = "open during all library hours";
 const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
 const ENTRY_GREETING = "Gratified";
-const ENTRY_GREETING_SUB = "open library hours";
+const ENTRY_GREETING_SUB = "coffee + reading = \u2665";
 
 const SIGN_BG = "#722F37";
 const SIGN_PARCHMENT = "#EDE8E0";
@@ -2142,14 +2142,20 @@ async function buildEntrySignSVG(buildOpts){
      carries the "head downstairs" cue. */
 
   const PT_PER_IN = 72;
-  const PAGE_W = 24 * PT_PER_IN;   /* 1728 */
-  const PAGE_H = 36 * PT_PER_IN;   /* 2592 */
-  const M = 120;
+  const SIGN_W_IN = 14, SIGN_H_IN = 22;   /* entry sign prints smaller than the 24"x36" menus/signs */
+  const PAGE_W = SIGN_W_IN * PT_PER_IN;   /* 1008 */
+  const PAGE_H = SIGN_H_IN * PT_PER_IN;   /* 1584 */
+  /* every fixed measurement below was tuned on a 1728x2592 (24x36)
+     canvas — KW/KH rescale it all so the layout keeps the same
+     proportions and balance at 14x22 */
+  const KW = PAGE_W / 1728;
+  const KH = PAGE_H / 2592;
+  const M = 120 * KW;
   const cx = PAGE_W / 2;
   const OX = "#722F37";      /* oxblood */
   const OLIVE = "#6B5740";
 
-  out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
+  out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="${SIGN_W_IN}in" height="${SIGN_H_IN}in">`;
 
   out += `__FONT_STYLE__
     <defs>
@@ -2162,38 +2168,39 @@ async function buildEntrySignSVG(buildOpts){
   `;
 
   /* ---- masthead: plain announcement — no wordmark, no logo ---- */
- 
-  out += emitText(ENTRY_GREETING, cx, 300, {
-    size: 140, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2
+  const subY = 300 * KH;
+  const titleY = 430 * KH;
+  out += emitText(ENTRY_GREETING_SUB, cx, subY, {
+    size: 44 * KW, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5 * KW
   });
-     out += emitText(ENTRY_GREETING_SUB, cx, 430, {
-    size: 44, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5
+  out += emitText(ENTRY_GREETING, cx, titleY, {
+    size: 140 * KW, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2 * KW
   });
 
   /* ---- bottom block: wayfinding ----
      with items it hugs the base; when the sheet is otherwise
      empty it grows and floats up so the poster doesn't gape */
   const hasItems = state.items.length > 0;
-  const chevW = hasItems ? 128 : 170;
-  const chevSW = hasItems ? 12 : 14;
-  const chev2Y = hasItems ? PAGE_H - M - 90 : 1950;
-  const chev1Y = chev2Y - (hasItems ? 62 : 74);
+  const chevW = (hasItems ? 128 : 170) * KW;
+  const chevSW = (hasItems ? 12 : 14) * KW;
+  const chev2Y = hasItems ? PAGE_H - M - 90 * KH : 1950 * KH;
+  const chev1Y = chev2Y - (hasItems ? 62 : 74) * KH;
   out += downChevron(cx, chev1Y, chevW, OX, chevSW);
   out += downChevron(cx, chev2Y, chevW, OX, chevSW);
-  const lowerY = chev1Y - (hasItems ? 96 : 112);
+  const lowerY = chev1Y - (hasItems ? 96 : 112) * KH;
   out += emitText("Lower Level", cx, lowerY, {
-    size: hasItems ? 126 : 150, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2
+    size: (hasItems ? 126 : 150) * KW, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2 * KW
   });
-  const findUsY = lowerY - (hasItems ? 156 : 182);
-  out += emitText("find us on the", cx, findUsY, {
-    size: hasItems ? 44 : 50, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5
+  const findUsY = lowerY - (hasItems ? 156 : 182) * KH;
+  out += emitText("open rn on the", cx, findUsY, {
+    size: (hasItems ? 44 : 50) * KW, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5 * KW
   });
 
   /* ---- middle: featured items in full menu style, or air ---- */
   if(state.items.length > 0){
-    const contentTop = 430 + 120;
-    const contentBottom = findUsY - 44 - 70;
-    const availH = Math.max(200, contentBottom - contentTop);
+    const contentTop = titleY + 120 * KH;
+    const contentBottom = findUsY - (44 + 70) * KH;
+    const availH = Math.max(150 * KH, contentBottom - contentTop);
     const availW = PAGE_W - M*2;
     let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
     for(const it of state.items){
@@ -2204,7 +2211,7 @@ async function buildEntrySignSVG(buildOpts){
     const spanY = Math.max(gy1 - gy0, 1);
     const sW = availW / (spanX/2 + 2);
     const sH = availH / (spanY/2 + 2);
-    const s = Math.max(46, Math.min(sW, sH, 300));
+    const s = Math.max(46 * KW, Math.min(sW, sH, 300 * KW));
     const u = s * 0.5;
     const gxMid = (gx0 + gx1) / 2;
     const gyMid = (gy0 + gy1) / 2;
@@ -2222,7 +2229,7 @@ async function buildEntrySignSVG(buildOpts){
   out += `${PRINT_NOTE_COMMENT}</svg>`;
 
   const slug = currentMenuName().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  fileBase = "gratified-entry-" + (slug || "sign") + "-24x36";
+  fileBase = "gratified-entry-" + (slug || "sign") + "-14x22";
 
   }finally{
     endOutlineText();
