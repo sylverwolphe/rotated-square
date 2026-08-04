@@ -617,6 +617,7 @@ const FONT_NOTE  = "Satoshi, system-ui, sans-serif";
    the Food title + tagline regardless of the current tab. */
 const TAGLINE_DRINKS = "hot or iced &#160;//&#160; dairy or oat";
 const TAGLINE_FOOD = "grab n go &#160;//&#160; pizza";
+const FOOTER_FOOD = "see all ingredients \u2192 gratified.com/#menu";
 const FOOTER_TEXT  = "prices include tax &#160;//&#160; suggested 50&#162; tip";
 
 function menuTagline(title){
@@ -1874,7 +1875,8 @@ async function buildMenuSVG(override, buildOpts){
   }
 
   const footY = maxY + pad + 28;
-  out += emitText(FOOTER_TEXT, cx, footY, {
+  const footer = /food/i.test(title) ? FOOTER_FOOD : FOOTER_TEXT;
+  out += emitText(footer, cx, footY, {
     size: 11, weight: 300, family: FONT_NOTE, fill: "#6B5740",
     opacity: 0.8, letterSpacing: 1.5, raw: true
   });
