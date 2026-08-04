@@ -1642,10 +1642,10 @@ function drawCanvasText(ctx, op){
   ctx.fillText(t, op.x, op.y);
 }
 
-async function renderExportCanvas(svgTextNoText, textOps, dpi){
+async function renderExportCanvas(svgTextNoText, textOps, dpi, wIn, hIn){
   const { img, done } = await loadSVGImage(svgTextNoText);
   try{
-    const w = Math.round(24 * dpi), h = Math.round(36 * dpi);
+    const w = Math.round(wIn * dpi), h = Math.round(hIn * dpi);
     const canvas = document.createElement("canvas");
     canvas.width = w; canvas.height = h;
     const ctx = canvas.getContext("2d");
@@ -1677,12 +1677,13 @@ async function renderExportCanvas(svgTextNoText, textOps, dpi){
 }
 
 async function buildExportCanvas(build){
+  const wIn = build.pageWIn || 24, hIn = build.pageHIn || 36;
   let canvas = null, usedDpi = 0;
   for(const dpi of [200, 150, 100]){
-    try{ canvas = await renderExportCanvas(build.out, build.textOps, dpi); usedDpi = dpi; break; }
+    try{ canvas = await renderExportCanvas(build.out, build.textOps, dpi, wIn, hIn); usedDpi = dpi; break; }
     catch(err){ console.warn("render at " + dpi + "dpi failed:", err); }
   }
-  return canvas ? { canvas: canvas, dpi: usedDpi } : null;
+  return canvas ? { canvas: canvas, dpi: usedDpi, wIn: wIn, hIn: hIn } : null;
 }
 
 async function exportBuildAsPDF(build, filename){
@@ -1694,10 +1695,10 @@ async function exportBuildAsPDF(build, filename){
   showToast("rendering print pdf… a few seconds", 20000);
   const r = await buildExportCanvas(build);
   if(!r){ alert("Couldn't render the PDF on this machine — try the JPG or SVG export."); return; }
-  const pdf = new lib.jsPDF({ orientation: "portrait", unit: "in", format: [24, 36], compress: true });
-  pdf.addImage(r.canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 24, 36);
+  const pdf = new lib.jsPDF({ orientation: "portrait", unit: "in", format: [r.wIn, r.hIn], compress: true });
+  pdf.addImage(r.canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, r.wIn, r.hIn);
   pdf.save(filename);
-  showToast(`exported 24"x36" pdf \u2713 \u2014 ${r.dpi}dpi, text matches your screen exactly`, 5000);
+  showToast(`exported ${r.wIn}"x${r.hIn}" pdf \u2713 \u2014 ${r.dpi}dpi, text matches your screen exactly`, 5000);
 }
 
 async function exportBuildAsJPEG(build, filename){
@@ -1708,7 +1709,7 @@ async function exportBuildAsJPEG(build, filename){
   a.href = r.canvas.toDataURL("image/jpeg", 0.95);
   a.download = filename;
   a.click();
-  showToast(`exported 24"x36" jpg \u2713 \u2014 ${r.dpi}dpi, text matches your screen exactly`, 5000);
+  showToast(`exported ${r.wIn}"x${r.hIn}" jpg \u2713 \u2014 ${r.dpi}dpi, text matches your screen exactly`, 5000);
 }
 
 function svgExportToast(r){
@@ -1757,11 +1758,13 @@ async function buildMenuSVG(override, buildOpts){
   let out = "";
   let fileBase = "";
   let textOps = null;
+  let pageWIn = 24, pageHIn = 36;
   try{
 
   const PT_PER_IN = 72;
   const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
   const PAGE_H = 36 * PT_PER_IN;   /* 36" tall — vertical */
+  pageWIn = PAGE_W / PT_PER_IN; pageHIn = PAGE_H / PT_PER_IN;
   const PAGE_MARGIN = 54;          /* 0.75" quiet zone on the sheet */
 
   const s = state.scale;
@@ -1891,7 +1894,7 @@ async function buildMenuSVG(override, buildOpts){
   const fin = collect
     ? { out: out.split("__FONT_STYLE__").join(""), outlined: true, anyEmbedFailed: false }
     : await finishSvg(out, canOutline);
-  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps };
+  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps, pageWIn: pageWIn, pageHIn: pageHIn };
 }
 
 async function exportMenuSVG(override){
@@ -1952,11 +1955,13 @@ async function buildRegularSignSVG(buildOpts){
   let out = "";
   let fileBase = "";
   let textOps = null;
+  let pageWIn = 24, pageHIn = 36;
   try{
 
   const PT_PER_IN = 72;
   const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
   const PAGE_H = 36 * PT_PER_IN;   /* 36" tall — vertical */
+  pageWIn = PAGE_W / PT_PER_IN; pageHIn = PAGE_H / PT_PER_IN;
   const K = 1.66;                  /* layout scale-up from the old 14"x22" design */
   const MARGIN = Math.round(56 * K);
 
@@ -2117,7 +2122,7 @@ async function buildRegularSignSVG(buildOpts){
   const fin = collect
     ? { out: out.split("__FONT_STYLE__").join(""), outlined: true, anyEmbedFailed: false }
     : await finishSvg(out, canOutline);
-  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps };
+  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps, pageWIn: pageWIn, pageHIn: pageHIn };
 }
 
 /* ---------------------------
@@ -2134,6 +2139,7 @@ async function buildEntrySignSVG(buildOpts){
   let out = "";
   let fileBase = "";
   let textOps = null;
+  let pageWIn = 24, pageHIn = 36;
   try{
 
   /* Entry / wayfinding sign — styled after gratified.com:
@@ -2145,6 +2151,7 @@ async function buildEntrySignSVG(buildOpts){
   const SIGN_W_IN = 14, SIGN_H_IN = 22;   /* entry sign prints smaller than the 24"x36" menus/signs */
   const PAGE_W = SIGN_W_IN * PT_PER_IN;   /* 1008 */
   const PAGE_H = SIGN_H_IN * PT_PER_IN;   /* 1584 */
+  pageWIn = PAGE_W / PT_PER_IN; pageHIn = PAGE_H / PT_PER_IN;
   /* every fixed measurement below was tuned on a 1728x2592 (24x36)
      canvas — KW/KH rescale it all so the layout keeps the same
      proportions and balance at 14x22 */
@@ -2241,7 +2248,7 @@ async function buildEntrySignSVG(buildOpts){
   const fin = collect
     ? { out: out.split("__FONT_STYLE__").join(""), outlined: true, anyEmbedFailed: false }
     : await finishSvg(out, canOutline);
-  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps };
+  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps, pageWIn: pageWIn, pageHIn: pageHIn };
 }
 
 /* ----------------------------------- */
