@@ -627,10 +627,12 @@ function menuTagline(title){
   return "";
 }
 
-const SIGN_FIND_US_LINE = "open library hours";
+const SIGN_FIND_US_LINE = "find us on the";
 const SIGN_LOCATION_LINE = "Lower Level";
 const SIGN_HOURS_LINE = "open during all library hours";
 const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
+const ENTRY_GREETING = "hey!";
+const ENTRY_GREETING_SUB = "so glad you're here";
 
 const SIGN_BG = "#722F37";
 const SIGN_PARCHMENT = "#EDE8E0";
@@ -2060,7 +2062,7 @@ async function buildRegularSignSVG(buildOpts){
   out += emitText("Gratified", cx, wordmarkY, {
     size: WORD_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT, letterSpacing: WORD_LETTER
   });
-  out += emitText("coffee + book?", cx, subtitleY, {
+  out += emitText("coffee + art", cx, subtitleY, {
     size: SUB_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT,
     letterSpacing: 3, wordSpacing: 8
   });
@@ -2159,17 +2161,22 @@ async function buildEntrySignSVG(buildOpts){
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
   `;
 
-  /* ---- top block: the house logo lockup, matched to the
-     storefront decal (tight wordmark, wide + gaps, nested
-     oxblood/gold diamond) ---- */
-  out += emitText("Gratified", cx, 420, {
-    size: 176, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2
+  /* ---- greeting masthead: big friendly hello up top, then
+     the house lockup with roomier tracking ---- */
+  out += emitText(ENTRY_GREETING, cx, 400, {
+    size: 210, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 4
   });
-  out += emitText("coffee + book?", cx, 540, {
-    size: 62, weight: 700, family: FONT_NAME, fill: OX,
-    letterSpacing: 3, wordSpacing: 26
+  out += emitText(ENTRY_GREETING_SUB, cx, 505, {
+    size: 42, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5
   });
-  out += logoDiamond(cx, 725, 250, OX);
+  out += emitText("Gratified", cx, 740, {
+    size: 118, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 8
+  });
+  out += emitText("coffee + art", cx, 828, {
+    size: 46, weight: 700, family: FONT_NAME, fill: OX,
+    letterSpacing: 4, wordSpacing: 20
+  });
+  out += logoDiamond(cx, 975, 190, OX);
 
   /* ---- bottom block: wayfinding ----
      with items it hugs the base; when the sheet is otherwise
@@ -2181,7 +2188,7 @@ async function buildEntrySignSVG(buildOpts){
   });
   const chevW = hasItems ? 128 : 170;
   const chevSW = hasItems ? 12 : 14;
-  const chev2Y = hasItems ? hoursY - 130 : 1804;
+  const chev2Y = hasItems ? hoursY - 130 : 1900;
   const chev1Y = chev2Y - (hasItems ? 62 : 74);
   out += downChevron(cx, chev1Y, chevW, OX, chevSW);
   out += downChevron(cx, chev2Y, chevW, OX, chevSW);
@@ -2196,7 +2203,7 @@ async function buildEntrySignSVG(buildOpts){
 
   /* ---- middle: featured items in full menu style, or air ---- */
   if(state.items.length > 0){
-    const contentTop = 725 + 125 + 80;
+    const contentTop = 975 + 95 + 70;
     const contentBottom = findUsY - 44 - 70;
     const availH = Math.max(200, contentBottom - contentTop);
     const availW = PAGE_W - M*2;
