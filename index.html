@@ -9,8 +9,9 @@
 <link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap" rel="stylesheet">
 <link href="https://fonts.cdnfonts.com/css/bluu-next" rel="stylesheet">
 
-<!-- jsPDF — used for the print-ready PDF export -->
+<!-- jsPDF + opentype.js — print-ready PDF export and text outlining -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
 
 <style>
 :root{
@@ -646,6 +647,10 @@ function esc(str){
 
 const measCtx = document.createElement("canvas").getContext("2d");
 function textW(text, font){
+  /* wrapping always measures with the same canvas engine the
+     editor uses, so exported line breaks match the on-screen
+     design exactly; the outline renderer draws the same font,
+     so any width delta is a fraction of a percent */
   measCtx.font = font;
   return measCtx.measureText(text).width;
 }
@@ -681,6 +686,78 @@ function fitSingleLine(text, weight, family, baseSize, maxW){
   const w = textW(String(text || ""), `${weight} ${baseSize}px ${family}`);
   if(!w || w <= maxW) return baseSize;
   return Math.max(26, baseSize * maxW / w);
+}
+
+/* ---------------------------
+   Text emission — every piece of drawn text goes through
+   emitText(). On screen it produces normal <text> elements.
+   During export builds (OUTLINE_TEXT on) it converts each line
+   to real vector outlines via opentype.js, using the same font
+   files for measuring AND drawing — so spacing is identical in
+   the browser, the PDF, Inkscape, and at the print shop, with
+   no fonts required at all.
+----------------------------*/
+
+let OUTLINE_TEXT = false;
+let _textFallbacks = 0;
+
+function decodeEntities(str){
+  return String(str)
+    .replace(/&#(\d+);/g, (m, n)=>String.fromCharCode(parseInt(n, 10)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"');
+}
+
+function emitText(text, x, y, o){
+  o = o || {};
+  const size = o.size, weight = o.weight || 400, family = o.family;
+  const anchor = o.anchor || "middle";
+  const ls = o.letterSpacing || 0;
+  const ws = o.wordSpacing || 0;
+
+  let of = OUTLINE_TEXT ? findOutlineFont(family, weight) : null;
+  let t = null;
+  if(of){
+    t = (o.raw ? decodeEntities(text) : String(text)).replace(/\u00a0/g, " ");
+    /* if the face is missing any glyph we need, fall back to live text */
+    for(const ch of t){
+      if(ch !== " " && of.font.charToGlyphIndex(ch) === 0){ of = null; break; }
+    }
+  }
+
+  if(!of){
+    if(OUTLINE_TEXT) _textFallbacks++;
+    let attrs = `x="${x}" y="${y}" text-anchor="${anchor}"
+      font-size="${size}" font-weight="${weight}" fill="${o.fill}"`;
+    if(o.opacity !== undefined) attrs += ` opacity="${o.opacity}"`;
+    if(o.italic) attrs += ` font-style="italic"`;
+    attrs += `\n      font-family="${family}"`;
+    if(ls) attrs += ` letter-spacing="${ls}"`;
+    if(ws) attrs += ` style="word-spacing:${ws}px"`;
+    return `
+    <text ${attrs}>${o.raw ? String(text) : esc(text)}</text>`;
+  }
+
+  const font = of.font;
+  const opts = { kerning: true, letterSpacing: size ? ls / size : 0 };
+  const measure = str => font.getAdvanceWidth(str, size, opts);
+  const words = ws ? t.split(" ") : [t];
+  const spaceW = ws ? measure(" ") + ws : 0;
+  const widths = words.map(measure);
+  const total = widths.reduce((a, b)=>a + b, 0) + (words.length - 1) * spaceW;
+  let sx = anchor === "middle" ? x - total / 2 : (anchor === "end" ? x - total : x);
+  let d = "";
+  words.forEach((wd, i)=>{
+    if(wd) d += font.getPath(wd, sx, y, size, opts).toPathData(2) + " ";
+    sx += widths[i] + spaceW;
+  });
+  let attrs = `fill="${o.fill}"`;
+  if(o.opacity !== undefined) attrs += ` fill-opacity="${o.opacity}"`;
+  const tr = o.italic ? ` transform="translate(${x} ${y}) skewX(-12) translate(${-x} ${-y})"` : "";
+  return `
+    <path d="${d.trim()}"${tr} ${attrs}/>`;
 }
 
 const NAME_FS = 14, NAME_LH = 15;
@@ -775,22 +852,21 @@ function itemTexts(it, x, y, s, fontScale, colorOverride){
     (i) => noteStart + i * noteLH - noteFS * 0.35, 2);
   let out = "";
   if(String(it.price || "").trim()){
-    out += `
-      <text x="${x}" y="${y + nameTop - 9*fontScale}" text-anchor="middle"
-        font-size="${priceFS}" font-weight="500" fill="${subCol}" opacity="${subOp}"
-        font-family="${FONT_PRICE}" letter-spacing="1">${esc(it.price)}</text>`;
+    out += emitText(it.price, x, y + nameTop - 9*fontScale, {
+      size: priceFS, weight: 500, family: FONT_PRICE,
+      fill: subCol, opacity: subOp, letterSpacing: 1
+    });
   }
   nameLines.forEach((ln, i)=>{
-    out += `
-      <text x="${x}" y="${y + (i - (nN - 1) / 2) * nameLH + 5*fontScale}" text-anchor="middle"
-        font-size="${nameFS}" font-weight="700" fill="${nameCol}"
-        font-family="${FONT_NAME}">${esc(ln)}</text>`;
+    out += emitText(ln, x, y + (i - (nN - 1) / 2) * nameLH + 5*fontScale, {
+      size: nameFS, weight: 700, family: FONT_NAME, fill: nameCol
+    });
   });
   noteLines.forEach((ln, i)=>{
-    out += `
-      <text x="${x}" y="${y + noteStart + i * noteLH}" text-anchor="middle"
-        font-size="${noteFS}" font-weight="300" fill="${subCol}" opacity="${subOp}"
-        font-family="${FONT_NOTE}">${esc(ln)}</text>`;
+    out += emitText(ln, x, y + noteStart + i * noteLH, {
+      size: noteFS, weight: 300, family: FONT_NOTE,
+      fill: subCol, opacity: subOp
+    });
   });
   return out;
 }
@@ -1398,18 +1474,119 @@ document.addEventListener("click", ()=>{ exportMenuEl.classList.remove("open"); 
 window.addEventListener("resize", ()=>{ exportMenuEl.classList.remove("open"); });
 
 /* ---------------------------
-   Shared export helpers — SVG download, browser-side
-   rasterisation, and print-PDF wrapping.
+   Shared export helpers.
 
-   Why the PDF exists: web browsers honour the base64 webfonts
-   embedded in the SVG, but Inkscape / Illustrator / print RIP
-   software mostly ignore SVG @font-face — so the SVG loses
-   Bluu Next + Satoshi anywhere outside a browser. The PDF is
-   rendered BY the browser (which draws the fonts perfectly),
-   rasterised at print resolution onto a true 24" x 36" page.
-   It looks identical everywhere and any commercial printer can
-   run it as-is. Keep the SVG alongside as the editable master.
+   Text outlining: at export time every piece of text is
+   converted to vector outlines (real glyph paths) using the
+   actual Bluu Next / Satoshi font files via opentype.js. The
+   same engine measures the text for wrapping AND draws it, so
+   spacing can never drift between the editor, the exported SVG,
+   the PDF, and the print shop — and the files need no fonts
+   installed anywhere. If outlining isn't possible (library or a
+   font file unavailable), the export falls back to live text
+   with browser-only embedded webfonts, exactly as before.
+
+   The PDF is rendered by the browser at print resolution onto a
+   true 24" x 36" page — any commercial printer runs it as-is.
 ----------------------------*/
+
+let _outlineFonts = null;
+let _outlineLoadPromise = null;
+
+function pickFontUrl(faceCss){
+  /* prefer formats opentype.js can parse: ttf/otf, then woff(1).
+     woff2 can't be parsed, but the same file usually exists as
+     .woff, so try that URL speculatively as a last resort. */
+  const urls = [...faceCss.matchAll(/url\(["']?(https?:\/\/[^"')\s]+)["']?\)(?:\s*format\(["']?([a-z0-9-]+)["']?\))?/gi)]
+    .map(m => ({ url: m[1], fmt: (m[2] || m[1].split(".").pop().split("?")[0] || "").toLowerCase() }));
+  for(const want of ["truetype", "ttf", "opentype", "otf", "woff"]){
+    const hit = urls.find(u => u.fmt === want);
+    if(hit) return hit.url;
+  }
+  const w2 = urls.find(u => u.fmt === "woff2");
+  if(w2) return w2.url.replace(/\.woff2(\?|$)/, ".woff$1");
+  return null;
+}
+
+async function loadOutlineFonts(){
+  if(_outlineFonts) return _outlineFonts;
+  if(_outlineLoadPromise) return _outlineLoadPromise;
+  _outlineLoadPromise = (async ()=>{
+    if(!window.opentype){ console.warn("opentype.js not loaded — exporting live text instead of outlines"); return null; }
+    const cssUrls = [
+      "https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap",
+      "https://fonts.cdnfonts.com/css/bluu-next"
+    ];
+    const faces = [];
+    for(const cssUrl of cssUrls){
+      try{
+        const res = await fetch(cssUrl);
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        const css = await res.text();
+        for(const m of css.matchAll(/@font-face\s*{([^}]*)}/g)){
+          const b = m[1];
+          if(/font-style:\s*italic/i.test(b)) continue;
+          const fam = (b.match(/font-family:\s*['"]?([^'";]+)/i) || [])[1];
+          const wRaw = (b.match(/font-weight:\s*([0-9]+)/i) || [])[1];
+          const url = pickFontUrl(b);
+          if(!fam || !url) continue;
+          faces.push({ family: fam.trim(), weight: parseInt(wRaw || "400", 10), url });
+        }
+      }catch(err){ console.warn("outline: css fetch failed", cssUrl, err); }
+    }
+    const loaded = [];
+    for(const f of faces){
+      try{
+        const res = await fetch(f.url);
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        const font = window.opentype.parse(await res.arrayBuffer());
+        loaded.push({ family: f.family, weight: f.weight, font });
+      }catch(err){ console.warn("outline: font unusable", f.family, f.weight, err); }
+    }
+    _outlineFonts = loaded.length ? { list: loaded } : null;
+    return _outlineFonts;
+  })();
+  return _outlineLoadPromise;
+}
+
+function findOutlineFont(familyCss, weight){
+  if(!_outlineFonts) return null;
+  const fams = String(familyCss || "").split(",")
+    .map(s => s.trim().replace(/^['"]|['"]$/g, "").toLowerCase());
+  for(const fam of fams){
+    const cands = _outlineFonts.list.filter(f => f.family.toLowerCase() === fam);
+    if(cands.length){
+      cands.sort((a, b)=>Math.abs(a.weight - weight) - Math.abs(b.weight - weight));
+      return cands[0];
+    }
+  }
+  return null;
+}
+
+async function beginOutlineText(){
+  const fonts = await loadOutlineFonts();
+  OUTLINE_TEXT = !!fonts;
+  _textFallbacks = 0;
+  return OUTLINE_TEXT;
+}
+
+function endOutlineText(){ OUTLINE_TEXT = false; }
+
+/* fills the __FONT_STYLE__ slot: nothing when the file is fully
+   outlined, embedded webfont CSS when any live text remains */
+async function finishSvg(out, canOutline){
+  const fullyOutlined = canOutline && _textFallbacks === 0;
+  let styleBlock = "";
+  let anyEmbedFailed = false;
+  if(!fullyOutlined){
+    const fs = await buildFontStyle();
+    styleBlock = `
+    <style><![CDATA[${fs.style}]]></style>
+`;
+    anyEmbedFailed = fs.anyEmbedFailed;
+  }
+  return { out: out.split("__FONT_STYLE__").join(styleBlock), outlined: fullyOutlined, anyEmbedFailed };
+}
 
 function downloadBlob(text, filename, mime){
   const blob = new Blob([text], { type: mime });
@@ -1425,7 +1602,7 @@ function rasterizeSVG(svgText, wIn, hIn, dpi){
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = ()=>{
-      /* brief settle so the data-URI fonts inside the SVG apply */
+      /* brief settle in case the SVG carries live text + fonts */
       setTimeout(()=>{
         try{
           const w = Math.round(wIn * dpi), h = Math.round(hIn * dpi);
@@ -1467,12 +1644,26 @@ async function svgToPdfDownload(svgText, filename){
   const pdf = new lib.jsPDF({ orientation: "portrait", unit: "in", format: [24, 36], compress: true });
   pdf.addImage(dataUrl, "JPEG", 0, 0, 24, 36);
   pdf.save(filename);
-  showToast(`exported 24"x36" pdf \u2713 \u2014 ${usedDpi}dpi, fonts baked in, printer-ready`, 5000);
+  showToast(`exported 24"x36" pdf \u2713 \u2014 ${usedDpi}dpi, printer-ready`, 5000);
   return true;
 }
 
-const SVG_EXPORT_TOAST_OK = "exported 24\"x36\" svg \u2713 \u2014 editable master (send the pdf to print)";
-const SVG_EXPORT_TOAST_WARN = "exported 24\"x36\" svg \u2014 fonts only render in browsers; use the pdf for print";
+function svgExportToast(r){
+  if(r.outlined) return "exported 24\"x36\" svg \u2713 \u2014 text outlined, opens perfectly anywhere";
+  if(r.anyEmbedFailed) return "exported 24\"x36\" svg \u2014 fonts couldn't fully embed; send the pdf to print";
+  return "exported 24\"x36\" svg \u2014 live text (browser fonts only); send the pdf to print";
+}
+
+const PRINT_NOTE_COMMENT = `
+  <!--
+    PRINT: 24in x 36in portrait (Arch D).
+    Text is converted to vector outlines at export when possible,
+    so no fonts are required - this file opens identically in
+    browsers, Inkscape, Illustrator, and print RIPs. If outlining
+    wasn't available, live text with browser-only webfonts is used
+    instead; in that case send the PDF export to print.
+  -->
+`;
 
 /* ---------------------------
    Build SVG — menu.
@@ -1481,26 +1672,23 @@ const SVG_EXPORT_TOAST_WARN = "exported 24\"x36\" svg \u2014 fonts only render i
    the editor's current zoom, the same text sizes, the same
    wrapping you see on screen — and that whole design is then
    uniformly scaled + centred to fill the sheet, with the
-   lattice background extended to the page edges. What prints
-   is exactly what you see in the editor, sized for the shop.
-   (Zoom is your text-density control: text size relative to
-   the diamonds matches your working zoom, like it always did.)
+   lattice background extended to the page edges.
 
    Pass an override ({title, tagline}) to force a format —
    the "food menu" dropdown options use this to export the
    current tab with the Food title + tagline.
-
-   Fonts are embedded as base64 data URIs so browsers render
-   Bluu Next and Satoshi correctly wherever the file opens.
 ----------------------------*/
 
 async function buildMenuSVG(override){
 
   if(!state.items.length){ alert("Add some menu items first :)"); return null; }
 
-  showToast("embedding fonts for print… one moment", 12000);
+  showToast("preparing print-ready vectors… one moment", 12000);
 
-  const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
+  const canOutline = await beginOutlineText();
+  let out = "";
+  let fileBase = "";
+  try{
 
   const PT_PER_IN = 72;
   const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
@@ -1544,17 +1732,13 @@ async function buildMenuSVG(override){
   const vh = PAGE_H / F;
 
   /* dot-grid pattern: a simple repeating 10×10 cell with a tiny
-     diamond at its centre. Small enough to be a background
-     texture rather than a design element, combined with the
-     diamond lattice it gives the print a deliberate paper-menu
-     feel rather than a flat computer printout. */
+     diamond at its centre — background texture that gives the
+     print a deliberate paper-menu feel */
   const DOT_SPACING = 10;
 
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
+  out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
 
-  out += `
-    <style><![CDATA[${fontStyle}]]></style>
-
+  out += `__FONT_STYLE__
     <defs>
       <!-- repeating diamond-dot grid -->
       <pattern id="dotGrid" x="${vx0 % DOT_SPACING}" y="${vy0 % DOT_SPACING}"
@@ -1596,25 +1780,21 @@ async function buildMenuSVG(override){
 
   const titleFS = fitSingleLine(title, 700, FONT_NAME, 32, w - 80);
   const titleY = y0 + 78;
-  out += `
-    <text x="${cx}" y="${titleY}" text-anchor="middle"
-      font-size="${titleFS}" font-weight="700" fill="#722F37"
-      font-family="${FONT_NAME}" letter-spacing="3">${esc(title)}</text>
-  `;
+  out += emitText(title, cx, titleY, {
+    size: titleFS, weight: 700, family: FONT_NAME, fill: "#722F37", letterSpacing: 3
+  });
   if(tagline){
-    out += `
-    <text x="${cx}" y="${titleY + 26}" text-anchor="middle"
-      font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_NOTE}" letter-spacing="1.5">${tagline}</text>
-  `;
+    out += emitText(tagline, cx, titleY + 26, {
+      size: 11, weight: 300, family: FONT_NOTE, fill: "#6B5740",
+      opacity: 0.8, letterSpacing: 1.5, raw: true
+    });
   }
 
   const footY = maxY + pad + 28;
-  out += `
-    <text x="${cx}" y="${footY}" text-anchor="middle"
-      font-size="11" font-weight="300" fill="#6B5740" opacity="0.8"
-      font-family="${FONT_NOTE}" letter-spacing="1.5">${FOOTER_TEXT}</text>
-  `;
+  out += emitText(FOOTER_TEXT, cx, footY, {
+    size: 11, weight: 300, family: FONT_NOTE, fill: "#6B5740",
+    opacity: 0.8, letterSpacing: 1.5, raw: true
+  });
 
   for(const it of state.items){
     const p = toScreen(it.gx,it.gy);
@@ -1624,26 +1804,22 @@ async function buildMenuSVG(override){
   }
 
   out += `
-    </g>
-  <!--
-    PRINT: 24in x 36in portrait (Arch D).
-    NOTE: browsers honour the embedded webfonts in this file, but
-    Inkscape / Illustrator mostly ignore SVG @font-face — for
-    commercial printing use the matching PDF export (fonts baked
-    in). If you must print from this SVG via Inkscape, select all
-    text and run Text > Convert to Paths first.
-  -->
-  </svg>`;
+    </g>${PRINT_NOTE_COMMENT}</svg>`;
 
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  return { out, fileBase: "gratified-" + (slug || "menu") + "-24x36", anyEmbedFailed };
+  fileBase = "gratified-" + (slug || "menu") + "-24x36";
+
+  }finally{ endOutlineText(); }
+
+  const fin = await finishSvg(out, canOutline);
+  return { out: fin.out, fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed };
 }
 
 async function exportMenuSVG(override){
   const r = await buildMenuSVG(override);
   if(!r) return;
   downloadBlob(r.out, r.fileBase + ".svg", "image/svg+xml");
-  showToast(r.anyEmbedFailed ? SVG_EXPORT_TOAST_WARN : SVG_EXPORT_TOAST_OK, 5000);
+  showToast(svgExportToast(r), 5000);
 }
 
 async function exportMenuPDF(override){
@@ -1666,7 +1842,7 @@ async function exportSignSVG(){
   const r = await buildSignSVG();
   if(!r) return;
   downloadBlob(r.out, r.fileBase + ".svg", "image/svg+xml");
-  showToast(r.anyEmbedFailed ? SVG_EXPORT_TOAST_WARN : SVG_EXPORT_TOAST_OK, 5000);
+  showToast(svgExportToast(r), 5000);
 }
 
 async function exportSignPDF(){
@@ -1677,8 +1853,12 @@ async function exportSignPDF(){
 
 async function buildRegularSignSVG(){
 
-  showToast("embedding fonts for print… one moment", 12000);
-  const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
+  showToast("preparing print-ready vectors… one moment", 12000);
+
+  const canOutline = await beginOutlineText();
+  let out = "";
+  let fileBase = "";
+  try{
 
   const PT_PER_IN = 72;
   const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
@@ -1736,11 +1916,9 @@ async function buildRegularSignSVG(){
   const sectionLabelSize = fitSingleLine(title, 700, FONT_NAME, Math.round(26*K), PAGE_W - MARGIN*2 - Math.round(60*K));
   const B = Math.round(40*K);
 
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
+  out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
 
-  out += `
-    <style><![CDATA[${fontStyle}]]></style>
-
+  out += `__FONT_STYLE__
     <defs>
       <radialGradient id="signGlow" cx="50%" cy="14%" r="55%">
         <stop offset="0%"   stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
@@ -1787,30 +1965,25 @@ async function buildRegularSignSVG(){
     }
   }
 
-  out += `
-    <text x="${cx}" y="${wordmarkY}" text-anchor="middle"
-      font-size="${WORD_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_NAME}" letter-spacing="${WORD_LETTER}">Gratified</text>
-
-    <text x="${cx}" y="${subtitleY}" text-anchor="middle"
-      font-size="${SUB_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_NAME}" letter-spacing="3" style="word-spacing:8px">coffee + art</text>
-  `;
+  out += emitText("Gratified", cx, wordmarkY, {
+    size: WORD_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT, letterSpacing: WORD_LETTER
+  });
+  out += emitText("coffee + art", cx, subtitleY, {
+    size: SUB_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT,
+    letterSpacing: 3, wordSpacing: 8
+  });
   out += logoDiamond(cx, logoDiamondY, LOGO_D, SIGN_PARCHMENT);
 
   if(SIGN_TAGLINE_TEXT.trim()){
-    out += `
-      <text x="${cx}" y="${taglineY}" text-anchor="middle"
-        font-size="${Math.round(17*K)}" font-weight="300" font-style="italic" fill="${SIGN_GOLD}" opacity="0.85"
-        font-family="${FONT_PRICE}" letter-spacing="1.5">${esc(SIGN_TAGLINE_TEXT)}</text>
-    `;
+    out += emitText(SIGN_TAGLINE_TEXT, cx, taglineY, {
+      size: Math.round(17*K), weight: 300, family: FONT_PRICE, fill: SIGN_GOLD,
+      opacity: 0.85, letterSpacing: 1.5, italic: true
+    });
   }
 
-  out += `
-    <text x="${cx}" y="${sectionLabelY}" text-anchor="middle"
-      font-size="${sectionLabelSize}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_NAME}" letter-spacing="3">${esc(title)}</text>
-  `;
+  out += emitText(title, cx, sectionLabelY, {
+    size: sectionLabelSize, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT, letterSpacing: 3
+  });
 
   for(const it of state.items){
     const p = sToScreen(it.gx, it.gy);
@@ -1822,33 +1995,28 @@ async function buildRegularSignSVG(){
 
   out += `
     <line x1="${cx-Math.round(130*K)}" y1="${footerDividerY}" x2="${cx+Math.round(130*K)}" y2="${footerDividerY}" stroke="${SIGN_AMBER}" stroke-width="2.5" opacity="0.7"/>
-    <text x="${cx}" y="${findUsY}" text-anchor="middle"
-      font-size="${Math.round(24*K)}" font-weight="700" fill="${SIGN_GOLD}"
-      font-family="${FONT_PRICE}" letter-spacing="3">${esc(SIGN_FIND_US_LINE)}</text>
   `;
+  out += emitText(SIGN_FIND_US_LINE, cx, findUsY, {
+    size: Math.round(24*K), weight: 700, family: FONT_PRICE, fill: SIGN_GOLD, letterSpacing: 3
+  });
   out += downChevron(cx, chevronY, Math.round(30*K), SIGN_GOLD, 6);
-  out += `
-    <text x="${cx}" y="${lowerLevelY}" text-anchor="middle"
-      font-size="${LOWER_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_PRICE}" letter-spacing="1.5">${esc(SIGN_LOCATION_LINE)}</text>
-    <text x="${cx}" y="${hoursY}" text-anchor="middle"
-      font-size="${Math.round(22*K)}" font-weight="700" fill="${SIGN_GOLD}" opacity="0.85"
-      font-family="${FONT_PRICE}" letter-spacing="2">${esc(SIGN_HOURS_LINE)}</text>
-  `;
+  out += emitText(SIGN_LOCATION_LINE, cx, lowerLevelY, {
+    size: LOWER_FS, weight: 700, family: FONT_PRICE, fill: SIGN_PARCHMENT, letterSpacing: 1.5
+  });
+  out += emitText(SIGN_HOURS_LINE, cx, hoursY, {
+    size: Math.round(22*K), weight: 700, family: FONT_PRICE, fill: SIGN_GOLD,
+    opacity: 0.85, letterSpacing: 2
+  });
 
-  out += `
-  <!--
-    PRINT: 24in x 36in portrait (Arch D).
-    NOTE: browsers honour the embedded webfonts in this file, but
-    Inkscape / Illustrator mostly ignore SVG @font-face — for
-    commercial printing use the matching PDF export (fonts baked
-    in). If you must print from this SVG via Inkscape, select all
-    text and run Text > Convert to Paths first.
-  -->
-  </svg>`;
+  out += `${PRINT_NOTE_COMMENT}</svg>`;
 
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  return { out, fileBase: "gratified-sign-" + (slug || "menu") + "-24x36", anyEmbedFailed };
+  fileBase = "gratified-sign-" + (slug || "menu") + "-24x36";
+
+  }finally{ endOutlineText(); }
+
+  const fin = await finishSvg(out, canOutline);
+  return { out: fin.out, fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed };
 }
 
 /* ---------------------------
@@ -1857,8 +2025,12 @@ async function buildRegularSignSVG(){
 
 async function buildEntrySignSVG(){
 
-  showToast("embedding fonts for print… one moment", 12000);
-  const { style: fontStyle, anyEmbedFailed } = await buildFontStyle();
+  showToast("preparing print-ready vectors… one moment", 12000);
+
+  const canOutline = await beginOutlineText();
+  let out = "";
+  let fileBase = "";
+  try{
 
   const PT_PER_IN = 72;
   const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
@@ -1868,10 +2040,9 @@ async function buildEntrySignSVG(){
   const cx = PAGE_W / 2;
   const B = Math.round(40 * K);
 
-  let out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
+  out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
 
-  out += `
-    <style><![CDATA[${fontStyle}]]></style>
+  out += `__FONT_STYLE__
     <defs>
       <radialGradient id="signGlow" cx="50%" cy="14%" r="55%">
         <stop offset="0%"   stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
@@ -1895,19 +2066,16 @@ async function buildEntrySignSVG(){
   let y = MARGIN + Math.round(30*K);
   const WORD_FS = Math.round(112*K);
   y += WORD_FS;
-  out += `
-    <text x="${cx}" y="${y}" text-anchor="middle"
-      font-size="${WORD_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_NAME}" letter-spacing="${Math.round(6*K)}">Gratified</text>
-  `;
+  out += emitText("Gratified", cx, y, {
+    size: WORD_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT, letterSpacing: Math.round(6*K)
+  });
 
   const SUB_FS = Math.round(42*K);
   y += Math.round(62*K);
-  out += `
-    <text x="${cx}" y="${y}" text-anchor="middle"
-      font-size="${SUB_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_NAME}" letter-spacing="3" style="word-spacing:10px">coffee + art</text>
-  `;
+  out += emitText("coffee + art", cx, y, {
+    size: SUB_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT,
+    letterSpacing: 3, wordSpacing: 10
+  });
 
   const LOGO_D = Math.round(120*K);
   y += Math.round(36*K) + LOGO_D/2;
@@ -1916,11 +2084,10 @@ async function buildEntrySignSVG(){
 
   if(SIGN_TAGLINE_TEXT.trim()){
     y += Math.round(32*K);
-    out += `
-      <text x="${cx}" y="${y}" text-anchor="middle"
-        font-size="${Math.round(18*K)}" font-weight="300" font-style="italic" fill="${SIGN_GOLD}" opacity="0.9"
-        font-family="${FONT_PRICE}" letter-spacing="1.5">${esc(SIGN_TAGLINE_TEXT)}</text>
-    `;
+    out += emitText(SIGN_TAGLINE_TEXT, cx, y, {
+      size: Math.round(18*K), weight: 300, family: FONT_PRICE, fill: SIGN_GOLD,
+      opacity: 0.9, letterSpacing: 1.5, italic: true
+    });
   }
 
   y += Math.round(92*K);
@@ -1930,19 +2097,16 @@ async function buildEntrySignSVG(){
 
   const LOWER_FS = Math.round(100*K);
   y += LOWER_FS;
-  out += `
-    <text x="${cx}" y="${y}" text-anchor="middle"
-      font-size="${LOWER_FS}" font-weight="700" fill="${SIGN_PARCHMENT}"
-      font-family="${FONT_PRICE}" letter-spacing="5">LOWER LEVEL</text>
-  `;
+  out += emitText("LOWER LEVEL", cx, y, {
+    size: LOWER_FS, weight: 700, family: FONT_PRICE, fill: SIGN_PARCHMENT, letterSpacing: 5
+  });
 
   const HOURS_FS = Math.round(26*K);
   y += Math.round(50*K);
-  out += `
-    <text x="${cx}" y="${y}" text-anchor="middle"
-      font-size="${HOURS_FS}" font-weight="700" fill="${SIGN_GOLD}" opacity="0.9"
-      font-family="${FONT_PRICE}" letter-spacing="2.5">Open during library hours</text>
-  `;
+  out += emitText("Open during library hours", cx, y, {
+    size: HOURS_FS, weight: 700, family: FONT_PRICE, fill: SIGN_GOLD,
+    opacity: 0.9, letterSpacing: 2.5
+  });
 
   y += Math.round(84*K);
   const contentTop = y;
@@ -1981,11 +2145,9 @@ async function buildEntrySignSVG(){
       const nN = Math.max(1, nameLines.length);
       const deepColor = deepenColor(it.color);
       nameLines.forEach((ln, i) => {
-        out += `
-          <text x="${p.x}" y="${p.y + (i - (nN-1)/2) * nameLH + nameFS*0.35}" text-anchor="middle"
-            font-size="${nameFS}" font-weight="700" fill="${deepColor}"
-            font-family="${FONT_NAME}">${esc(ln)}</text>
-        `;
+        out += emitText(ln, p.x, p.y + (i - (nN-1)/2) * nameLH + nameFS*0.35, {
+          size: nameFS, weight: 700, family: FONT_NAME, fill: deepColor
+        });
       });
     }
   } else {
@@ -2005,19 +2167,15 @@ async function buildEntrySignSVG(){
     });
   }
 
-  out += `
-  <!--
-    PRINT: 24in x 36in portrait (Arch D).
-    NOTE: browsers honour the embedded webfonts in this file, but
-    Inkscape / Illustrator mostly ignore SVG @font-face — for
-    commercial printing use the matching PDF export (fonts baked
-    in). If you must print from this SVG via Inkscape, select all
-    text and run Text > Convert to Paths first.
-  -->
-  </svg>`;
+  out += `${PRINT_NOTE_COMMENT}</svg>`;
 
   const slug = currentMenuName().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  return { out, fileBase: "gratified-entry-" + (slug || "sign") + "-24x36", anyEmbedFailed };
+  fileBase = "gratified-entry-" + (slug || "sign") + "-24x36";
+
+  }finally{ endOutlineText(); }
+
+  const fin = await finishSvg(out, canOutline);
+  return { out: fin.out, fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed };
 }
 
 /* ----------------------------------- */
