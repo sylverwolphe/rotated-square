@@ -993,17 +993,17 @@ function dotDiamond(x, y, r, fill, opacity){
   return `<polygon points="${x},${y-r} ${x+r},${y} ${x},${y+r} ${x-r},${y}" fill="${fill}"${opacity !== undefined ? ` fill-opacity="${opacity}"` : ""}/>`;
 }
 
-function logoDiamond(cx, cy, D, color){
-  const inset = D * 0.15;
-  const rs = D * 0.7;
-  const left = cx - D/2, top = cy - D/2;
-  const sw = Math.max(1.5, Math.min(6, D * 0.03));
+/* the house logo mark — nested diamond straight from the
+   storefront decal: outer oxblood, inner gold #E8A317 at 40%
+   of the outer size (no circles, naturally) */
+function logoDiamond(cx, cy, D, color, inner){
+  const o = D / 2;
+  const i = D * 0.4 / 2;
+  const g = inner || "#E8A317";
   return `
-    <g transform="translate(${left},${top})">
-      <rect x="${inset}" y="${inset}" width="${rs}" height="${rs}"
-        transform="rotate(45 ${D/2} ${D/2})" fill="${color}"/>
-      <rect x="${inset}" y="${inset}" width="${rs}" height="${rs}"
-        transform="rotate(45 ${D/2} ${D/2})" fill="none" stroke="${color}" stroke-width="${sw}"/>
+    <g>
+      <polygon points="${cx},${cy-o} ${cx+o},${cy} ${cx},${cy+o} ${cx-o},${cy}" fill="${color}"/>
+      <polygon points="${cx},${cy-i} ${cx+i},${cy} ${cx},${cy+i} ${cx-i},${cy}" fill="${g}"/>
     </g>
   `;
 }
@@ -2002,8 +2002,8 @@ async function buildRegularSignSVG(buildOpts){
   const soy = (contentTop + clusterGap) + s - gy0 * u;
   const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
 
-  const TEXT_REF_SCALE = 100;
-  const fontScale = Math.max(1, s / TEXT_REF_SCALE);
+  /* text-to-diamond ratio synced to the editor's current zoom */
+  const fontScale = s / Math.max(20, state.scale);
   const itemStroke = 1.6 * K;
   const sectionLabelSize = fitSingleLine(title, 700, FONT_NAME, Math.round(26*K), PAGE_W - MARGIN*2 - Math.round(60*K));
   const B = Math.round(40*K);
@@ -2080,7 +2080,7 @@ async function buildRegularSignSVG(buildOpts){
   for(const it of state.items){
     const p = sToScreen(it.gx, it.gy);
     out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER, itemStroke);
-    out += specialPattern(it, p.x, p.y, s, K);
+    out += specialPattern(it, p.x, p.y, s, fontScale);
     const deepColor = deepenColor(it.color);
     out += itemTexts(it, p.x, p.y, s, fontScale, { nameCol: deepColor, subCol: deepColor, subOp: 0.7 });
   }
@@ -2159,21 +2159,17 @@ async function buildEntrySignSVG(buildOpts){
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
   `;
 
-  /* ---- top block: website-style masthead ---- */
-  if(SIGN_TAGLINE_TEXT.trim()){
-    out += emitText(SIGN_TAGLINE_TEXT, cx, 252, {
-      size: 30, weight: 300, family: FONT_NOTE, fill: OLIVE,
-      opacity: 0.9, letterSpacing: 6
-    });
-  }
-  out += emitText("Gratified", cx, 462, {
-    size: 176, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 6
+  /* ---- top block: the house logo lockup, matched to the
+     storefront decal (tight wordmark, wide + gaps, nested
+     oxblood/gold diamond) ---- */
+  out += emitText("Gratified", cx, 420, {
+    size: 176, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2
   });
-  out += emitText("coffee + art", cx, 580, {
+  out += emitText("coffee + art", cx, 540, {
     size: 62, weight: 700, family: FONT_NAME, fill: OX,
-    letterSpacing: 3, wordSpacing: 12
+    letterSpacing: 3, wordSpacing: 26
   });
-  out += logoDiamond(cx, 742, 190, OX);
+  out += logoDiamond(cx, 725, 250, OX);
 
   /* ---- bottom block: wayfinding ----
      with items it hugs the base; when the sheet is otherwise
@@ -2200,7 +2196,7 @@ async function buildEntrySignSVG(buildOpts){
 
   /* ---- middle: featured items in full menu style, or air ---- */
   if(state.items.length > 0){
-    const contentTop = 742 + 95 + 90;
+    const contentTop = 725 + 125 + 80;
     const contentBottom = findUsY - 44 - 70;
     const availH = Math.max(200, contentBottom - contentTop);
     const availW = PAGE_W - M*2;
@@ -2219,7 +2215,7 @@ async function buildEntrySignSVG(buildOpts){
     const gyMid = (gy0 + gy1) / 2;
     const sox = cx - gxMid * u;
     const soy = (contentTop + contentBottom) / 2 - gyMid * u;
-    const fontScale = Math.max(1, s / 100);
+    const fontScale = s / Math.max(20, state.scale);
     for(const it of state.items){
       const p = { x: it.gx*u + sox, y: it.gy*u + soy };
       out += diamondItem(p.x, p.y, s, it.color, OX, it.nibble);
