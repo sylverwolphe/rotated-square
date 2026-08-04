@@ -373,10 +373,13 @@ svg:active{ cursor:grabbing; }
     <button id="exportToggle" type="button">export ▾</button>
     <div class="dropdown-menu" id="exportMenu">
       <div class="dropdown-item" data-action="menu-pdf">menu 24"x36" (pdf)</div>
+      <div class="dropdown-item" data-action="menu-jpg">menu 24"x36" (jpg)</div>
       <div class="dropdown-item" data-action="menu">menu 24"x36" (svg)</div>
       <div class="dropdown-item" data-action="food-pdf">food menu 24"x36" (pdf)</div>
+      <div class="dropdown-item" data-action="food-jpg">food menu 24"x36" (jpg)</div>
       <div class="dropdown-item" data-action="food">food menu 24"x36" (svg)</div>
       <div class="dropdown-item" data-action="sign-pdf">sign 24"x36" (pdf)</div>
+      <div class="dropdown-item" data-action="sign-jpg">sign 24"x36" (jpg)</div>
       <div class="dropdown-item" data-action="sign">sign 24"x36" (svg)</div>
     </div>
   </div>
@@ -700,6 +703,8 @@ function fitSingleLine(text, weight, family, baseSize, maxW){
 
 let OUTLINE_TEXT = false;
 let _textFallbacks = 0;
+let TEXT_COLLECT = null;        /* when set (array), emitText records ops for canvas painting */
+let _collectTransform = null;   /* group transform ({tx,ty,F}) active for recorded ops */
 
 function decodeEntities(str){
   return String(str)
@@ -716,6 +721,15 @@ function emitText(text, x, y, o){
   const anchor = o.anchor || "middle";
   const ls = o.letterSpacing || 0;
   const ws = o.wordSpacing || 0;
+
+  if(TEXT_COLLECT){
+    TEXT_COLLECT.push({
+      text: (o.raw ? decodeEntities(text) : String(text)).replace(/\u00a0/g, " "),
+      x, y, size, weight, family, fill: o.fill, opacity: o.opacity,
+      letterSpacing: ls, wordSpacing: ws, italic: !!o.italic, tf: _collectTransform
+    });
+    return "";
+  }
 
   let of = OUTLINE_TEXT ? findOutlineFont(family, weight) : null;
   let t = null;
@@ -1464,10 +1478,13 @@ exportMenuEl.addEventListener("click", (e)=>{
   exportMenuEl.classList.remove("open");
   if(opt.dataset.action === "menu") exportMenuSVG();
   else if(opt.dataset.action === "menu-pdf") exportMenuPDF();
+  else if(opt.dataset.action === "menu-jpg") exportMenuJPEG();
   else if(opt.dataset.action === "food") exportMenuSVG({ title: "Food", tagline: TAGLINE_FOOD });
   else if(opt.dataset.action === "food-pdf") exportMenuPDF({ title: "Food", tagline: TAGLINE_FOOD });
+  else if(opt.dataset.action === "food-jpg") exportMenuJPEG({ title: "Food", tagline: TAGLINE_FOOD });
   else if(opt.dataset.action === "sign") exportSignSVG();
   else if(opt.dataset.action === "sign-pdf") exportSignPDF();
+  else if(opt.dataset.action === "sign-jpg") exportSignJPEG();
 });
 
 document.addEventListener("click", ()=>{ exportMenuEl.classList.remove("open"); });
@@ -1476,18 +1493,26 @@ window.addEventListener("resize", ()=>{ exportMenuEl.classList.remove("open"); }
 /* ---------------------------
    Shared export helpers.
 
-   Text outlining: at export time every piece of text is
-   converted to vector outlines (real glyph paths) using the
-   actual Bluu Next / Satoshi font files via opentype.js. The
-   same engine measures the text for wrapping AND draws it, so
-   spacing can never drift between the editor, the exported SVG,
-   the PDF, and the print shop — and the files need no fonts
-   installed anywhere. If outlining isn't possible (library or a
-   font file unavailable), the export falls back to live text
-   with browser-only embedded webfonts, exactly as before.
+   Three formats:
 
-   The PDF is rendered by the browser at print resolution onto a
-   true 24" x 36" page — any commercial printer runs it as-is.
+   • SVG — the editable vector master. Text is converted to
+     glyph outlines with opentype.js when the font files can be
+     fetched + parsed; otherwise it falls back to live text with
+     browser-only embedded webfonts.
+
+   • PDF / JPG — the print files, painted in two layers:
+       1. everything EXCEPT text (diamonds, lattice, patterns,
+          glyph art) comes from the vector layer, rasterised via
+          an SVG image — reliable, since nothing font-related is
+          left in it;
+       2. the text is then painted directly onto the canvas by
+          THIS page, using the same loaded fonts and the same
+          measuring engine that chose the line breaks in the
+          editor. What you see on screen is what exports — the
+          isolated SVG-image font quirks are out of the loop
+          entirely.
+     The PDF wraps that canvas on a true 24" x 36" page; the JPG
+     is the canvas itself at print resolution.
 ----------------------------*/
 
 let _outlineFonts = null;
@@ -1585,7 +1610,7 @@ async function finishSvg(out, canOutline){
 `;
     anyEmbedFailed = fs.anyEmbedFailed;
   }
-  return { out: out.split("__FONT_STYLE__").join(styleBlock), outlined: fullyOutlined, anyEmbedFailed };
+  return { out: out.split("__FONT_STYLE__").join(styleBlock), outlined: fullyOutlined, anyEmbedFailed: anyEmbedFailed };
 }
 
 function downloadBlob(text, filename, mime){
@@ -1596,62 +1621,112 @@ function downloadBlob(text, filename, mime){
   a.click();
 }
 
-function rasterizeSVG(svgText, wIn, hIn, dpi){
+function loadSVGImage(svgText){
   return new Promise((resolve, reject)=>{
     const blob = new Blob([svgText], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     const img = new Image();
-    img.onload = ()=>{
-      /* brief settle in case the SVG carries live text + fonts */
-      setTimeout(()=>{
-        try{
-          const w = Math.round(wIn * dpi), h = Math.round(hIn * dpi);
-          const canvas = document.createElement("canvas");
-          canvas.width = w; canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          if(!ctx) throw new Error("no 2d context");
-          ctx.drawImage(img, 0, 0, w, h);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
-          URL.revokeObjectURL(url);
-          resolve(dataUrl);
-        }catch(err){
-          URL.revokeObjectURL(url);
-          reject(err);
-        }
-      }, 300);
-    };
+    img.onload = ()=>resolve({ img, done: ()=>URL.revokeObjectURL(url) });
     img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("SVG could not be rasterised")); };
     img.src = url;
   });
 }
 
-async function svgToPdfDownload(svgText, filename){
+/* paint one text op with the live page's canvas font engine */
+function drawCanvasText(ctx, op){
+  const t = op.text;
+  const ls = op.letterSpacing || 0, ws = op.wordSpacing || 0;
+  const nativeLS = ("letterSpacing" in ctx), nativeWS = ("wordSpacing" in ctx);
+  if(nativeLS) ctx.letterSpacing = ls + "px";
+  if(nativeWS) ctx.wordSpacing = ws + "px";
+  if((ls && !nativeLS) || (ws && !nativeWS)){
+    /* manual spacing for browsers without canvas spacing support */
+    ctx.textAlign = "left";
+    const chunks = ws ? t.split(" ") : [...t];
+    const gap = ws ? ctx.measureText(" ").width + ws : ls;
+    const widths = chunks.map(c => ctx.measureText(c).width);
+    const total = widths.reduce((a, b)=>a + b, 0) + gap * Math.max(0, chunks.length - 1);
+    let x = op.x - total / 2;
+    chunks.forEach((c, i)=>{ ctx.fillText(c, x, op.y); x += widths[i] + gap; });
+    return;
+  }
+  ctx.textAlign = "center";
+  ctx.fillText(t, op.x, op.y);
+}
+
+async function renderExportCanvas(svgTextNoText, textOps, dpi){
+  const { img, done } = await loadSVGImage(svgTextNoText);
+  try{
+    const w = Math.round(24 * dpi), h = Math.round(36 * dpi);
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if(!ctx) throw new Error("no 2d context");
+    ctx.drawImage(img, 0, 0, w, h);
+    try{
+      await Promise.all([
+        document.fonts.load('700 32px "Bluu Next"'),
+        document.fonts.load("300 16px Satoshi"),
+        document.fonts.load("500 16px Satoshi"),
+        document.fonts.load("700 16px Satoshi")
+      ]);
+      await document.fonts.ready;
+    }catch(_){ /* fonts are almost certainly already active from the editor */ }
+    const k = dpi / 72;   /* device px per SVG (pt) unit */
+    for(const op of (textOps || [])){
+      ctx.save();
+      if(op.tf) ctx.setTransform(k * op.tf.F, 0, 0, k * op.tf.F, k * op.tf.tx, k * op.tf.ty);
+      else ctx.setTransform(k, 0, 0, k, 0, 0);
+      ctx.fillStyle = op.fill;
+      ctx.globalAlpha = op.opacity !== undefined ? op.opacity : 1;
+      ctx.textBaseline = "alphabetic";
+      ctx.font = `${op.italic ? "italic " : ""}${op.weight} ${op.size}px ${op.family}`;
+      drawCanvasText(ctx, op);
+      ctx.restore();
+    }
+    return canvas;
+  } finally { done(); }
+}
+
+async function buildExportCanvas(build){
+  let canvas = null, usedDpi = 0;
+  for(const dpi of [200, 150, 100]){
+    try{ canvas = await renderExportCanvas(build.out, build.textOps, dpi); usedDpi = dpi; break; }
+    catch(err){ console.warn("render at " + dpi + "dpi failed:", err); }
+  }
+  return canvas ? { canvas: canvas, dpi: usedDpi } : null;
+}
+
+async function exportBuildAsPDF(build, filename){
   const lib = window.jspdf;
   if(!lib || !lib.jsPDF){
-    alert("The PDF library didn't load — check your internet connection and reload, or use the SVG export.");
-    return false;
+    alert("The PDF library didn't load — check your internet connection and reload, or use the JPG / SVG export.");
+    return;
   }
   showToast("rendering print pdf… a few seconds", 20000);
-  let dataUrl = null, usedDpi = 0;
-  for(const dpi of [200, 150, 100]){
-    try{ dataUrl = await rasterizeSVG(svgText, 24, 36, dpi); usedDpi = dpi; break; }
-    catch(err){ console.warn("rasterise at " + dpi + "dpi failed:", err); }
-  }
-  if(!dataUrl){
-    alert("Couldn't render the PDF on this machine — the SVG export still works.");
-    return false;
-  }
+  const r = await buildExportCanvas(build);
+  if(!r){ alert("Couldn't render the PDF on this machine — try the JPG or SVG export."); return; }
   const pdf = new lib.jsPDF({ orientation: "portrait", unit: "in", format: [24, 36], compress: true });
-  pdf.addImage(dataUrl, "JPEG", 0, 0, 24, 36);
+  pdf.addImage(r.canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 24, 36);
   pdf.save(filename);
-  showToast(`exported 24"x36" pdf \u2713 \u2014 ${usedDpi}dpi, printer-ready`, 5000);
-  return true;
+  showToast(`exported 24"x36" pdf \u2713 \u2014 ${r.dpi}dpi, text matches your screen exactly`, 5000);
+}
+
+async function exportBuildAsJPEG(build, filename){
+  showToast("rendering print jpg… a few seconds", 20000);
+  const r = await buildExportCanvas(build);
+  if(!r){ alert("Couldn't render the JPG on this machine — try the SVG export."); return; }
+  const a = document.createElement("a");
+  a.href = r.canvas.toDataURL("image/jpeg", 0.95);
+  a.download = filename;
+  a.click();
+  showToast(`exported 24"x36" jpg \u2713 \u2014 ${r.dpi}dpi, text matches your screen exactly`, 5000);
 }
 
 function svgExportToast(r){
   if(r.outlined) return "exported 24\"x36\" svg \u2713 \u2014 text outlined, opens perfectly anywhere";
-  if(r.anyEmbedFailed) return "exported 24\"x36\" svg \u2014 fonts couldn't fully embed; send the pdf to print";
-  return "exported 24\"x36\" svg \u2014 live text (browser fonts only); send the pdf to print";
+  if(r.anyEmbedFailed) return "exported 24\"x36\" svg \u2014 fonts couldn't fully embed; send the pdf or jpg to print";
+  return "exported 24\"x36\" svg \u2014 live text (browser fonts only); send the pdf or jpg to print";
 }
 
 const PRINT_NOTE_COMMENT = `
@@ -1661,7 +1736,7 @@ const PRINT_NOTE_COMMENT = `
     so no fonts are required - this file opens identically in
     browsers, Inkscape, Illustrator, and print RIPs. If outlining
     wasn't available, live text with browser-only webfonts is used
-    instead; in that case send the PDF export to print.
+    instead; in that case send the PDF or JPG export to print.
   -->
 `;
 
@@ -1677,17 +1752,23 @@ const PRINT_NOTE_COMMENT = `
    Pass an override ({title, tagline}) to force a format —
    the "food menu" dropdown options use this to export the
    current tab with the Food title + tagline.
+
+   buildOpts.collectText: emit a TEXTLESS svg and record every
+   text op for canvas painting (the PDF / JPG pipeline).
 ----------------------------*/
 
-async function buildMenuSVG(override){
+async function buildMenuSVG(override, buildOpts){
 
   if(!state.items.length){ alert("Add some menu items first :)"); return null; }
 
-  showToast("preparing print-ready vectors… one moment", 12000);
+  const collect = !!(buildOpts && buildOpts.collectText);
+  showToast(collect ? "rendering print file… a few seconds" : "preparing print-ready vectors… one moment", 12000);
 
-  const canOutline = await beginOutlineText();
+  const canOutline = collect ? false : await beginOutlineText();
+  if(collect){ TEXT_COLLECT = []; _collectTransform = null; }
   let out = "";
   let fileBase = "";
+  let textOps = null;
   try{
 
   const PT_PER_IN = 72;
@@ -1723,6 +1804,8 @@ async function buildMenuSVG(override){
   const F = Math.min((PAGE_W - PAGE_MARGIN*2) / w, (PAGE_H - PAGE_MARGIN*2) / h);
   const tx = (PAGE_W - w * F) / 2 - x0 * F;
   const ty = (PAGE_H - h * F) / 2 - y0 * F;
+
+  if(collect) _collectTransform = { tx: tx, ty: ty, F: F };
 
   /* editor-space region visible through the full sheet, so the
      paper texture + lattice run edge to edge on the print */
@@ -1809,10 +1892,17 @@ async function buildMenuSVG(override){
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
   fileBase = "gratified-" + (slug || "menu") + "-24x36";
 
-  }finally{ endOutlineText(); }
+  }finally{
+    endOutlineText();
+    textOps = TEXT_COLLECT;
+    TEXT_COLLECT = null;
+    _collectTransform = null;
+  }
 
-  const fin = await finishSvg(out, canOutline);
-  return { out: fin.out, fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed };
+  const fin = collect
+    ? { out: out.split("__FONT_STYLE__").join(""), outlined: true, anyEmbedFailed: false }
+    : await finishSvg(out, canOutline);
+  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps };
 }
 
 async function exportMenuSVG(override){
@@ -1823,19 +1913,25 @@ async function exportMenuSVG(override){
 }
 
 async function exportMenuPDF(override){
-  const r = await buildMenuSVG(override);
+  const r = await buildMenuSVG(override, { collectText: true });
   if(!r) return;
-  await svgToPdfDownload(r.out, r.fileBase + ".pdf");
+  await exportBuildAsPDF(r, r.fileBase + ".pdf");
+}
+
+async function exportMenuJPEG(override){
+  const r = await buildMenuSVG(override, { collectText: true });
+  if(!r) return;
+  await exportBuildAsJPEG(r, r.fileBase + ".jpg");
 }
 
 /* ---------------------------
    Build SVG — 24"x36" sign.
 ----------------------------*/
 
-async function buildSignSVG(){
+async function buildSignSVG(buildOpts){
   const isEntry = currentMenuName().toLowerCase().includes("entry");
   if(!state.items.length && !isEntry){ alert("Add some menu items first :)"); return null; }
-  return isEntry ? await buildEntrySignSVG() : await buildRegularSignSVG();
+  return isEntry ? await buildEntrySignSVG(buildOpts) : await buildRegularSignSVG(buildOpts);
 }
 
 async function exportSignSVG(){
@@ -1846,18 +1942,27 @@ async function exportSignSVG(){
 }
 
 async function exportSignPDF(){
-  const r = await buildSignSVG();
+  const r = await buildSignSVG({ collectText: true });
   if(!r) return;
-  await svgToPdfDownload(r.out, r.fileBase + ".pdf");
+  await exportBuildAsPDF(r, r.fileBase + ".pdf");
 }
 
-async function buildRegularSignSVG(){
+async function exportSignJPEG(){
+  const r = await buildSignSVG({ collectText: true });
+  if(!r) return;
+  await exportBuildAsJPEG(r, r.fileBase + ".jpg");
+}
 
-  showToast("preparing print-ready vectors… one moment", 12000);
+async function buildRegularSignSVG(buildOpts){
 
-  const canOutline = await beginOutlineText();
+  const collect = !!(buildOpts && buildOpts.collectText);
+  showToast(collect ? "rendering print file… a few seconds" : "preparing print-ready vectors… one moment", 12000);
+
+  const canOutline = collect ? false : await beginOutlineText();
+  if(collect){ TEXT_COLLECT = []; _collectTransform = null; }
   let out = "";
   let fileBase = "";
+  let textOps = null;
   try{
 
   const PT_PER_IN = 72;
@@ -2013,23 +2118,33 @@ async function buildRegularSignSVG(){
   const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
   fileBase = "gratified-sign-" + (slug || "menu") + "-24x36";
 
-  }finally{ endOutlineText(); }
+  }finally{
+    endOutlineText();
+    textOps = TEXT_COLLECT;
+    TEXT_COLLECT = null;
+    _collectTransform = null;
+  }
 
-  const fin = await finishSvg(out, canOutline);
-  return { out: fin.out, fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed };
+  const fin = collect
+    ? { out: out.split("__FONT_STYLE__").join(""), outlined: true, anyEmbedFailed: false }
+    : await finishSvg(out, canOutline);
+  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps };
 }
 
 /* ---------------------------
    Build SVG — 24"x36" Entry / Wayfinding Sign.
 ----------------------------*/
 
-async function buildEntrySignSVG(){
+async function buildEntrySignSVG(buildOpts){
 
-  showToast("preparing print-ready vectors… one moment", 12000);
+  const collect = !!(buildOpts && buildOpts.collectText);
+  showToast(collect ? "rendering print file… a few seconds" : "preparing print-ready vectors… one moment", 12000);
 
-  const canOutline = await beginOutlineText();
+  const canOutline = collect ? false : await beginOutlineText();
+  if(collect){ TEXT_COLLECT = []; _collectTransform = null; }
   let out = "";
   let fileBase = "";
+  let textOps = null;
   try{
 
   const PT_PER_IN = 72;
@@ -2172,10 +2287,17 @@ async function buildEntrySignSVG(){
   const slug = currentMenuName().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
   fileBase = "gratified-entry-" + (slug || "sign") + "-24x36";
 
-  }finally{ endOutlineText(); }
+  }finally{
+    endOutlineText();
+    textOps = TEXT_COLLECT;
+    TEXT_COLLECT = null;
+    _collectTransform = null;
+  }
 
-  const fin = await finishSvg(out, canOutline);
-  return { out: fin.out, fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed };
+  const fin = collect
+    ? { out: out.split("__FONT_STYLE__").join(""), outlined: true, anyEmbedFailed: false }
+    : await finishSvg(out, canOutline);
+  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps };
 }
 
 /* ----------------------------------- */
