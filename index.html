@@ -2189,7 +2189,7 @@ async function buildEntrySignSVG(buildOpts){
   const subLS = 5 * KW;
   const subWeight = 640;
   const subGap = 12 * KW;                                  /* space between "=" and the diamond */
-  const subDiaHalf = subFS * 0.7;                           /* diamond half-width — noticeably bigger than an inline glyph */
+  const subDiaHalf = subFS * 0.4;                           /* diamond half-width — noticeably bigger than an inline glyph */
   const subTextW = textW(ENTRY_GREETING_SUB, `${subWeight} ${subFS}px ${FONT_NOTE}`)
     + subLS * ENTRY_GREETING_SUB.length;                    /* canvas measureText ignores letter-spacing — approximate it back in */
   const subTextCX = cx - (subGap + subDiaHalf * 2) / 2;
