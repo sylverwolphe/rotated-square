@@ -2175,13 +2175,13 @@ async function buildEntrySignSVG(buildOpts){
   `;
 
   /* ---- masthead: plain announcement — no wordmark, no logo ---- */
-  const subY = 300 * KH;
-  const titleY = 430 * KH;
+  const subY = 480 * KH;
+  const titleY = 320 * KH;
   out += emitText(ENTRY_GREETING_SUB, cx, subY, {
-    size: 44 * KW, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5 * KW
+    size: 44 * KW, weight: 640, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5 * KW
   });
   out += emitText(ENTRY_GREETING, cx, titleY, {
-    size: 140 * KW, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2 * KW
+    size: 140 * KW, weight: 800, family: FONT_NAME, fill: OX, letterSpacing: 2 * KW
   });
 
   /* ---- bottom block: wayfinding ----
@@ -2196,11 +2196,11 @@ async function buildEntrySignSVG(buildOpts){
   out += downChevron(cx, chev2Y, chevW, OX, chevSW);
   const lowerY = chev1Y - (hasItems ? 96 : 112) * KH;
   out += emitText("Lower Level", cx, lowerY, {
-    size: (hasItems ? 126 : 150) * KW, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2 * KW
+    size: (hasItems ? 126 : 150) * KW, weight: 800, family: FONT_NAME, fill: OX, letterSpacing: 2 * KW
   });
   const findUsY = lowerY - (hasItems ? 156 : 182) * KH;
   out += emitText("open rn on the", cx, findUsY, {
-    size: (hasItems ? 44 : 50) * KW, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5 * KW
+    size: (hasItems ? 44 : 50) * KW, weight: 640, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5 * KW
   });
 
   /* ---- middle: featured items in full menu style, or air ---- */
