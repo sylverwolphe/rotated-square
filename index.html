@@ -631,8 +631,8 @@ const SIGN_FIND_US_LINE = "find us on the";
 const SIGN_LOCATION_LINE = "Lower Level";
 const SIGN_HOURS_LINE = "open during all library hours";
 const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
-const ENTRY_GREETING = "hey!";
-const ENTRY_GREETING_SUB = "so glad you're here";
+const ENTRY_GREETING = "café downstairs!";
+const ENTRY_GREETING_SUB = "grab a book and a coffee";
 
 const SIGN_BG = "#722F37";
 const SIGN_PARCHMENT = "#EDE8E0";
@@ -2059,6 +2059,8 @@ async function buildRegularSignSVG(buildOpts){
     }
   }
 
+    <!--
+
   out += emitText("Gratified", cx, wordmarkY, {
     size: WORD_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT, letterSpacing: WORD_LETTER
   });
@@ -2067,6 +2069,8 @@ async function buildRegularSignSVG(buildOpts){
     letterSpacing: 3, wordSpacing: 8
   });
   out += logoDiamond(cx, logoDiamondY, LOGO_D, SIGN_PARCHMENT);
+
+    -->
 
   if(SIGN_TAGLINE_TEXT.trim()){
     out += emitText(SIGN_TAGLINE_TEXT, cx, taglineY, {
