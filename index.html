@@ -627,7 +627,7 @@ function menuTagline(title){
   return "";
 }
 
-const SIGN_FIND_US_LINE = "find us on the";
+const SIGN_FIND_US_LINE = "open library hours";
 const SIGN_LOCATION_LINE = "Lower Level";
 const SIGN_HOURS_LINE = "open during all library hours";
 const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
@@ -2060,7 +2060,7 @@ async function buildRegularSignSVG(buildOpts){
   out += emitText("Gratified", cx, wordmarkY, {
     size: WORD_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT, letterSpacing: WORD_LETTER
   });
-  out += emitText("coffee + art", cx, subtitleY, {
+  out += emitText("coffee + book?", cx, subtitleY, {
     size: SUB_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT,
     letterSpacing: 3, wordSpacing: 8
   });
@@ -2165,7 +2165,7 @@ async function buildEntrySignSVG(buildOpts){
   out += emitText("Gratified", cx, 420, {
     size: 176, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2
   });
-  out += emitText("coffee + art", cx, 540, {
+  out += emitText("coffee + book?", cx, 540, {
     size: 62, weight: 700, family: FONT_NAME, fill: OX,
     letterSpacing: 3, wordSpacing: 26
   });
