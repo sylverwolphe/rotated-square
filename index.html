@@ -1016,21 +1016,6 @@ function downChevron(cx, cy, w, color, sw){
   `;
 }
 
-function bigArrow(cx, cy, w, color){
-  const headW = w;
-  const headH = w * 0.65;
-  const shaftW = w * 0.38;
-  const shaftH = w * 1.1;
-  const totalH = shaftH + headH;
-  const top = cy - totalH/2;
-  return `
-    <g>
-      <rect x="${cx - shaftW/2}" y="${top}" width="${shaftW}" height="${shaftH}" fill="${color}"/>
-      <polygon points="${cx},${top + totalH} ${cx - headW/2},${top + shaftH} ${cx + headW/2},${top + shaftH}" fill="${color}"/>
-    </g>
-  `;
-}
-
 /* diamondItem — flat solid fill + optional nibble band.
    No gradient overlays: colours print exactly as picked.
    strokeW lets the print exports keep the border weight
@@ -2149,88 +2134,76 @@ async function buildEntrySignSVG(buildOpts){
   let textOps = null;
   try{
 
+  /* Entry / wayfinding sign — styled after gratified.com:
+     cream paper, oxblood serif, olive accents, plenty of air.
+     No gradients, no border, no arrow — a double chevron
+     carries the "head downstairs" cue. */
+
   const PT_PER_IN = 72;
-  const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
-  const PAGE_H = 36 * PT_PER_IN;   /* 36" tall — vertical */
-  const K = 1.66;                  /* layout scale-up from the old 14"x22" design */
-  const MARGIN = Math.round(60 * K);
+  const PAGE_W = 24 * PT_PER_IN;   /* 1728 */
+  const PAGE_H = 36 * PT_PER_IN;   /* 2592 */
+  const M = 120;
   const cx = PAGE_W / 2;
-  const B = Math.round(40 * K);
+  const OX = "#722F37";      /* oxblood */
+  const OLIVE = "#6B5740";
 
   out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
 
   out += `__FONT_STYLE__
     <defs>
-      <radialGradient id="signGlow" cx="50%" cy="14%" r="55%">
-        <stop offset="0%"   stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
-        <stop offset="100%" stop-color="${SIGN_AMBER}" stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id="signVignette" cx="50%" cy="50%" r="75%">
-        <stop offset="60%"  stop-color="#000000" stop-opacity="0"/>
-        <stop offset="100%" stop-color="#000000" stop-opacity="0.18"/>
-      </radialGradient>
       <pattern id="dotGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
-        ${dotDiamond(5, 5, 0.75, SIGN_PARCHMENT, 0.12)}
+        ${dotDiamond(5, 5, 0.85, OX, 0.13)}
       </pattern>
     </defs>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${SIGN_BG}"/>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signGlow)"/>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signVignette)"/>
+    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="#EDE8E0"/>
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
-    <rect x="${B}" y="${B}" width="${PAGE_W-2*B}" height="${PAGE_H-2*B}" fill="none" stroke="${SIGN_AMBER}" stroke-width="2.5" opacity="0.55"/>
   `;
 
-  let y = MARGIN + Math.round(30*K);
-  const WORD_FS = Math.round(112*K);
-  y += WORD_FS;
-  out += emitText("Gratified", cx, y, {
-    size: WORD_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT, letterSpacing: Math.round(6*K)
-  });
-
-  const SUB_FS = Math.round(42*K);
-  y += Math.round(62*K);
-  out += emitText("coffee + art", cx, y, {
-    size: SUB_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT,
-    letterSpacing: 3, wordSpacing: 10
-  });
-
-  const LOGO_D = Math.round(120*K);
-  y += Math.round(36*K) + LOGO_D/2;
-  out += logoDiamond(cx, y, LOGO_D, SIGN_PARCHMENT);
-  y += LOGO_D/2 + Math.round(18*K);
-
+  /* ---- top block: website-style masthead ---- */
   if(SIGN_TAGLINE_TEXT.trim()){
-    y += Math.round(32*K);
-    out += emitText(SIGN_TAGLINE_TEXT, cx, y, {
-      size: Math.round(18*K), weight: 300, family: FONT_PRICE, fill: SIGN_GOLD,
-      opacity: 0.9, letterSpacing: 1.5, italic: true
+    out += emitText(SIGN_TAGLINE_TEXT, cx, 252, {
+      size: 30, weight: 300, family: FONT_NOTE, fill: OLIVE,
+      opacity: 0.9, letterSpacing: 6
     });
   }
+  out += emitText("Gratified", cx, 462, {
+    size: 176, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 6
+  });
+  out += emitText("coffee + art", cx, 580, {
+    size: 62, weight: 700, family: FONT_NAME, fill: OX,
+    letterSpacing: 3, wordSpacing: 12
+  });
+  out += logoDiamond(cx, 742, 190, OX);
 
-  y += Math.round(92*K);
-  const ARROW_W = Math.round(72*K);
-  out += bigArrow(cx, y, ARROW_W, SIGN_PARCHMENT);
-  y += Math.round(70*K);
-
-  const LOWER_FS = Math.round(100*K);
-  y += LOWER_FS;
-  out += emitText("LOWER LEVEL", cx, y, {
-    size: LOWER_FS, weight: 700, family: FONT_PRICE, fill: SIGN_PARCHMENT, letterSpacing: 5
+  /* ---- bottom block: wayfinding ----
+     with items it hugs the base; when the sheet is otherwise
+     empty it grows and floats up so the poster doesn't gape */
+  const hasItems = state.items.length > 0;
+  const hoursY = PAGE_H - M;
+  out += emitText("open library hours", cx, hoursY, {
+    size: hasItems ? 34 : 38, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 4
+  });
+  const chevW = hasItems ? 128 : 170;
+  const chevSW = hasItems ? 12 : 14;
+  const chev2Y = hasItems ? hoursY - 130 : 1804;
+  const chev1Y = chev2Y - (hasItems ? 62 : 74);
+  out += downChevron(cx, chev1Y, chevW, OX, chevSW);
+  out += downChevron(cx, chev2Y, chevW, OX, chevSW);
+  const lowerY = chev1Y - (hasItems ? 96 : 112);
+  out += emitText("Lower Level", cx, lowerY, {
+    size: hasItems ? 126 : 150, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2
+  });
+  const findUsY = lowerY - (hasItems ? 156 : 182);
+  out += emitText("find us on the", cx, findUsY, {
+    size: hasItems ? 44 : 50, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5
   });
 
-  const HOURS_FS = Math.round(26*K);
-  y += Math.round(50*K);
-  out += emitText("Open during library hours", cx, y, {
-    size: HOURS_FS, weight: 700, family: FONT_PRICE, fill: SIGN_GOLD,
-    opacity: 0.9, letterSpacing: 2.5
-  });
-
-  y += Math.round(84*K);
-  const contentTop = y;
-  const contentBottom = PAGE_H - MARGIN - Math.round(30*K);
-  const availH = contentBottom - contentTop;
-
+  /* ---- middle: featured items in full menu style, or air ---- */
   if(state.items.length > 0){
+    const contentTop = 742 + 95 + 90;
+    const contentBottom = findUsY - 44 - 70;
+    const availH = Math.max(200, contentBottom - contentTop);
+    const availW = PAGE_W - M*2;
     let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
     for(const it of state.items){
       gx0 = Math.min(gx0, it.gx); gx1 = Math.max(gx1, it.gx);
@@ -2238,50 +2211,21 @@ async function buildEntrySignSVG(buildOpts){
     }
     const spanX = Math.max(gx1 - gx0, 1);
     const spanY = Math.max(gy1 - gy0, 1);
-    const availW = PAGE_W - MARGIN*2;
     const sW = availW / (spanX/2 + 2);
     const sH = availH / (spanY/2 + 2);
-    const s = Math.max(Math.round(28*K), Math.min(sW, sH, Math.round(220*K)));
+    const s = Math.max(46, Math.min(sW, sH, 300));
     const u = s * 0.5;
     const gxMid = (gx0 + gx1) / 2;
+    const gyMid = (gy0 + gy1) / 2;
     const sox = cx - gxMid * u;
-    const soy = contentTop + s - gy0 * u;
-    const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
+    const soy = (contentTop + contentBottom) / 2 - gyMid * u;
     const fontScale = Math.max(1, s / 100);
-    const itemStroke = 1.6 * K;
-
     for(const it of state.items){
-      const p = sToScreen(it.gx, it.gy);
-      out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER, itemStroke);
-      out += specialPattern(it, p.x, p.y, s, K);
-      const nameFS = Math.round(NAME_FS * fontScale * 1.3);
-      const nameLH = Math.round(NAME_LH * fontScale * 1.3);
-      const nameFont = `700 ${nameFS}px ${FONT_NAME}`;
-      const widthAt = dy => Math.max(10, 2 * (s - Math.abs(dy)) - 12);
-      const nameLines = wrapText(it.name, nameFont, widthAt, (i, n) => (i - (n-1)/2) * nameLH, 3);
-      const nN = Math.max(1, nameLines.length);
-      const deepColor = deepenColor(it.color);
-      nameLines.forEach((ln, i) => {
-        out += emitText(ln, p.x, p.y + (i - (nN-1)/2) * nameLH + nameFS*0.35, {
-          size: nameFS, weight: 700, family: FONT_NAME, fill: deepColor
-        });
-      });
+      const p = { x: it.gx*u + sox, y: it.gy*u + soy };
+      out += diamondItem(p.x, p.y, s, it.color, OX, it.nibble);
+      out += specialPattern(it, p.x, p.y, s, fontScale);
+      out += itemTexts(it, p.x, p.y, s, fontScale);
     }
-  } else {
-    const DECO_S = Math.min(Math.round(170*K), availH / 3.0, (PAGE_W - MARGIN*2) / 3.2);
-    const decoY = contentTop + availH/2;
-    const hSpread = DECO_S * 1.7;
-    const vSpread = DECO_S * 0.95;
-    const positions = [
-      {x: cx - hSpread, y: decoY - vSpread},
-      {x: cx + hSpread, y: decoY - vSpread},
-      {x: cx,           y: decoY},
-      {x: cx - hSpread, y: decoY + vSpread},
-      {x: cx + hSpread, y: decoY + vSpread}
-    ];
-    positions.forEach(pos => {
-      out += diamondItem(pos.x, pos.y, DECO_S, SIGN_PARCHMENT, SIGN_AMBER, false, undefined, 1.6 * K);
-    });
   }
 
   out += `${PRINT_NOTE_COMMENT}</svg>`;
