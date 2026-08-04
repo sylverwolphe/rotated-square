@@ -631,8 +631,8 @@ const SIGN_FIND_US_LINE = "find us on the";
 const SIGN_LOCATION_LINE = "Lower Level";
 const SIGN_HOURS_LINE = "open during all library hours";
 const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
-const ENTRY_GREETING = "café downstairs!";
-const ENTRY_GREETING_SUB = "grab a book and a coffee";
+const ENTRY_GREETING = "There's a cafe";
+const ENTRY_GREETING_SUB = "open right now";
 
 const SIGN_BG = "#722F37";
 const SIGN_PARCHMENT = "#EDE8E0";
@@ -2059,8 +2059,6 @@ async function buildRegularSignSVG(buildOpts){
     }
   }
 
-    <!--
-
   out += emitText("Gratified", cx, wordmarkY, {
     size: WORD_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT, letterSpacing: WORD_LETTER
   });
@@ -2069,8 +2067,6 @@ async function buildRegularSignSVG(buildOpts){
     letterSpacing: 3, wordSpacing: 8
   });
   out += logoDiamond(cx, logoDiamondY, LOGO_D, SIGN_PARCHMENT);
-
-    -->
 
   if(SIGN_TAGLINE_TEXT.trim()){
     out += emitText(SIGN_TAGLINE_TEXT, cx, taglineY, {
@@ -2165,34 +2161,21 @@ async function buildEntrySignSVG(buildOpts){
     <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
   `;
 
-  /* ---- greeting masthead: big friendly hello up top, then
-     the house lockup with roomier tracking ---- */
-  out += emitText(ENTRY_GREETING, cx, 400, {
-    size: 210, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 4
+  /* ---- masthead: plain announcement — no wordmark, no logo ---- */
+  out += emitText(ENTRY_GREETING_SUB, cx, 300, {
+    size: 44, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5
   });
-  out += emitText(ENTRY_GREETING_SUB, cx, 505, {
-    size: 42, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5
+  out += emitText(ENTRY_GREETING, cx, 430, {
+    size: 140, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 2
   });
-  out += emitText("Gratified", cx, 740, {
-    size: 118, weight: 700, family: FONT_NAME, fill: OX, letterSpacing: 8
-  });
-  out += emitText("coffee + art", cx, 828, {
-    size: 46, weight: 700, family: FONT_NAME, fill: OX,
-    letterSpacing: 4, wordSpacing: 20
-  });
-  out += logoDiamond(cx, 975, 190, OX);
 
   /* ---- bottom block: wayfinding ----
      with items it hugs the base; when the sheet is otherwise
      empty it grows and floats up so the poster doesn't gape */
   const hasItems = state.items.length > 0;
-  const hoursY = PAGE_H - M;
-  out += emitText("open library hours", cx, hoursY, {
-    size: hasItems ? 34 : 38, weight: 500, family: FONT_NOTE, fill: OLIVE, letterSpacing: 4
-  });
   const chevW = hasItems ? 128 : 170;
   const chevSW = hasItems ? 12 : 14;
-  const chev2Y = hasItems ? hoursY - 130 : 1900;
+  const chev2Y = hasItems ? PAGE_H - M - 90 : 1950;
   const chev1Y = chev2Y - (hasItems ? 62 : 74);
   out += downChevron(cx, chev1Y, chevW, OX, chevSW);
   out += downChevron(cx, chev2Y, chevW, OX, chevSW);
@@ -2207,7 +2190,7 @@ async function buildEntrySignSVG(buildOpts){
 
   /* ---- middle: featured items in full menu style, or air ---- */
   if(state.items.length > 0){
-    const contentTop = 975 + 95 + 70;
+    const contentTop = 430 + 120;
     const contentBottom = findUsY - 44 - 70;
     const availH = Math.max(200, contentBottom - contentTop);
     const availW = PAGE_W - M*2;
