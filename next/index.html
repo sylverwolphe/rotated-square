@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Gratified — Menu Studio</title>
+
+<!-- Satoshi (Fontshare) · Bluu Next (CDN Fonts) · IBM Plex Mono (Google) -->
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap" rel="stylesheet">
+<link href="https://fonts.cdnfonts.com/css/bluu-next" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style id="pageSize"></style>
+<style>
+/* =========================================================
+   Gratified menu studio — month 3
+   paul graham (plain words, nothing extra)
+   × techno morocco (zellige khatam stars, mono details)
+   × arts + crafts (double rules, hand-drawn scribbles,
+     misregistered block-print washes)
+   The old rotated square lives on: a square + a rotated
+   square = the eight-point khatam star.
+   ========================================================= */
+:root{
+  --ox:#722F37; --orange:#CC5500; --amber:#D2691E; --olive:#6B5740;
+  --cream:#EDE8E0; --paper:#F5F1EA; --char:#2E2B28; --sand:#E6C89C;
+  --gold:#E8A317; --teal:#1F5E5B;
+  --serif:'Bluu Next', Georgia, serif;
+  --sans:'Satoshi', system-ui, sans-serif;
+  --mono:'IBM Plex Mono', ui-monospace, Menlo, monospace;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; height:100%; }
+body{ font-family:var(--sans); color:var(--char); background:#E2DCD0; overflow:hidden; }
+
+/* ---------- top bar ---------- */
+#bar{
+  height:56px; display:flex; align-items:center; gap:18px; padding:0 16px;
+  background:var(--cream); border-bottom:3px solid var(--ox);
+}
+.brand{ display:flex; align-items:center; gap:10px; white-space:nowrap; }
+.brand b{ font-family:var(--serif); font-weight:700; color:var(--ox); font-size:19px; letter-spacing:1px; }
+.brand small{ font-family:var(--mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--olive); }
+#docTabs{ display:flex; gap:4px; }
+.bar-r{ margin-left:auto; display:flex; align-items:center; gap:10px; }
+#status{ font:11px var(--mono); color:var(--olive); min-width:150px; text-align:right; }
+
+button{
+  font:600 12px var(--sans); letter-spacing:.6px; text-transform:lowercase;
+  padding:7px 13px; border:1.5px solid var(--ox); background:transparent; color:var(--ox);
+  cursor:pointer; transition:background .2s, color .2s; border-radius:0;
+}
+button:hover, button.on{ background:var(--ox); color:var(--cream); }
+button.solid{ background:var(--ox); color:var(--cream); }
+button.solid:hover{ background:var(--orange); border-color:var(--orange); }
+
+select, input, textarea{
+  font:13px var(--sans); color:var(--char); background:rgba(255,255,255,.55);
+  border:1.5px solid rgba(114,47,55,.22); padding:6px 8px; outline:none; border-radius:0;
+  min-width:0;
+}
+select:focus, input:focus, textarea:focus{ border-color:var(--orange); background:#fff; }
+textarea{ resize:vertical; width:100%; line-height:1.4; }
+
+/* ---------- layout ---------- */
+main{ display:grid; grid-template-columns:450px 1fr; height:calc(100vh - 56px); }
+#panel{ overflow:auto; background:var(--paper); border-right:1px solid rgba(114,47,55,.2); }
+.ptabs{
+  position:sticky; top:0; z-index:3; display:flex; gap:6px; padding:12px 16px;
+  background:var(--paper); border-bottom:1px solid rgba(114,47,55,.15);
+}
+.pbody{ padding:14px 16px 80px; }
+.hint{ font-size:12.5px; line-height:1.5; color:var(--olive); margin:0 0 14px; }
+.hint b{ color:var(--ox); }
+
+/* section cards */
+.sc{ border:1.5px solid rgba(114,47,55,.2); background:#fff9; margin-bottom:10px; }
+.sc-head{ display:flex; align-items:center; gap:6px; padding:7px; }
+.sc-name{ flex:1; font-family:var(--serif); font-weight:700; font-size:16px; color:var(--ox); border-color:transparent; background:transparent; }
+.sc-head select{ width:118px; font-size:12px; }
+.cnt{ font:11px var(--mono); color:var(--olive); width:22px; text-align:center; }
+.tw{ padding:4px 8px; font-size:13px; border-color:transparent; }
+.sc-body{ padding:4px 10px 10px; border-top:1px dashed rgba(114,47,55,.2); }
+.row2{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin:8px 0; }
+.logo-row{ display:flex; align-items:center; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+.logo-prev{ width:92px; height:40px; display:flex; align-items:center; justify-content:center; background:var(--cream); border:1px dashed rgba(114,47,55,.3); font:10px var(--mono); color:var(--olive); }
+.logo-prev img{ max-width:86px; max-height:34px; object-fit:contain; }
+.sp{ flex:1; }
+.mini{
+  display:inline-flex; align-items:center; font:600 11px var(--sans); letter-spacing:.4px; text-transform:lowercase;
+  padding:5px 8px; border:1px solid rgba(114,47,55,.45); color:var(--ox); background:transparent; cursor:pointer;
+}
+.mini:hover{ background:var(--ox); color:var(--cream); }
+.mini.warn{ border-color:rgba(204,85,0,.6); color:var(--orange); }
+.mini.warn:hover{ background:var(--orange); color:#fff; }
+.add{ margin-top:6px; }
+.add-sec{ width:100%; padding:10px; margin-top:4px; }
+
+/* item rows */
+.ir{ border-top:1px solid rgba(114,47,55,.1); padding:5px 0; }
+.ir-top{ display:flex; align-items:center; gap:6px; }
+.ir-ic{ width:34px; height:34px; flex:none; display:block; }
+.ir-ic svg, .ir-ic img{ width:100%; height:100%; object-fit:contain; display:block; }
+.ir-name{ flex:1; font-weight:700; }
+.ir-price{ width:70px; font-family:var(--mono); font-size:12px; }
+.wl{ display:flex; align-items:center; gap:3px; font:11px var(--mono); color:var(--olive); cursor:pointer; user-select:none; }
+.wl input{ accent-color:var(--ox); }
+.ir-more{ padding:6px 0 4px 40px; display:flex; flex-direction:column; gap:6px; }
+.ir-ctl{ display:flex; gap:5px; flex-wrap:wrap; align-items:center; }
+.ir-ctl select{ font-size:12px; padding:4px 6px; }
+
+/* words panel */
+.pbody h3{
+  font:600 11px var(--mono); letter-spacing:2px; text-transform:uppercase; color:var(--ox);
+  margin:22px 0 10px; padding-bottom:6px; border-bottom:1.5px solid var(--ox);
+}
+.pbody h3:first-child{ margin-top:0; }
+label.fl{ display:block; margin-bottom:9px; }
+label.fl span{ display:block; font:11px var(--mono); color:var(--olive); margin-bottom:3px; letter-spacing:.5px; }
+label.fl input{ width:100%; }
+label.chk{ display:flex; align-items:center; gap:7px; font-size:13px; margin:6px 0 10px; cursor:pointer; }
+label.chk input{ accent-color:var(--ox); }
+.btns{ display:flex; flex-wrap:wrap; gap:6px; }
+
+/* ---------- stage ---------- */
+#stage{ overflow:auto; position:relative; }
+#pages{ display:flex; flex-wrap:wrap; gap:56px 40px; justify-content:center; align-items:flex-start; padding:28px 28px 70px; }
+.pagebox{ position:relative; flex:none; box-shadow:0 10px 34px rgba(60,40,30,.25); background:var(--cream); }
+.pagebox > .page{ position:absolute; left:0; top:0; transform-origin:0 0; }
+.pagecap{
+  position:absolute; left:0; right:0; top:100%; margin-top:12px; text-align:center;
+  font:11px var(--mono); letter-spacing:1.5px; text-transform:uppercase; color:var(--olive);
+}
+
+#toast{
+  position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
+  background:var(--ox); color:var(--cream); padding:11px 20px; font:12px var(--mono); letter-spacing:.5px;
+  opacity:0; pointer-events:none; transition:opacity .3s; z-index:50; max-width:90vw; text-align:center;
+}
+#toast.on{ opacity:1; }
+
+@media (max-width:900px){
+  body{ overflow:auto; }
+  main{ grid-template-columns:1fr; height:auto; }
+  #panel{ max-height:55vh; }
+  #stage{ height:80vh; }
+  #bar{ height:auto; flex-wrap:wrap; padding:8px 12px; }
+}
+
+/* =========================================================
+   PRINT PAGES
+   1em on a page = 1% of the page width (--base), so every
+   layout keeps its proportions at any poster size.
+   .fit boxes scale their contents with --k (auto-fitted).
+   ========================================================= */
+.page{
+  position:relative;
+  width:calc(var(--pw) * 1px); height:calc(var(--ph) * 1px);
+  font-size:calc(var(--base) * 1px);
+  background:var(--cream); color:var(--char); overflow:hidden;
+  display:flex; flex-direction:column;
+  font-family:var(--sans); line-height:1.2;
+  -webkit-print-color-adjust:exact; print-color-adjust:exact;
+}
+.page .mono{ font-family:var(--mono); }
+.page .band{ display:block; flex:none; }
+.page img{ display:block; }
+.st8{ display:inline-block; vertical-align:middle; flex:none; }
+.fit{ font-size:calc(1em * var(--k, 1)); }
+.chev2{ display:flex; flex-direction:column; align-items:center; }
+.chev2 svg{ display:block; width:100%; }
+.chev2 svg + svg{ margin-top:-14%; }
+
+/* ---- wall boards ---- */
+.wall-in{
+  flex:1; min-height:0; margin:1.7em 4.2em; padding:2.6em 3.3em 2em;
+  border:.42em double rgba(114,47,55,.55);
+  display:flex; flex-direction:column;
+}
+.wh-top{ display:flex; align-items:center; gap:.9em; }
+.wh-name{ font-family:var(--serif); font-weight:700; font-size:2.5em; color:var(--ox); letter-spacing:.04em; }
+.wh-sub{ margin-left:auto; font-size:1.55em; letter-spacing:.22em; text-transform:uppercase; color:var(--olive); }
+.wh-title{
+  display:block; white-space:nowrap; overflow:hidden;
+  font-family:var(--serif); font-weight:700; color:var(--ox);
+  line-height:1.02; margin:.18em 0 0; padding-top:.06em;
+}
+.wh-tag{ font-size:2em; letter-spacing:.2em; color:var(--olive); margin-top:.45em; white-space:pre-wrap; }
+.wh-rule{ display:flex; align-items:center; gap:.9em; margin:1.5em 0 1.4em; color:var(--ox); }
+.wh-rule i{ flex:1; height:.12em; background:currentColor; opacity:.45; }
+.wh-rule .st8{ width:1.7em; height:1.7em; }
+.wall .fit{ flex:1; min-height:0; overflow:hidden; column-gap:3.4em; column-fill:balance; }
+.wall .fit.c2{ column-count:2; }
+.wall .fit.c1 .sec{ max-width:42em; margin-left:auto; margin-right:auto; }
+.sec{ margin-bottom:2.3em; break-inside:avoid; }
+.sec-head{
+  display:flex; flex-direction:column; align-items:flex-start; gap:.35em;
+  border-bottom:.15em solid var(--ox); padding-bottom:.45em; margin-bottom:1em;
+  break-inside:avoid; break-after:avoid;
+}
+.sec-name{ font-family:var(--serif); font-weight:700; font-size:3.1em; color:var(--ox); line-height:1; display:flex; align-items:center; gap:.3em; }
+.sec-name .st8{ width:.55em; height:.55em; }
+.sec-src{ display:flex; align-items:center; min-width:0; max-width:100%; }
+.sec-src img{ max-height:2.6em; max-width:14em; object-fit:contain; }
+.sec-src .mono{ font-size:1.05em; letter-spacing:.14em; text-transform:uppercase; color:var(--olive); text-align:left; line-height:1.3; }
+.sec-blurb{ font-size:1.3em; color:var(--olive); margin:-.35em 0 1em; letter-spacing:.05em; }
+.it{ display:flex; gap:.8em; align-items:center; break-inside:avoid; margin-bottom:.95em; }
+.it-ic{ flex:none; width:3.6em; height:3.6em; }
+.it-ic svg, .it-ic img{ width:100%; height:100%; object-fit:contain; }
+.it-main{ flex:1; min-width:0; }
+.it-row{ display:flex; align-items:baseline; gap:.45em; }
+.it-name{ font-weight:700; font-size:2.1em; line-height:1.1; }
+.lead{ flex:1; min-width:1em; border-bottom:.17em dotted rgba(46,43,40,.38); transform:translateY(-.25em); }
+.it-price{ font-family:var(--mono); font-weight:500; font-size:1.9em; color:var(--ox); white-space:nowrap; }
+.it-note{ font-size:1.3em; color:var(--olive); margin-top:.18em; line-height:1.3; }
+.wall-foot{
+  display:flex; justify-content:space-between; gap:2em; flex:none;
+  border-top:.08em solid rgba(114,47,55,.35); padding-top:.9em; margin-top:1em;
+  font-size:1.55em; letter-spacing:.1em; color:var(--olive); text-transform:lowercase; white-space:pre;
+}
+.empty{ font:1.6em var(--mono); color:var(--olive); text-align:center; padding:4em 1em; column-span:all; }
+
+/* ---- take-out trifold ---- */
+.page.tri{ flex-direction:row; }
+.panel{ width:33.3333%; height:100%; padding:2.8em 2.5em 2.4em; display:flex; flex-direction:column; position:relative; flex:none; }
+.fold{ position:absolute; top:0; height:1.4em; border-left:1px solid rgba(107,87,64,.5); }
+.fold.b{ top:auto; bottom:0; }
+.tri-fit{
+  position:absolute;
+  top:calc(var(--base) * 2.8px); bottom:calc(var(--base) * 2.4px);
+  left:calc(var(--base) * 2.5px); right:calc(var(--base) * 2.5px);
+  column-count:3; column-gap:calc(var(--base) * 5px); column-fill:auto; overflow:hidden;
+}
+.tsec{ margin-bottom:1.4em; }
+.tsec-head{
+  display:flex; justify-content:space-between; align-items:flex-end; gap:.6em;
+  border-bottom:.11em solid var(--ox); padding-bottom:.3em; margin-bottom:.35em;
+  break-inside:avoid; break-after:avoid;
+}
+.tsec-name{ font-family:var(--serif); font-weight:700; color:var(--ox); font-size:1.8em; line-height:1; }
+.tsec-src img{ max-height:1.8em; max-width:7.5em; object-fit:contain; }
+.tsec-src .mono{ font-size:.66em; letter-spacing:.1em; text-transform:uppercase; color:var(--olive); text-align:right; display:block; line-height:1.25; }
+.tsec-blurb{ font-size:.9em; color:var(--olive); margin-bottom:.3em; }
+.ti{ display:grid; grid-template-columns:3.2em 1fr auto; column-gap:.65em; align-items:center; break-inside:avoid; padding:.22em 0; }
+.ti-ic{ width:3.2em; height:3.2em; display:block; }
+.ti-ic svg, .ti-ic img{ width:100%; height:100%; object-fit:contain; }
+.ti-name{ font-weight:700; font-size:1.2em; line-height:1.15; }
+.ti-note{ font-size:.9em; color:var(--olive); line-height:1.25; margin-top:.1em; }
+.ti-price{ font-family:var(--mono); font-weight:500; font-size:1.05em; color:var(--ox); white-space:nowrap; }
+
+.pt-h{ font-family:var(--serif); font-weight:700; color:var(--ox); font-size:2.1em; margin:0 0 .7em; line-height:1; }
+.flap p{ font-size:1.15em; line-height:1.55; margin:0 0 1em; }
+.notes{ list-style:none; padding:0; margin:.4em 0 0; font-family:var(--mono); font-size:.95em; line-height:1.75; color:var(--ox); }
+.notes li{ position:relative; padding-left:1.3em; }
+.notes li::before{ content:""; position:absolute; left:.15em; top:.68em; width:.45em; height:.45em; background:var(--amber); transform:rotate(45deg); }
+.flap-orn{ margin-top:auto; display:flex; justify-content:center; }
+.flap-orn .st8{ width:4em; height:4em; }
+.nb{ display:flex; align-items:center; justify-content:space-between; gap:.8em; padding:.7em 0; border-bottom:.08em solid rgba(114,47,55,.18); }
+.nb img{ max-height:2.6em; max-width:8em; object-fit:contain; }
+.nb-name{ font-weight:700; font-size:1.1em; }
+.nb-what{ font-family:var(--mono); font-size:.78em; letter-spacing:.06em; color:var(--olive); text-transform:lowercase; text-align:right; }
+.back-foot{ margin-top:auto; font-size:.95em; color:var(--olive); line-height:1.5; display:flex; flex-direction:column; gap:.7em; }
+.bf-hours{ color:var(--ox); font-size:.95em; }
+.bf-fine{ font-size:.85em; opacity:.85; }
+.panel.cover{ padding:0; text-align:center; }
+.cv-mid{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.9em; padding:1em 2.5em; }
+.cv-name{ display:block; width:100%; white-space:nowrap; overflow:hidden; font-family:var(--serif); font-weight:700; color:var(--ox); line-height:1.08; }
+.cv-sub{ font-size:1.1em; letter-spacing:.2em; text-transform:uppercase; color:var(--olive); }
+.cv-menu{ font-size:1em; letter-spacing:.3em; color:var(--ox); border:.1em solid var(--ox); padding:.45em 1em; text-transform:uppercase; }
+.cv-foot{ padding:0 2.5em 1.3em; font-size:1em; color:var(--olive); line-height:1.45; white-space:pre-line; }
+
+/* ---- stairs sign ---- */
+.page.sign-dark{ background:var(--ox); color:var(--cream); }
+.sg-wrap{ flex:1; min-height:0; padding:3.5em 6em; display:flex; }
+.sg-fit{ flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.sg-logo{ margin-bottom:2.2em; }
+.sg-logo-tile{ background:var(--cream); padding:1.4em 1.8em; margin-bottom:2.2em; }
+.sg-l1{ font-family:var(--serif); font-weight:700; font-size:22em; line-height:.92; white-space:nowrap; }
+.sg-l2{ font-size:3.8em; letter-spacing:.34em; text-transform:lowercase; color:var(--sand); margin:.5em 0 .35em; white-space:nowrap; }
+.sg-l3{ font-family:var(--serif); font-weight:700; font-size:12.5em; line-height:1; white-space:nowrap; }
+.sg-chev{ width:9em; margin:2.6em 0 2.4em; }
+.sg-hours{ font-weight:700; font-size:3.8em; line-height:1.3; color:var(--sand); white-space:pre-line; }
+
+/* ---- entry sign ---- */
+.ent-top{ display:flex; align-items:center; justify-content:center; gap:.9em; padding-top:3.4em; flex:none; }
+.ent-name{ font-family:var(--serif); font-weight:700; font-size:3.4em; color:var(--ox); letter-spacing:.04em; }
+.ent-wrap{ flex:1; min-height:0; padding:2em 7em 3em; display:flex; }
+.ent-fit{ flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.ent-l1{ font-family:var(--serif); font-weight:700; color:var(--ox); font-size:12.5em; line-height:.98; text-wrap:balance; }
+.ent-orn{ width:100%; display:flex; align-items:center; gap:1.4em; margin:3.6em 0 3.2em; color:var(--amber); }
+.ent-orn i{ flex:1; height:.26em; background:currentColor; opacity:.55; }
+.ent-orn .st8{ width:3.4em; height:3.4em; }
+.ent-l2{ font-size:3.8em; letter-spacing:.24em; text-transform:lowercase; color:var(--olive); }
+.ent-chev{ width:7em; margin:1.5em 0 1.1em; }
+.ent-l3{ font-family:var(--serif); font-weight:700; color:var(--teal); font-size:9.5em; line-height:1; text-wrap:balance; }
+
+/* ---------- printing ---------- */
+@media print{
+  html, body{ height:auto; overflow:visible; background:none; }
+  #bar, #panel, .pagecap, #toast{ display:none !important; }
+  main{ display:block; height:auto; }
+  #stage{ overflow:visible; height:auto; }
+  #pages{ display:block; padding:0; }
+  .pagebox{ width:auto !important; height:auto !important; box-shadow:none !important; margin:0 !important; break-after:page; page-break-after:always; }
+  .pagebox:last-child{ break-after:auto; page-break-after:auto; }
+  .pagebox > .page{ position:relative !important; transform:none !important; }
+}
+</style>
+</head>
+<body>
+
+<header id="bar">
+  <div class="brand" id="brandMark"></div>
+  <nav id="docTabs">
+    <button data-doc="wall" class="on">wall boards</button>
+    <button data-doc="takeout">take-out</button>
+    <button data-doc="stairs">stairs sign</button>
+    <button data-doc="entry">entry sign</button>
+  </nav>
+  <div class="bar-r">
+    <select id="sizeSel" title="print size"></select>
+    <button id="printBtn" class="solid">print / pdf</button>
+    <span id="status">loading…</span>
+  </div>
+</header>
+
+<main>
+  <aside id="panel">
+    <div class="ptabs">
+      <button data-p="menu" class="on">menu items</button>
+      <button data-p="words">words, signs + data</button>
+    </div>
+    <div class="pbody" id="pMenu"></div>
+    <div class="pbody" id="pWords" hidden></div>
+  </aside>
+  <section id="stage"><div id="pages"></div></section>
+</main>
+
+<div id="toast"></div>
+
+<script type="module">
+/* Firebase loads dynamically so the studio still opens (saving
+   to this browser only) if the CDN is blocked or you're offline */
+let ref = null, set = null, get = null;
+
+/* ---------------------------
+   Persistence — same Firebase project as the old diamond
+   editor, new path so nothing old is overwritten.
+----------------------------*/
+const firebaseConfig = {
+  apiKey: "AIzaSyD7a6t76FQj4FBJSObPntecdIypF9lhi_E",
+  authDomain: "rotated-square.firebaseapp.com",
+  databaseURL: "https://rotated-square-default-rtdb.firebaseio.com",
+  projectId: "rotated-square",
+  storageBucket: "rotated-square.firebasestorage.app",
+  messagingSenderId: "185495802916",
+  appId: "1:185495802916:web:54f9c7798477e6b292b4b1"
+};
+let db = null;
+try{
+  const [appMod, dbMod] = await Promise.race([
+    Promise.all([
+      import("https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js")
+    ]),
+    new Promise((_, rej) => setTimeout(() => rej(new Error("firebase timeout")), 8000))
+  ]);
+  ({ ref, set, get } = dbMod);
+  db = dbMod.getDatabase(appMod.initializeApp(firebaseConfig));
+}catch(err){ console.warn("Firebase unavailable — saving to this browser only", err); }
+
+const FB_PATH = "studio/v3";
+const LS_KEY  = "gratified-studio-v3";
+
+const $ = s => document.querySelector(s);
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+
+/* ---------------------------
+   Sample menu (edit everything in the panel)
+----------------------------*/
+function mkItem(name, price, note, onWall = true){
+  return { id: uid(), name, price, note: note || "", icon: "auto", img: "", onWall };
+}
+function mkSec(name, supplier, board, blurb, items){
+  return { id: uid(), name, supplier, board, blurb: blurb || "", logo: "", items };
+}
+function defaults(){
+  return {
+    v: 3,
+    cafe: {
+      name: "Gratified", sub: "coffee + a book", logo: "",
+      location: "Lower Level", hours: "open during all library hours", menuNo: "03"
+    },
+    wall: {
+      aTitle: "Drinks", aTag: "hot or iced  //  dairy or oat",
+      bTitle: "Food",   bTag: "baked this morning  //  grab n go",
+      footer: "prices include tax  //  suggested 50¢ tip",
+      drawings: false
+    },
+    takeout: {
+      flapTitle: "how we do it",
+      note: "We're a small cafe in the library's lower level. We don't bake or roast — our neighbors do that better than we could. Our job is to pour and serve their work well, and keep the room quiet enough to read in.\n\nTake a menu, take a book, stay a while.",
+      notes: "milk — dairy or oat\nmost drinks — hot or iced\nprices include tax",
+      fine: "menu changes with the seasons and with whatever our neighbors bake that morning"
+    },
+    stairs: { l1: "Cafe", l2: "on the", l3: "Lower Level" },
+    entry:  { l1: "Seating for cafe customers only", l2: "public eating area", l3: "6th floor patio" },
+    sizes:  { wall: "20x30", takeout: "11x8.5", stairs: "18x24", entry: "11x17" },
+    sections: [
+      mkSec("Coffee", "Sextant Coffee Roasters", "A", "", [
+        mkItem("Espresso", "$3.25", "double shot"),
+        mkItem("Americano", "$3.75"),
+        mkItem("Drip coffee", "$3.00"),
+        mkItem("Cortado", "$4.25", "espresso + a splash of steamed milk"),
+        mkItem("Cappuccino", "$4.75"),
+        mkItem("Latte", "$5.00"),
+        mkItem("Iced latte", "$5.50"),
+        mkItem("Cold brew", "$5.00", "steeped overnight")
+      ]),
+      mkSec("Chocolate", "Dandelion Chocolate", "A", "", [
+        mkItem("Hot chocolate", "$5.00", "rich, not too sweet"),
+        mkItem("Mocha", "$5.75", "espresso + chocolate"),
+        mkItem("Chocolate bar", "$9.00", "single-origin bars", false)
+      ]),
+      mkSec("Tea & more", "", "A", "", [
+        mkItem("Chai latte", "$5.00"),
+        mkItem("Matcha latte", "$5.50"),
+        mkItem("Hot tea", "$3.00", "black, green or herbal")
+      ]),
+      mkSec("Bakery", "Arizmendi Valencia Bakery", "B", "", [
+        mkItem("Pizza slice", "$4.50", "one veggie pizza a day — ask what's on it"),
+        mkItem("Scone", "$3.75"),
+        mkItem("Focaccia", "$4.00"),
+        mkItem("Cookie", "$3.00")
+      ]),
+      mkSec("Pies", "Peasant Pies", "B", "", [
+        mkItem("Savory pie", "$6.50", "ask what's in today"),
+        mkItem("Sweet pie", "$5.00")
+      ]),
+      mkSec("Grab n go", "Rainbow Grocery", "B", "", [
+        mkItem("Fresh fruit", "$1.50"),
+        mkItem("Trail mix", "$3.50"),
+        mkItem("Kombucha", "$4.50", "", false),
+        mkItem("Sparkling water", "$2.50")
+      ])
+    ]
+  };
+}
+
+function asArray(v){ return Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === "object" ? Object.values(v) : []); }
+
+function normalize(d){
+  const base = defaults();
+  if(!d || typeof d !== "object") return base;
+  const out = { ...base, ...d };
+  for(const k of ["cafe", "wall", "takeout", "stairs", "entry", "sizes"]) out[k] = { ...base[k], ...(d[k] || {}) };
+  out.sections = asArray(d.sections).map(s => ({
+    id: s.id || uid(), name: s.name || "Section", supplier: s.supplier || "", board: s.board || "",
+    blurb: s.blurb || "", logo: s.logo || "",
+    items: asArray(s.items).map(i => ({
+      id: i.id || uid(), name: i.name || "", price: i.price || "", note: i.note || "",
+      icon: i.icon || "auto", img: i.img || "", onWall: i.onWall !== false
+    }))
+  }));
+  if(!d.sections) out.sections = base.sections;
+  return out;
+}
+
+let D = null;
+let curDoc = "wall";
+const openSecs = new Set();
+const openItems = new Set();
+
+function setStatus(t){ $("#status").textContent = t; }
+
+let saveT = null;
+function save(){
+  setStatus("saving…");
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(D)); }catch(err){ /* images may exceed local quota */ }
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    if(!db){ setStatus("saved on this device"); return; }
+    set(ref(db, FB_PATH), JSON.parse(JSON.stringify(D)))
+      .then(() => setStatus("saved ✓"))
+      .catch(err => { console.error(err); setStatus("saved on this device only"); });
+  }, 700);
+}
+
+async function loadDoc(){
+  if(db){
+    try{
+      const snap = await withTimeout(get(ref(db, FB_PATH)), 6000);
+      if(snap.exists()) return normalize(snap.val());
+    }catch(err){ console.warn("Firebase load failed, trying local", err); }
+  }
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) return normalize(JSON.parse(raw));
+  }catch(err){}
+  return defaults();
+}
+
+/* ---------------------------
+   Hand-drawn scribbles
+   Each icon is a few simple strokes in a 100×100 box.
+   They're drawn twice with seeded wobble (so every item
+   keeps its own stable "hand"), plus an offset colour wash
+   like a slightly misregistered block print.
+----------------------------*/
+const ICONS = {
+  cup:      [["p",[[25,40],[75,40],[70,82],[30,82]],1],["e",78,58,9,11,-80,80],["l",14,89,86,89],["p",[[42,32],[38,24],[44,16],[40,8]]],["p",[[57,32],[53,24],[59,16],[55,8]]]],
+  espresso: [["p",[[34,52],[66,52],[62,78],[38,78]],1],["e",68,64,6,8,-80,80],["e",50,83,28,5],["p",[[48,44],[44,36],[50,28],[46,20]]]],
+  latte:    [["p",[[20,40],[80,40],[73,82],[27,82]],1],["e",50,40,30,5],["e",83,58,8,11,-80,80],["p",[[50,66],[42,58],[44,52],[50,56],[56,52],[58,58],[50,66]]],["l",12,89,88,89]],
+  iced:     [["p",[[30,22],[70,22],[64,90],[36,90]],1],["l",31,34,69,34],["l",58,6,50,62],["p",[[40,44],[51,42],[53,53],[42,55]],1],["p",[[50,62],[61,60],[62,71],[51,73]],1]],
+  mug:      [["p",[[26,34],[70,34],[70,84],[26,84]],1],["e",72,58,11,14,-85,85],["e",40,31,7,4],["e",56,30,7,4],["l",18,90,80,90]],
+  tea:      [["p",[[22,42],[72,42],[67,84],[27,84]],1],["e",75,60,9,11,-80,80],["l",44,42,58,62],["p",[[54,62],[64,62],[64,72],[54,72]],1],["p",[[38,34],[35,26],[40,18]]]],
+  scone:    [["p",[[18,74],[48,24],[84,70]],1],["p",[[18,74],[50,84],[84,70]]],["e",44,58,3,3],["e",58,62,3,3],["e",50,46,3,3]],
+  pizza:    [["p",[[18,26],[84,30],[46,90]],1],["p",[[18,26],[50,17],[84,30]]],["e",44,42,6,5],["e",60,50,6,5],["e",47,66,5,5]],
+  pie:      [["e",50,48,36,13],["l",14,48,18,66],["l",86,48,82,66],["e",50,66,32,11,0,180],["l",38,44,44,48],["l",52,42,58,46],["p",[[24,42],[30,38],[36,36]]]],
+  cookie:   [["e",50,52,32,30],["p",[[38,40],[43,38],[42,44]],1],["p",[[58,46],[63,44],[62,50]],1],["p",[[44,62],[49,60],[48,66]],1],["p",[[62,64],[66,62],[65,67]],1]],
+  chocbar:  [["p",[[26,14],[74,14],[74,86],[26,86]],1],["l",50,14,50,56],["l",26,35,74,35],["p",[[26,58],[74,48],[74,86],[26,86]],1]],
+  bread:    [["e",50,56,36,24,180,360],["p",[[14,56],[14,74],[86,74],[86,56]]],["l",34,44,40,36],["l",48,42,54,34],["l",62,44,68,36]],
+  croissant:[["e",50,64,40,30,190,350],["e",50,68,20,14,200,340],["l",11,59,31,63],["l",89,59,69,63],["l",36,40,40,56],["l",50,35,50,54],["l",64,40,60,56]],
+  pastry:   [["p",[[28,56],[72,56],[66,88],[34,88]],1],["e",50,54,26,18,180,360],["l",42,60,40,86],["l",58,60,60,86]],
+  fruit:    [["e",50,60,28,26],["l",50,34,53,22],["p",[[53,27],[66,18],[62,30]],1]],
+  bottle:   [["p",[[43,10],[57,10],[57,28],[66,40],[66,90],[34,90],[34,40],[43,28]],1],["p",[[34,52],[66,52],[66,72],[34,72]],1]],
+  sandwich: [["p",[[16,72],[84,72],[50,26]],1],["p",[[22,64],[34,60],[48,65],[62,60],[78,65]]],["l",16,80,84,80]],
+  bowl:     [["e",50,48,36,9],["e",50,48,36,34,0,180],["p",[[42,36],[38,28],[44,20]]],["p",[[58,36],[54,28],[60,20]]]],
+  leaf:     [["p",[[20,80],[28,42],[58,20],[82,18],[78,44],[56,70],[20,80]]],["l",20,80,70,30]],
+  star:     [["p",[[30,30],[70,30],[70,70],[30,70]],1],["p",[[50,22],[78,50],[50,78],[22,50]],1]]
+};
+const ICON_NAMES = Object.keys(ICONS);
+
+const AUTO = [
+  [/iced|cold brew|cold/, "iced"],
+  [/espresso|cortado|macchiato|ristretto|shot/, "espresso"],
+  [/latte|cappuccino|flat white/, "latte"],
+  [/mocha|hot choc|cocoa/, "mug"],
+  [/chai|matcha|tea/, "tea"],
+  [/chocolate|\bbar\b/, "chocbar"],
+  [/pizza/, "pizza"],
+  [/pie|empanada|turnover|galette/, "pie"],
+  [/scone/, "scone"],
+  [/cookie|biscotti/, "cookie"],
+  [/croissant/, "croissant"],
+  [/focaccia|bread|loaf|roll|bun|baguette/, "bread"],
+  [/muffin|cake|brownie|danish/, "pastry"],
+  [/fruit|apple|banana|orange|pear/, "fruit"],
+  [/kombucha|soda|water|juice|bottle|lemonade/, "bottle"],
+  [/sandwich|toast/, "sandwich"],
+  [/soup|bowl|oatmeal|yogurt/, "bowl"],
+  [/salad|snack|nuts|trail|chips/, "leaf"],
+  [/coffee|drip|americano|pour/, "cup"]
+];
+function iconOf(it){
+  if(it.icon && it.icon !== "auto" && ICONS[it.icon]) return it.icon;
+  const n = String(it.name || "").toLowerCase();
+  for(const [re, ic] of AUTO) if(re.test(n)) return ic;
+  return "star";
+}
+
+function hash(s){ let h = 2166136261; for(const c of String(s)){ h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed){
+  let a = seed || 1;
+  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+const f1 = n => n.toFixed(1);
+
+function subdiv(pts, step = 9){
+  const out = [pts[0]];
+  for(let i = 1; i < pts.length; i++){
+    const a = pts[i-1], b = pts[i];
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0]-a[0], b[1]-a[1]) / step));
+    for(let k = 1; k <= n; k++) out.push([a[0] + (b[0]-a[0]) * k/n, a[1] + (b[1]-a[1]) * k/n]);
+  }
+  return out;
+}
+function sampleShape(sh){
+  if(sh[0] === "l") return { pts: subdiv([[sh[1], sh[2]], [sh[3], sh[4]]]), closed: false };
+  if(sh[0] === "p"){
+    const closed = !!sh[2];
+    return { pts: subdiv(closed ? sh[1].concat([sh[1][0]]) : sh[1]), closed };
+  }
+  const [, cx, cy, rx, ry, a0 = 0, a1 = 360] = sh;
+  const span = a1 - a0;
+  const n = Math.max(8, Math.round(span / 14 * Math.max(1, (rx + ry) / 40)));
+  const pts = [];
+  for(let i = 0; i <= n; i++){
+    const a = (a0 + span * i / n) * Math.PI / 180;
+    pts.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]);
+  }
+  return { pts, closed: span >= 360 };
+}
+function smooth(p){
+  let d = `M${f1(p[0][0])} ${f1(p[0][1])}`;
+  for(let i = 0; i < p.length - 1; i++){
+    const p0 = p[i-1] || p[i], p1 = p[i], p2 = p[i+1], p3 = p[i+2] || p2;
+    d += `C${f1(p1[0] + (p2[0]-p0[0])/6)} ${f1(p1[1] + (p2[1]-p0[1])/6)} ${f1(p2[0] - (p3[0]-p1[0])/6)} ${f1(p2[1] - (p3[1]-p1[1])/6)} ${f1(p2[0])} ${f1(p2[1])}`;
+  }
+  return d;
+}
+
+const WASH = [["#D2691E", .30], ["#1F5E5B", .22], ["#E6C89C", .65], ["#CC5500", .22], ["#722F37", .16]];
+
+function scribble(icon, seedStr, stroke = "#2E2B28"){
+  const shapes = ICONS[icon] || ICONS.star;
+  const r = rng(hash(seedStr + icon));
+  const [wc, wo] = WASH[hash(seedStr) % WASH.length];
+  let wash = "", lines = "";
+  for(const sh of shapes){
+    const { pts, closed } = sampleShape(sh);
+    let mnx = 1e9, mxx = -1e9, mny = 1e9, mxy = -1e9;
+    for(const [x, y] of pts){ mnx = Math.min(mnx, x); mxx = Math.max(mxx, x); mny = Math.min(mny, y); mxy = Math.max(mxy, y); }
+    const sizeK = Math.min(1, Math.max(mxx - mnx, mxy - mny) / 30);
+    for(let pass = 0; pass < 2; pass++){
+      const ox = (r() - .5) * 2.2 * sizeK, oy = (r() - .5) * 2.2 * sizeK;
+      const amp = (pass ? 1.6 : 1.1) * sizeK;
+      const jp = pts.map(([x, y]) => [x + ox + (r() - .5) * amp * 2, y + oy + (r() - .5) * amp * 2]);
+      if(closed && pass === 1 && jp.length > 2) jp.push([jp[1][0] + (r() - .5) * 2, jp[1][1] + (r() - .5) * 2]);
+      const d = smooth(jp);
+      if(pass === 0 && closed) wash += `<path d="${d}Z" fill="${wc}" fill-opacity="${wo}" transform="translate(2.6 2.4)"/>`;
+      lines += `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${pass ? 1.3 : 2.5}" stroke-opacity="${pass ? .55 : .95}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+  }
+  return `<svg viewBox="-4 -4 110 110" xmlns="http://www.w3.org/2000/svg">${wash}${lines}</svg>`;
+}
+
+function art(it){
+  return it.img ? `<img src="${it.img}" alt="">` : scribble(iconOf(it), it.id);
+}
+
+/* ---------------------------
+   Ornaments — khatam star, zellige band, logo, chevrons
+----------------------------*/
+function star8(c1, c2){
+  return `<svg class="st8" viewBox="-50 -50 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect x="-32" y="-32" width="64" height="64" fill="${c1}"/>
+    <rect x="-32" y="-32" width="64" height="64" fill="${c1}" transform="rotate(45)"/>
+    ${c2 ? `<rect x="-12" y="-12" width="24" height="24" fill="${c2}" transform="rotate(45)"/>` : ""}
+  </svg>`;
+}
+
+const PAL = {
+  light: { bg:"#EDE8E0", star:"#722F37", inner:"#E8A317", corner:"#1F5E5B", line:"#722F37" },
+  dark:  { bg:"#722F37", star:"#EDE8E0", inner:"#D2691E", corner:"#E6C89C", line:"#E6C89C" },
+  teal:  { bg:"#1F5E5B", star:"#EDE8E0", inner:"#E8A317", corner:"#D2691E", line:"#722F37" }
+};
+let BANDN = 0;
+function band(w, h, pal){
+  const id = "zl" + (++BANDN);
+  const t = h, c = t / 2, a = t * 0.27;
+  const corners = [[0,0],[t,0],[0,t],[t,t]].map(([x, y]) =>
+    `<rect x="${x - a*.5}" y="${y - a*.5}" width="${a}" height="${a}" fill="${pal.corner}" transform="rotate(45 ${x} ${y})"/>`).join("");
+  return `<svg class="band" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <defs><pattern id="${id}" width="${t}" height="${t}" patternUnits="userSpaceOnUse" x="${((w % t) / 2).toFixed(2)}">
+      <rect width="${t}" height="${t}" fill="${pal.bg}"/>
+      <rect x="${c-a}" y="${c-a}" width="${2*a}" height="${2*a}" fill="${pal.star}"/>
+      <rect x="${c-a}" y="${c-a}" width="${2*a}" height="${2*a}" fill="${pal.star}" transform="rotate(45 ${c} ${c})"/>
+      <rect x="${c-a*.42}" y="${c-a*.42}" width="${a*.84}" height="${a*.84}" fill="${pal.inner}" transform="rotate(45 ${c} ${c})"/>
+      ${corners}
+    </pattern></defs>
+    <rect width="${w}" height="${h}" fill="url(#${id})"/>
+    <rect width="${w}" height="${h*0.06}" fill="${pal.line}"/>
+    <rect y="${h*0.94}" width="${w}" height="${h*0.06}" fill="${pal.line}"/>
+  </svg>`;
+}
+
+/* the house mark — nested diamond from the storefront decal,
+   or the uploaded logo if there is one */
+function logoMark(em, outer = "#722F37", inner = "#E8A317"){
+  if(D.cafe.logo) return `<img src="${D.cafe.logo}" alt="" style="height:${em}em;width:auto;max-width:${em*2.6}em;object-fit:contain">`;
+  return `<svg style="width:${em}em;height:${em}em;flex:none;display:block" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="50,0 100,50 50,100 0,50" fill="${outer}"/>
+    <polygon points="50,30 70,50 50,70 30,50" fill="${inner}"/>
+  </svg>`;
+}
+
+function chev(dir, color){
+  const p = dir === "up" ? "10,46 50,8 90,46" : "10,8 50,46 90,8";
+  return `<svg viewBox="0 0 100 54" xmlns="http://www.w3.org/2000/svg"><polyline points="${p}" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"/></svg>`;
+}
+function chev2(dir, color, cls){ return `<div class="chev2 ${cls}">${chev(dir, color)}${chev(dir, color)}</div>`; }
+
+function srcHTML(s){
+  if(s.logo) return `<img src="${s.logo}" alt="${esc(s.supplier)}">`;
+  return s.supplier ? `<span class="mono">${esc(s.supplier)}</span>` : "";
+}
+
+/* ---------------------------
+   Page builders
+----------------------------*/
+const PX = 96;   /* CSS px per inch — pages print at true size */
+const SIZES = {
+  wall:    ["18x24", "20x30", "22x28", "24x36"],
+  takeout: ["11x8.5", "14x8.5"],
+  stairs:  ["11x17", "12x18", "18x24", "24x36"],
+  entry:   ["8.5x11", "11x17", "12x18", "18x24"]
+};
+function dims(doc){
+  const [w, h] = D.sizes[doc].split("x").map(Number);
+  return { w, h, pw: w * PX, ph: h * PX };
+}
+function pageOpen(cls, pw, ph, base){
+  return `<div class="page ${cls}" style="--pw:${pw};--ph:${ph};--base:${base.toFixed(3)}">`;
+}
+
+function buildWall(key){
+  const { pw, ph } = dims("wall");
+  const base = pw / 100;
+  const title = key === "A" ? D.wall.aTitle : D.wall.bTitle;
+  const tag   = key === "A" ? D.wall.aTag   : D.wall.bTag;
+  const secs = D.sections
+    .filter(s => s.board === key)
+    .map(s => ({ ...s, items: s.items.filter(i => i.onWall !== false) }))
+    .filter(s => s.items.length);
+  const weight = secs.reduce((a, s) => a + s.items.length + 2, 0);
+  const cols = (weight > 12 || secs.length > 2) ? 2 : 1;
+
+  const body = secs.length ? secs.map(s => `
+    <section class="sec">
+      <div class="sec-head">
+        <span class="sec-name">${star8("#722F37", "#E8A317")}${esc(s.name)}</span>
+        <span class="sec-src">${srcHTML(s)}</span>
+      </div>
+      ${s.blurb ? `<div class="sec-blurb">${esc(s.blurb)}</div>` : ""}
+      ${s.items.map(i => `
+        <div class="it">
+          ${D.wall.drawings ? `<span class="it-ic">${art(i)}</span>` : ""}
+          <div class="it-main">
+            <div class="it-row"><span class="it-name">${esc(i.name)}</span><span class="lead"></span><span class="it-price">${esc(i.price)}</span></div>
+            ${i.note ? `<div class="it-note">${esc(i.note)}</div>` : ""}
+          </div>
+        </div>`).join("")}
+    </section>`).join("")
+    : `<div class="empty">nothing on board ${key} yet — set a section's board to “${key}” in the menu panel</div>`;
+
+  return pageOpen("wall", pw, ph, base) + band(pw, base * 2.6, PAL.light) + `
+    <div class="wall-in">
+      <header>
+        <div class="wh-top">${logoMark(2.6)}<span class="wh-name">${esc(D.cafe.name)}</span><span class="wh-sub mono">${esc(D.cafe.sub)}</span></div>
+        <span class="wh-title" data-fl="10">${esc(title)}</span>
+        ${tag ? `<div class="wh-tag mono">${esc(tag)}</div>` : ""}
+        <div class="wh-rule"><i></i>${star8("#722F37", "#E8A317")}<i></i></div>
+      </header>
+      <div class="fit c${cols}" data-kmax="2.1">${body}</div>
+      <footer class="wall-foot mono"><span>${esc(D.wall.footer)}</span><span>${esc(D.cafe.location)} · menu nº ${esc(D.cafe.menuNo)}</span></footer>
+    </div>` + band(pw, base * 2.6, PAL.light) + `</div>`;
+}
+
+function buildTakeout(){
+  const { pw, ph } = dims("takeout");
+  const base = pw / 100;
+  const pnW = pw / 3;
+  const secs = D.sections.filter(s => s.items.length);
+  const folds = `<i class="fold" style="left:33.333%"></i><i class="fold" style="left:66.666%"></i><i class="fold b" style="left:33.333%"></i><i class="fold b" style="left:66.666%"></i>`;
+  const notes = String(D.takeout.notes || "").split("\n").map(x => x.trim()).filter(Boolean);
+  const hours = esc(D.cafe.hours).replace(/\n/g, "<br>");
+
+  /* one row per supplier, listing what they make for us */
+  const byKey = new Map();
+  for(const s of secs){
+    if(!s.supplier && !s.logo) continue;
+    const k = (s.supplier || s.id).toLowerCase();
+    if(!byKey.has(k)) byKey.set(k, { supplier: s.supplier, logo: s.logo, what: [] });
+    const e = byKey.get(k);
+    if(!e.logo && s.logo) e.logo = s.logo;
+    e.what.push(s.name);
+  }
+  const neighbors = [...byKey.values()].map(n => `
+    <div class="nb">
+      <div>${n.logo ? `<img src="${n.logo}" alt="${esc(n.supplier)}">` : `<span class="nb-name">${esc(n.supplier)}</span>`}</div>
+      <span class="nb-what">${esc(n.what.join(" · "))}</span>
+    </div>`).join("");
+
+  const outside = pageOpen("tri", pw, ph, base) + `
+    <div class="panel flap">
+      <div class="pt-h">${esc(D.takeout.flapTitle)}</div>
+      ${String(D.takeout.note || "").split(/\n\s*\n/).filter(p => p.trim()).map(p => `<p>${esc(p)}</p>`).join("")}
+      ${notes.length ? `<ul class="notes">${notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}
+      <div class="flap-orn">${star8("#1F5E5B", "#E8A317")}</div>
+    </div>
+    <div class="panel back">
+      <div class="pt-h">our neighbors</div>
+      ${neighbors}
+      <div class="back-foot">
+        <div class="mono bf-hours">${esc(D.cafe.location)}<br>${hours}</div>
+        <div>${esc(D.wall.footer)}</div>
+        <div class="bf-fine">${esc(D.takeout.fine)}</div>
+      </div>
+    </div>
+    <div class="panel cover">
+      ${band(pnW, base * 4, PAL.teal)}
+      <div class="cv-mid">
+        ${logoMark(7)}
+        <span class="cv-name" data-fl="5.6">${esc(D.cafe.name)}</span>
+        <div class="cv-sub mono">${esc(D.cafe.sub)}</div>
+        <div class="cv-menu mono">menu · nº ${esc(D.cafe.menuNo)}</div>
+      </div>
+      <div class="cv-foot">${esc(D.cafe.location)}<br>${hours}</div>
+      ${band(pnW, base * 4, PAL.teal)}
+    </div>
+    ${folds}</div>`;
+
+  const inside = pageOpen("tri", pw, ph, base) + `
+    <div class="fit tri-fit" data-kmax="1.35">
+      ${secs.map(s => `
+        <section class="tsec">
+          <div class="tsec-head"><span class="tsec-name">${esc(s.name)}</span><span class="tsec-src">${srcHTML(s)}</span></div>
+          ${s.blurb ? `<div class="tsec-blurb">${esc(s.blurb)}</div>` : ""}
+          ${s.items.map(i => `
+            <div class="ti">
+              <span class="ti-ic">${art(i)}</span>
+              <div><div class="ti-name">${esc(i.name)}</div>${i.note ? `<div class="ti-note">${esc(i.note)}</div>` : ""}</div>
+              <span class="ti-price">${esc(i.price)}</span>
+            </div>`).join("")}
+        </section>`).join("")}
+    </div>${folds}</div>`;
+
+  return [
+    { html: outside, cap: "outside — flap · back · cover" },
+    { html: inside,  cap: "inside — every item" }
+  ];
+}
+
+function buildStairs(){
+  const { pw, ph } = dims("stairs");
+  const base = pw / 100;
+  const logo = D.cafe.logo
+    ? `<div class="sg-logo-tile">${logoMark(11)}</div>`
+    : `<div class="sg-logo">${logoMark(15, "#EDE8E0", "#E8A317")}</div>`;
+  return [{
+    cap: "top of stairs",
+    html: pageOpen("sign-dark", pw, ph, base) + band(pw, base * 4.2, PAL.dark) + `
+      <div class="sg-wrap"><div class="fit sg-fit" data-kmax="1.1">
+        ${logo}
+        <div class="sg-l1">${esc(D.stairs.l1)}</div>
+        <div class="sg-l2 mono">${esc(D.stairs.l2)}</div>
+        <div class="sg-l3">${esc(D.stairs.l3)}</div>
+        ${chev2("down", "#E6C89C", "sg-chev")}
+        <div class="sg-hours">${esc(D.cafe.hours)}</div>
+      </div></div>` + band(pw, base * 4.2, PAL.dark) + `</div>`
+  }];
+}
+
+function buildEntry(){
+  const { pw, ph } = dims("entry");
+  const base = pw / 100;
+  return [{
+    cap: "entry",
+    html: pageOpen("entry", pw, ph, base) + band(pw, base * 3.4, PAL.light) + `
+      <div class="ent-top">${logoMark(4)}<span class="ent-name">${esc(D.cafe.name)}</span></div>
+      <div class="ent-wrap"><div class="fit ent-fit" data-kmax="1.1">
+        <div class="ent-l1">${esc(D.entry.l1)}</div>
+        <div class="ent-orn"><i></i>${star8("#D2691E", "#1F5E5B")}<i></i></div>
+        <div class="ent-l2 mono">${esc(D.entry.l2)}</div>
+        ${chev2("up", "#1F5E5B", "ent-chev")}
+        <div class="ent-l3">${esc(D.entry.l3)}</div>
+      </div></div>` + band(pw, base * 3.4, PAL.light) + `</div>`
+  }];
+}
+
+/* ---------------------------
+   Fitting — every .fit box gets the biggest type that fits,
+   single display lines shrink to the width they're given.
+----------------------------*/
+function fitBox(box){
+  const kmax = parseFloat(box.dataset.kmax || "1.3"), kmin = 0.3;
+  const ok = () => box.scrollHeight <= box.clientHeight + 1 && box.scrollWidth <= box.clientWidth + 1;
+  box.style.setProperty("--k", kmax);
+  if(ok()) return;
+  let lo = kmin, hi = kmax;
+  for(let i = 0; i < 10; i++){
+    const m = (lo + hi) / 2;
+    box.style.setProperty("--k", m);
+    if(ok()) lo = m; else hi = m;
+  }
+  box.style.setProperty("--k", lo);
+}
+function fitLines(page){
+  const base = parseFloat(page.style.getPropertyValue("--base")) || 10;
+  page.querySelectorAll("[data-fl]").forEach(el => {
+    let px = base * parseFloat(el.dataset.fl);
+    el.style.fontSize = px + "px";
+    for(let i = 0; i < 4 && el.scrollWidth > el.clientWidth + 1; i++){
+      px *= (el.clientWidth / el.scrollWidth) * 0.99;
+      el.style.fontSize = px + "px";
+    }
+  });
+}
+
+/* ---------------------------
+   Preview
+----------------------------*/
+let pvT = null;
+function schedulePreview(){ clearTimeout(pvT); pvT = setTimeout(renderPreview, 140); }
+
+function renderPreview(){
+  if(!D) return;
+  BANDN = 0;
+  let pages;
+  if(curDoc === "wall") pages = [
+    { html: buildWall("A"), cap: `board A · ${D.wall.aTitle}` },
+    { html: buildWall("B"), cap: `board B · ${D.wall.bTitle}` }
+  ];
+  else if(curDoc === "takeout") pages = buildTakeout();
+  else if(curDoc === "stairs") pages = buildStairs();
+  else pages = buildEntry();
+
+  const el = $("#pages");
+  el.innerHTML = pages.map(p => `<div class="pagebox">${p.html}<div class="pagecap">${esc(p.cap)}</div></div>`).join("");
+  el.querySelectorAll(".page").forEach(pg => { fitLines(pg); pg.querySelectorAll(".fit").forEach(fitBox); });
+  layoutScale();
+}
+
+function layoutScale(){
+  const st = $("#stage");
+  const W = st.clientWidth - 56, H = st.clientHeight - 100;
+  const boxes = [...document.querySelectorAll(".pagebox")];
+  if(!boxes.length) return;
+  const first = boxes[0].querySelector(".page");
+  const pw = first.offsetWidth, ph = first.offsetHeight;
+  let s;
+  if(curDoc === "wall") s = Math.min((W - 40) / (2 * pw), H / ph);
+  else if(curDoc === "takeout") s = Math.min(W / pw, 1.2);
+  else s = Math.min(W / pw, H / ph);
+  s = Math.max(0.05, s);
+  boxes.forEach(b => {
+    const p = b.querySelector(".page");
+    b.style.width = p.offsetWidth * s + "px";
+    b.style.height = p.offsetHeight * s + "px";
+    p.style.transform = `scale(${s})`;
+  });
+}
+window.addEventListener("resize", layoutScale);
+
+/* ---------------------------
+   Panel — menu items
+----------------------------*/
+function itemRow(s, i){
+  const op = openItems.has(i.id);
+  return `<div class="ir" data-iid="${i.id}">
+    <div class="ir-top">
+      <span class="ir-ic">${art(i)}</span>
+      <input class="ir-name" data-f="name" value="${esc(i.name)}" placeholder="item">
+      <input class="ir-price" data-f="price" value="${esc(i.price)}" placeholder="$">
+      <label class="wl" title="show on the wall board"><input type="checkbox" data-f="onWall"${i.onWall !== false ? " checked" : ""}>wall</label>
+      <button class="tw" data-act="toggleItem" title="note, drawing, move">${op ? "–" : "⋯"}</button>
+    </div>
+    ${op ? `<div class="ir-more">
+      <input data-f="note" value="${esc(i.note)}" placeholder="note — what's in it, sizes, etc.">
+      <div class="ir-ctl">
+        <select data-f="icon" title="scribble">${["auto", ...ICON_NAMES].map(n => `<option value="${n}"${(i.icon || "auto") === n ? " selected" : ""}>${n === "auto" ? "drawing: auto" : n}</option>`).join("")}</select>
+        <label class="mini">${i.img ? "replace" : "own"} drawing<input type="file" accept="image/*" data-act="itemImg" hidden></label>
+        ${i.img ? `<button class="mini" data-act="itemImgClear">clear</button>` : ""}
+        <select data-act="itemMove"><option value="">move to…</option>${D.sections.filter(x => x !== s).map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("")}</select>
+        <button class="mini" data-act="itemUp" title="move up">↑</button>
+        <button class="mini" data-act="itemDown" title="move down">↓</button>
+        <button class="mini warn" data-act="itemDel" title="delete">×</button>
+      </div>
+    </div>` : ""}
+  </div>`;
+}
+
+function renderMenuPanel(){
+  $("#pMenu").innerHTML = `
+    <p class="hint">Each section goes on wall board <b>A</b> or <b>B</b>, or stays off the wall. <b>Every</b> item lands on the take-out menu — untick “wall” to keep one off the boards. Drop in each brand's official logo file (ask your rep for a PNG or SVG); without one, the brand name is set in plain type.</p>
+    ${D.sections.map(s => {
+      const op = openSecs.has(s.id);
+      return `<div class="sc" data-sid="${s.id}">
+        <div class="sc-head">
+          <button class="tw" data-act="toggleSec" title="open">${op ? "▾" : "▸"}</button>
+          <input class="sc-name" data-f="name" value="${esc(s.name)}">
+          <select data-f="board" title="which wall board">
+            <option value="A"${s.board === "A" ? " selected" : ""}>A · ${esc(D.wall.aTitle)}</option>
+            <option value="B"${s.board === "B" ? " selected" : ""}>B · ${esc(D.wall.bTitle)}</option>
+            <option value=""${!s.board ? " selected" : ""}>off wall</option>
+          </select>
+          <span class="cnt">${s.items.length}</span>
+        </div>
+        ${op ? `<div class="sc-body">
+          <div class="row2">
+            <input data-f="supplier" value="${esc(s.supplier)}" placeholder="supplier / brand">
+            <input data-f="blurb" value="${esc(s.blurb)}" placeholder="one short line (optional)">
+          </div>
+          <div class="logo-row">
+            <div class="logo-prev">${s.logo ? `<img src="${s.logo}" alt="">` : "no logo yet"}</div>
+            <label class="mini">${s.logo ? "replace" : "upload"} logo<input type="file" accept="image/*" data-act="secLogo" hidden></label>
+            ${s.logo ? `<button class="mini" data-act="secLogoClear">remove</button>` : ""}
+            <span class="sp"></span>
+            <button class="mini" data-act="secUp" title="move up">↑</button>
+            <button class="mini" data-act="secDown" title="move down">↓</button>
+            <button class="mini warn" data-act="secDel">delete</button>
+          </div>
+          <div class="its">${s.items.map(i => itemRow(s, i)).join("")}</div>
+          <button class="mini add" data-act="itemAdd">+ item</button>
+        </div>` : ""}
+      </div>`;
+    }).join("")}
+    <button class="add-sec" data-act="secAdd">+ new section</button>`;
+}
+
+/* ---------------------------
+   Panel — words, signs + data
+----------------------------*/
+const getPath = (o, p) => p.split(".").reduce((a, k) => (a == null ? a : a[k]), o);
+function setPath(o, p, v){ const ks = p.split("."); const last = ks.pop(); ks.reduce((a, k) => a[k], o)[last] = v; }
+
+function field(label, path, type = "text", ph = ""){
+  const v = getPath(D, path);
+  if(type === "area") return `<label class="fl"><span>${label}</span><textarea data-k="${path}" rows="3" placeholder="${esc(ph)}">${esc(v)}</textarea></label>`;
+  if(type === "check") return `<label class="chk"><input type="checkbox" data-k="${path}"${v ? " checked" : ""}> ${label}</label>`;
+  return `<label class="fl"><span>${label}</span><input data-k="${path}" value="${esc(v)}" placeholder="${esc(ph)}"></label>`;
+}
+
+function renderWordsPanel(){
+  $("#pWords").innerHTML = `
+    <h3>cafe</h3>
+    ${field("name", "cafe.name")}
+    ${field("subtitle", "cafe.sub")}
+    <div class="logo-row">
+      <div class="logo-prev">${D.cafe.logo ? `<img src="${D.cafe.logo}" alt="">` : "diamond mark"}</div>
+      <label class="mini">${D.cafe.logo ? "replace" : "upload"} your logo<input type="file" accept="image/*" data-act="cafeLogo" hidden></label>
+      ${D.cafe.logo ? `<button class="mini" data-act="cafeLogoClear">use diamond mark</button>` : ""}
+    </div>
+    ${field("where", "cafe.location")}
+    ${field("hours (one line each)", "cafe.hours", "area")}
+    ${field("menu number", "cafe.menuNo")}
+
+    <h3>wall boards</h3>
+    ${field("board A title", "wall.aTitle")}
+    ${field("board A tagline", "wall.aTag")}
+    ${field("board B title", "wall.bTitle")}
+    ${field("board B tagline", "wall.bTag")}
+    ${field("footer", "wall.footer")}
+    ${field("show the scribbles on the wall too", "wall.drawings", "check")}
+
+    <h3>take-out trifold</h3>
+    <p class="hint">US letter (or legal), landscape. Print double-sided, <b>flip on short edge</b>, then letter-fold: inside right panel in first, cover lands on the right.</p>
+    ${field("flap heading", "takeout.flapTitle")}
+    ${field("flap note (blank line = new paragraph)", "takeout.note", "area")}
+    ${field("small notes (one per line)", "takeout.notes", "area")}
+    ${field("fine print", "takeout.fine")}
+
+    <h3>stairs sign</h3>
+    ${field("big word", "stairs.l1")}
+    ${field("small line", "stairs.l2")}
+    ${field("where", "stairs.l3")}
+    <p class="hint">Hours come from the cafe section above.</p>
+
+    <h3>entry sign</h3>
+    ${field("main line", "entry.l1")}
+    ${field("small line", "entry.l2")}
+    ${field("where", "entry.l3")}
+
+    <h3>data</h3>
+    <p class="hint">Everything saves to the same Firebase as the old editor (new spot, old menus untouched) and to this browser.</p>
+    <div class="btns">
+      <button class="mini" data-act="importLegacy">import old diamond menus</button>
+      <button class="mini" data-act="backup">download backup</button>
+      <label class="mini">restore backup<input type="file" accept="application/json,.json" data-act="restore" hidden></label>
+      <button class="mini warn" data-act="reset">reset to sample menu</button>
+    </div>`;
+}
+
+function renderPanels(){ renderMenuPanel(); renderWordsPanel(); }
+
+/* ---------------------------
+   Panel events
+----------------------------*/
+const panel = $("#panel");
+
+function ctx(t){
+  const se = t.closest("[data-sid]"), ie = t.closest("[data-iid]");
+  const sec = se ? D.sections.find(s => s.id === se.dataset.sid) : null;
+  const item = sec && ie ? sec.items.find(i => i.id === ie.dataset.iid) : null;
+  return { sec, item };
+}
+function touch(){ save(); schedulePreview(); }
+function toggle(set, id){ set.has(id) ? set.delete(id) : set.add(id); }
+function move(arr, x, d){
+  const i = arr.indexOf(x), j = i + d;
+  if(i < 0 || j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+}
+
+panel.addEventListener("input", e => {
+  const t = e.target;
+  if(t.type === "file") return;
+  if(t.dataset.k){
+    setPath(D, t.dataset.k, t.type === "checkbox" ? t.checked : t.value);
+    if(/^wall\.[ab]Title$/.test(t.dataset.k)) renderMenuPanel();
+    touch();
+    return;
+  }
+  if(!t.dataset.f) return;
+  const { sec, item } = ctx(t);
+  const obj = item || sec;
+  if(!obj) return;
+  obj[t.dataset.f] = t.type === "checkbox" ? t.checked : t.value;
+  if(item && (t.dataset.f === "name" || t.dataset.f === "icon")){
+    const ic = t.closest(".ir").querySelector(".ir-ic");
+    if(ic) ic.innerHTML = art(item);
+  }
+  touch();
+});
+
+panel.addEventListener("click", async e => {
+  const pt = e.target.closest(".ptabs button");
+  if(pt){
+    panel.querySelectorAll(".ptabs button").forEach(b => b.classList.toggle("on", b === pt));
+    $("#pMenu").hidden = pt.dataset.p !== "menu";
+    $("#pWords").hidden = pt.dataset.p !== "words";
+    return;
+  }
+  const b = e.target.closest("button[data-act]");
+  if(!b) return;
+  const act = b.dataset.act;
+  const { sec, item } = ctx(b);
+  switch(act){
+    case "toggleSec": toggle(openSecs, sec.id); renderMenuPanel(); return;
+    case "toggleItem": toggle(openItems, item.id); renderMenuPanel(); return;
+    case "secAdd": { const s = mkSec("New section", "", "", "", []); D.sections.push(s); openSecs.add(s.id); break; }
+    case "secUp": move(D.sections, sec, -1); break;
+    case "secDown": move(D.sections, sec, 1); break;
+    case "secDel":
+      if(!confirm(`Delete “${sec.name}” and its ${sec.items.length} items?`)) return;
+      D.sections = D.sections.filter(x => x !== sec); break;
+    case "secLogoClear": sec.logo = ""; break;
+    case "itemAdd": { const i = mkItem("New item", "", ""); sec.items.push(i); openItems.add(i.id); break; }
+    case "itemUp": move(sec.items, item, -1); break;
+    case "itemDown": move(sec.items, item, 1); break;
+    case "itemDel": sec.items = sec.items.filter(x => x !== item); break;
+    case "itemImgClear": item.img = ""; break;
+    case "cafeLogoClear": D.cafe.logo = ""; renderWordsPanel(); touch(); return;
+    case "importLegacy": await importLegacy(); return;
+    case "backup": downloadBackup(); return;
+    case "reset":
+      if(!confirm("Replace everything with the sample menu? (Download a backup first if unsure.)")) return;
+      D = defaults(); renderPanels(); touch(); return;
+    default: return;
+  }
+  renderMenuPanel();
+  touch();
+});
+
+panel.addEventListener("change", async e => {
+  const t = e.target;
+  const act = t.dataset.act;
+  if(!act) return;
+  const { sec, item } = ctx(t);
+  if(act === "itemMove"){
+    const to = D.sections.find(s => s.id === t.value);
+    if(to && item && sec){ sec.items = sec.items.filter(x => x !== item); to.items.push(item); openSecs.add(to.id); }
+    renderMenuPanel(); touch(); return;
+  }
+  const file = t.files && t.files[0];
+  if(!file) return;
+  if(act === "restore"){
+    try{
+      D = normalize(JSON.parse(await file.text()));
+      renderPanels(); touch(); toast("backup restored");
+    }catch(err){ alert("That file isn't a menu backup."); }
+    return;
+  }
+  const url = await readImage(file, act === "itemImg" ? 500 : 800);
+  if(act === "secLogo" && sec) sec.logo = url;
+  else if(act === "itemImg" && item) item.img = url;
+  else if(act === "cafeLogo"){ D.cafe.logo = url; renderWordsPanel(); touch(); return; }
+  renderMenuPanel(); touch();
+});
+
+/* downscale uploads so Firebase stays light; SVGs stay vector */
+function readImage(file, max){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = reject;
+    fr.onload = () => {
+      if(file.type === "image/svg+xml" && file.size < 300000){ resolve(fr.result); return; }
+      const img = new Image();
+      img.onload = () => {
+        const s = Math.min(1, max / Math.max(img.naturalWidth || max, img.naturalHeight || max));
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round((img.naturalWidth || max) * s));
+        c.height = Math.max(1, Math.round((img.naturalHeight || max) * s));
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL(file.type === "image/jpeg" ? "image/jpeg" : "image/png", 0.9));
+      };
+      img.onerror = reject;
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* ---------------------------
+   Data utilities
+----------------------------*/
+async function importLegacy(){
+  if(!confirm("Pull every menu from the old diamond editor in as new sections (set to “off wall” so nothing moves until you place them)?")) return;
+  let index = [];
+  try{
+    if(db){ const s = await withTimeout(get(ref(db, "menuIndex")), 6000); if(s.exists()) index = asArray(s.val()); }
+  }catch(err){ console.warn(err); }
+  if(!index.length){ try{ index = JSON.parse(localStorage.getItem("diamond-menu-index-v1") || "[]"); }catch(err){} }
+  if(!index.length){ alert("Couldn't find any old menus."); return; }
+  let added = 0;
+  for(const m of index){
+    let data = null;
+    try{ if(db){ const s = await withTimeout(get(ref(db, "menus/" + m.id)), 6000); if(s.exists()) data = s.val(); } }catch(err){}
+    if(!data){ try{ data = JSON.parse(localStorage.getItem("diamond-menu-v2:" + m.id) || "null"); }catch(err){} }
+    const items = asArray(data && data.items);
+    if(!items.length) continue;
+    D.sections.push(mkSec(m.name || "Imported", "", "", "", items.map(it => mkItem(it.name || "Item", it.price || "", it.note || ""))));
+    added += items.length;
+  }
+  renderMenuPanel(); touch();
+  toast(added ? `imported ${added} items — they're at the bottom of the menu panel` : "old menus were empty");
+}
+
+function downloadBackup(){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(D, null, 2)], { type: "application/json" }));
+  a.download = `gratified-menu-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+}
+
+let toastT = null;
+function toast(msg, ms = 4200){
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove("on"), ms);
+}
+
+/* ---------------------------
+   Top bar
+----------------------------*/
+function syncBar(){
+  document.querySelectorAll("#docTabs button").forEach(b => b.classList.toggle("on", b.dataset.doc === curDoc));
+  $("#sizeSel").innerHTML = SIZES[curDoc].map(s => {
+    const [w, h] = s.split("x");
+    return `<option value="${s}"${D.sizes[curDoc] === s ? " selected" : ""}>${w}" × ${h}"</option>`;
+  }).join("");
+}
+
+$("#docTabs").addEventListener("click", e => {
+  const b = e.target.closest("button[data-doc]");
+  if(!b) return;
+  curDoc = b.dataset.doc;
+  syncBar();
+  renderPreview();
+  $("#stage").scrollTop = 0;
+});
+
+$("#sizeSel").addEventListener("change", e => {
+  D.sizes[curDoc] = e.target.value;
+  touch();
+});
+
+$("#printBtn").addEventListener("click", () => {
+  const [w, h] = D.sizes[curDoc].split("x");
+  $("#pageSize").textContent = `@page{ size:${w}in ${h}in; margin:0; }`;
+  renderPreview();
+  toast(`print dialog: Save as PDF · Margins: None · Background graphics: on — ${w}"×${h}"`, 7000);
+  setTimeout(() => window.print(), 250);
+});
+
+$("#brandMark").innerHTML = `<svg width="22" height="22" viewBox="0 0 100 100"><polygon points="50,0 100,50 50,100 0,50" fill="#722F37"/><polygon points="50,30 70,50 50,70 30,50" fill="#E8A317"/></svg><b>Gratified</b><small>menu studio</small>`;
+
+/* ---------------------------
+   Boot
+----------------------------*/
+(async () => {
+  D = await loadDoc();
+  if(D.sections[0]) openSecs.add(D.sections[0].id);
+  renderPanels();
+  syncBar();
+  renderPreview();
+  setStatus(db ? "synced ✓" : "this device only");
+  if(document.fonts){
+    document.fonts.ready.then(renderPreview);
+    document.fonts.addEventListener?.("loadingdone", schedulePreview);
+  }
+})();
+</script>
+</body>
+</html>
