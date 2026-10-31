@@ -1,2294 +1,710 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Rotated Square — Menu Mode</title>
-
-<!-- Fonts: Satoshi (Fontshare) + Bluu Next (CDN Fonts) -->
-<link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap" rel="stylesheet">
-<link href="https://fonts.cdnfonts.com/css/bluu-next" rel="stylesheet">
-
-<!-- jsPDF + opentype.js — print-ready PDF export and text outlining -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gratified Menu Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!-- Fonts: Gratified's own files. Keep this page in your website folder (next to fonts/) and BluuNext + Switzer load automatically. -->
+<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700&display=swap">
+<link rel="stylesheet" href="https://fonts.cdnfonts.com/css/bluu-next">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Outfit:wght@300;400;500;600;700&display=swap">
 <style>
-:root{
-  /* Gratified design tokens */
-  --deep-red: #722F37;
-  --bright-orange: #CC5500;
-  --warm-amber: #D2691E;
-  --olive-bronze: #6B5740;
-  --cream: #EDE8E0;
-  --charcoal: #3C3C3C;
-  --golden-sand: #E6C89C;
+@font-face { font-family: "BluuNext"; src: url("fonts/BluuNext-Bold.otf") format("opentype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Switzer"; src: url("fonts/Switzer-Light.otf") format("opentype"); font-weight: 300; font-display: swap; }
 
-  --font-price:'Satoshi', system-ui, sans-serif;
-  --font-name:'Bluu Next', Georgia, serif;
-  --font-note:'Satoshi', system-ui, sans-serif;
+/* Layout: editor rail on the left, live US Letter sheets on the right; stacks on phones.
+   One committed light look in the Gratified palette (the sheets carry their own theme). */
+:root {
+  --ui-bg: #EDE8E0;        /* cream */
+  --ui-surface: #F6F2EC;
+  --ui-ink: #3C3C3C;       /* charcoal */
+  --ui-muted: #6B5740;     /* olive bronze */
+  --ui-line: #D8CEC1;
+  --ui-accent: #722F37;    /* deep red */
+  --ui-accent-2: #CC5500;  /* bright orange */
+  --ui-warn: #B3261E;
+  --f-display: "UserDisplay", "BluuNext", "Bluu Next", "Playfair Display", Georgia, serif;
+  --f-body: "UserBody", "Satoshi", "Outfit", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
 }
+@page { size: letter landscape; margin: 0; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--ui-bg); color: var(--ui-ink); font-family: var(--f-body); font-size: 14px; line-height: 1.45; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ui-accent-2); outline-offset: 2px; }
 
-html,body{
-  margin:0;
-  height:100%;
-  overflow:hidden;
-  font-family:'Satoshi', system-ui;
-  background:var(--cream);
+.app { display: grid; grid-template-columns: 380px 1fr; height: 100%; }
+.rail { background: var(--ui-surface); border-right: 1px solid var(--ui-line); display: flex; flex-direction: column; min-height: 0; }
+.rail-head { padding: 18px 20px 12px; padding-left: max(20px, env(safe-area-inset-left, 0px)); border-bottom: 1px solid var(--ui-line); display: grid; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand svg { width: 22px; height: 22px; flex: none; }
+.brand h1 { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: 22px; color: var(--ui-accent); letter-spacing: .02em; }
+.brand span { font-size: 12px; color: var(--ui-muted); letter-spacing: .08em; }
+.tabs { display: flex; gap: 0; border: 2px solid var(--ui-accent); }
+.tab { flex: 1; padding: 7px 4px; border: 0; background: transparent; color: var(--ui-accent); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: lowercase; cursor: pointer; }
+.tab + .tab { border-left: 1px solid rgba(114,47,55,.25); }
+.tab[aria-selected="true"] { background: var(--ui-accent); color: var(--ui-bg); }
+.rail-body { flex: 1; overflow-y: auto; padding: 18px 20px 32px; padding-left: max(20px, env(safe-area-inset-left, 0px)); display: grid; gap: 22px; align-content: start; }
+.rail-foot { border-top: 1px solid var(--ui-line); padding: 12px 20px; padding-left: max(20px, env(safe-area-inset-left, 0px)); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+.group { display: grid; gap: 10px; }
+.group > h2 { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ui-muted); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hint { margin: 0; font-size: 12px; color: var(--ui-muted); }
+.field { display: grid; gap: 4px; }
+.field > span { font-size: 12px; font-weight: 600; }
+.field input[type=text], .field textarea, .field select, .mini input, .mini select {
+  width: 100%; padding: 7px 9px; border: 1px solid var(--ui-line); border-radius: 0; background: #fff; min-width: 0;
 }
+.field textarea { resize: vertical; min-height: 56px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 
-#ui{
-  position:fixed;
-  top:0;
-  left:0;
-  right:0;
-  height:56px;
-  display:flex;
-  align-items:center;
-  gap:8px;
-  padding:0 14px;
-  background:var(--cream);
-  color:var(--charcoal);
-  border-bottom:3px solid var(--deep-red);
-  box-shadow:0 4px 20px rgba(114, 47, 55, 0.12);
-  z-index:10;
+.presets { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.preset { border: 2px solid var(--ui-line); background: #fff; padding: 0; cursor: pointer; text-align: left; display: grid; }
+.preset[aria-pressed="true"] { border-color: var(--ui-accent); box-shadow: inset 0 0 0 1px var(--ui-accent); }
+.preset .sw { height: 54px; display: grid; grid-template-columns: 1fr 1fr 1.2fr; }
+.preset .sw i { display: block; }
+.preset .sw i:last-child { display: grid; place-items: center; font-family: var(--f-display); font-style: normal; font-weight: 700; font-size: 13px; }
+.preset b { font-size: 12px; padding: 6px 8px 0; }
+.preset small { font-size: 11px; color: var(--ui-muted); padding: 0 8px 7px; }
+
+.colors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.swatch { display: grid; gap: 3px; font-size: 11px; color: var(--ui-muted); }
+.swatch input { width: 100%; height: 32px; padding: 0; border: 1px solid var(--ui-line); background: none; cursor: pointer; }
+.seg { display: flex; border: 1px solid var(--ui-line); background: #fff; }
+.seg button { flex: 1; border: 0; background: transparent; padding: 6px 4px; font-size: 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--ui-line); }
+.seg button[aria-pressed="true"] { background: var(--ui-accent); color: var(--ui-bg); }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.range { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.range output { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ui-muted); min-width: 3.5em; text-align: right; }
+
+.upload { display: flex; align-items: center; gap: 10px; }
+.thumb { width: 44px; height: 44px; flex: none; border: 1px solid var(--ui-line); background: #fff center / contain no-repeat; display: grid; place-items: center; font-size: 10px; color: var(--ui-muted); }
+.thumb.round { border-radius: 50%; background-size: cover; }
+.file-btn { position: relative; overflow: hidden; }
+.file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.btn { border: 2px solid var(--ui-accent); background: transparent; color: var(--ui-accent); padding: 6px 12px; font-size: 12px; font-weight: 600; letter-spacing: .04em; cursor: pointer; }
+.btn:hover { background: rgba(204,85,0,.12); }
+.btn.solid { background: var(--ui-accent); color: var(--ui-bg); }
+.btn.solid:hover { background: #5e262d; }
+.btn.small { padding: 3px 8px; border-width: 1px; font-size: 11px; }
+.btn.ghost { border-color: var(--ui-line); color: var(--ui-muted); }
+.icon-btn { border: 1px solid var(--ui-line); background: #fff; width: 26px; height: 26px; display: grid; place-items: center; cursor: pointer; color: var(--ui-muted); padding: 0; font-size: 13px; line-height: 1; }
+.icon-btn:hover { color: var(--ui-accent); border-color: var(--ui-accent); }
+
+.card { border: 1px solid var(--ui-line); background: var(--ui-bg); padding: 10px; display: grid; gap: 8px; }
+.card-head { display: flex; gap: 6px; align-items: center; }
+.card-head .grow { flex: 1; min-width: 0; }
+.item-ed { display: grid; grid-template-columns: 1fr 64px auto; gap: 6px; align-items: start; padding-top: 8px; border-top: 1px dashed var(--ui-line); }
+.item-ed .full { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; }
+.tools { display: flex; gap: 4px; }
+.item-ed .full.brandpick { grid-template-columns: 1fr; }
+.item-ed select { width: 100%; padding: 6px 7px; border: 1px solid var(--ui-line); background: #fff; min-width: 0; }
+.item-ed input[type=text] { padding: 6px 8px; border: 1px solid var(--ui-line); background: #fff; min-width: 0; width: 100%; }
+.status { font-size: 12px; color: var(--ui-muted); }
+.status.ok::before { content: "● "; color: #3c7a4c; }
+.status.no::before { content: "● "; color: var(--ui-accent-2); }
+.save-state { font-size: 11px; color: var(--ui-muted); margin-left: auto; }
+
+/* in-page confirm */
+.confirm { display: flex; gap: 8px; align-items: center; font-size: 12px; background: #fff; border: 1px solid var(--ui-accent); padding: 6px 8px; }
+
+/* ---------- preview ---------- */
+.stage { overflow: auto; padding-block: 24px 48px; padding-left: 28px; padding-right: max(28px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; align-content: start; min-width: 0; }
+.stage-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: baseline; justify-content: space-between; }
+.stage-head p { margin: 0; font-size: 13px; color: var(--ui-muted); max-width: 72ch; }
+.side-label { margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--ui-muted); }
+.fit { width: 100%; overflow: hidden; }
+.fit > .sheet { transform-origin: top left; box-shadow: 0 1px 2px rgba(60,60,60,.08), 0 14px 34px rgba(60,60,60,.16); }
+
+/* ---------- the printed sheet (themed by inline vars) ---------- */
+.sheet {
+  --t: 1;
+  width: 11in; height: 8.5in; background: var(--paper); color: var(--ink);
+  display: grid; grid-template-columns: repeat(3, calc(11in / 3)); position: relative; overflow: hidden;
+  font-family: var(--f-body); font-size: calc(9pt * var(--t)); line-height: 1.35;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
+.sheet.no-bg { background: #fff; }
+.sheet::before, .sheet::after { content: ""; position: absolute; left: 0; right: 0; height: .16in; pointer-events: none; z-index: 3;
+  background: linear-gradient(var(--rule), var(--rule)) calc(11in/3) 0 / .75pt 100% no-repeat, linear-gradient(var(--rule), var(--rule)) calc(22in/3) 0 / .75pt 100% no-repeat; }
+.sheet::before { top: 0; } .sheet::after { bottom: 0; }
+.pn { padding: .42in; display: flex; flex-direction: column; min-width: 0; overflow: hidden; position: relative; }
+.framed .pn.fr::before { content: ""; position: absolute; inset: .24in; border: 1.25pt solid var(--accent); opacity: .5; pointer-events: none; }
+.framed .pn.fr::after { content: ""; position: absolute; inset: .3in; border: .5pt solid var(--accent); opacity: .25; pointer-events: none; }
+.pn.over { box-shadow: inset 0 0 0 3px var(--ui-warn); }
+.pn.over > .over-flag, .spr .side.over > .over-flag { display: block; }
+.over-flag { display: none; position: absolute; right: 6pt; bottom: 6pt; z-index: 5; background: var(--ui-warn); color: #fff; font: 600 8pt/1.3 var(--f-body); padding: 2pt 6pt; }
 
-#ui::before{
-  content:'Gratified';
-  font-family:var(--font-name);
-  font-weight:700;
-  color:var(--deep-red);
-  letter-spacing:2px;
-  font-size:16px;
-  margin-right:6px;
+.eb { margin: 0; font-size: calc(7pt * var(--t)); font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--accent2); }
+.pt { margin: 3pt 0 0; font-family: var(--f-display); font-weight: 700; font-size: calc(24pt * var(--t)); line-height: 1.02; color: var(--accent); text-wrap: balance; }
+.sec { margin-top: calc(13pt * var(--t)); display: grid; gap: calc(6pt * var(--t)); }
+.sec h3 { margin: 0; font-size: calc(7.5pt * var(--t)); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; display: flex; align-items: center; gap: 6pt; color: var(--ink); }
+.sec h3 .ln { flex: 1; border-top: .75pt solid var(--rule); order: 1; }
+.dia .sec h3::before { content: ""; width: 4.5pt; height: 4.5pt; background: var(--accent2); transform: rotate(45deg); flex: none; margin-right: 1pt; }
+.sheet.texture { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Crect x='6' y='6' width='2' height='2' transform='rotate(45 7 7)' fill='%23722F37' fill-opacity='.16'/%3E%3C/svg%3E"); background-size: 14px 14px; }
+.bl { height: calc(10pt * var(--t)); max-width: 42pt; width: auto; object-fit: contain; vertical-align: -2pt; margin-right: 4pt; }
+.strip { margin-top: auto; padding-top: 10pt; display: grid; gap: 5pt; }
+.strip + .ft { margin-top: 0; }
+.strip span { font-size: calc(6.5pt * var(--t)); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.strip div { display: flex; flex-wrap: wrap; gap: 8pt 12pt; align-items: center; }
+.strip img { height: calc(18pt * var(--t)); max-width: 60pt; object-fit: contain; }
+.strip em { font-style: normal; font-weight: 700; font-size: calc(8pt * var(--t)); color: var(--accent); }
+.sec h3 small { order: 2; font-weight: 600; letter-spacing: .04em; text-transform: none; color: var(--accent2); font-size: calc(7.5pt * var(--t)); }
+.it { display: grid; grid-template-columns: 1fr auto; column-gap: 8pt; }
+.it b { font-weight: 700; font-size: calc(9.5pt * var(--t)); }
+.it .pr { font-weight: 700; font-size: calc(9.5pt * var(--t)); color: var(--accent2); font-variant-numeric: tabular-nums; }
+.it p { grid-column: 1 / -1; margin: 1pt 0 0; color: var(--muted); font-size: calc(8pt * var(--t)); }
+.it.sp { background: var(--fill); padding: 6pt 8pt; }
+.tg { font-size: calc(6.5pt * var(--t)); font-weight: 700; letter-spacing: .06em; color: var(--accent2); border: .75pt solid currentColor; padding: 0 2.5pt; margin-left: 3pt; vertical-align: 1pt; }
+.ft { margin-top: auto; padding-top: 10pt; font-size: calc(7pt * var(--t)); color: var(--muted); white-space: pre-line; }
+
+/* cover */
+.cv { padding: .3in; }
+.cv-in { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10pt; padding: .4in .25in; position: relative; }
+.cv-solid .cv-in { background: var(--cover); color: var(--coverInk); }
+.cv-framed .cv-in { color: var(--accent); }
+.cv-framed .cv-in::before { content: ""; position: absolute; inset: 0; border: 2pt solid var(--accent); opacity: .7; }
+.cv-framed .cv-in::after { content: ""; position: absolute; inset: 6pt; border: .75pt solid var(--accent); opacity: .35; }
+.cv-paper .cv-in { color: var(--accent); }
+.cv-top, .cv-bot { position: absolute; left: 0; right: 0; margin: 0; font-size: calc(7.5pt * var(--t)); letter-spacing: .2em; text-transform: lowercase; opacity: .85; padding: 0 .2in; }
+.cv-top { top: .32in; } .cv-bot { bottom: .32in; font-weight: 600; text-transform: uppercase; font-size: calc(6.5pt * var(--t)); }
+.cv-name { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: calc(40pt * var(--t)); line-height: 1; letter-spacing: .04em; }
+.cv-tag { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: calc(15pt * var(--t)); letter-spacing: .06em; word-spacing: .15em; }
+.cv-mark { width: .95in; height: .95in; }
+.cv-logo { max-width: 1.9in; max-height: 1.9in; object-fit: contain; }
+.cv-paper .cv-tag, .cv-framed .cv-tag { color: var(--accent); }
+
+/* map spread */
+.spr { grid-column: span 2; padding: .42in; display: grid; grid-template-columns: 4.15in 1fr; gap: .32in; min-width: 0; position: relative; }
+.framed .spr::before { content: ""; position: absolute; inset: .24in; border: 1.25pt solid var(--accent); opacity: .5; pointer-events: none; }
+.mapbox { position: relative; border: .75pt solid var(--rule); overflow: hidden; background: var(--mapbg); min-height: 0; }
+.mapbox > svg.mp { width: 100%; height: 100%; display: block; touch-action: none; }
+.m-minor { fill: none; stroke: var(--ink); stroke-opacity: .07; stroke-width: 2.4; stroke-linecap: round; }
+.m-major { fill: none; stroke: var(--ink); stroke-opacity: .16; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.m-market { stroke-opacity: .22; stroke-width: 8; }
+.m-hl { stroke: var(--accent2); stroke-opacity: .3; }
+.m-st { font-family: var(--f-body); font-size: 7.5px; font-weight: 700; letter-spacing: .14em; fill: var(--muted); dominant-baseline: middle; }
+.m-hood { font-family: var(--f-body); font-size: 9px; font-weight: 600; letter-spacing: .22em; fill: var(--muted); opacity: .55; text-anchor: middle; }
+.m-park { fill: #9DB38C; opacity: .3; }
+.m-parkl { font-family: var(--f-body); font-size: 7.5px; font-style: italic; fill: #4f6b43; text-anchor: middle; }
+.m-scale path, .m-north path { stroke: var(--muted); fill: var(--muted); stroke-width: 1.2; }
+.m-scale path { fill: none; }
+.m-scale text, .m-north text { font-family: var(--f-body); font-size: 7.5px; fill: var(--muted); text-anchor: middle; }
+.m-land { fill: var(--ink); opacity: .12; }
+.m-zoom { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.pin { cursor: grab; }
+.pin:active { cursor: grabbing; }
+.pin .dm { fill: var(--accent2); stroke: var(--paperSolid); stroke-width: 2.5; }
+.pin .ring { fill: #fff; stroke: var(--accent2); stroke-width: 2.2; }
+.pin text { font-family: var(--f-body); font-size: 10.5px; font-weight: 700; fill: var(--paperSolid); text-anchor: middle; pointer-events: none; }
+.pin .plabel { font-size: 8px; font-weight: 700; fill: var(--ink); text-anchor: start; paint-order: stroke; stroke: var(--mapbg); stroke-width: 3px; }
+.home .halo { fill: var(--accent); opacity: .15; }
+.home .dm { fill: var(--accent); }
+.home .hl { font-family: var(--f-display); font-size: 14px; font-weight: 700; fill: var(--accent); text-anchor: start; paint-order: stroke; stroke: var(--mapbg); stroke-width: 4px; }
+.home .hs { font-size: 8px; font-weight: 600; fill: var(--ink); text-anchor: start; paint-order: stroke; stroke: var(--mapbg); stroke-width: 3px; }
+.inset { position: absolute; right: 8pt; top: 8pt; width: .95in; background: var(--paperSolid); border: .75pt solid var(--rule); padding: 4pt; display: grid; gap: 2pt; text-align: center; font-size: 6.5pt; color: var(--muted); }
+.inset svg { width: 100%; height: auto; display: block; }
+
+.spr .side { display: flex; flex-direction: column; gap: calc(11pt * var(--t)); min-width: 0; overflow: hidden; position: relative; }
+.lede { margin: 6pt 0 0; color: var(--muted); font-size: calc(9pt * var(--t)); }
+.hrs { border: 1.5pt solid var(--accent); padding: 9pt 10pt; display: grid; gap: 6pt; position: relative; }
+.hrs::after { content: ""; position: absolute; inset: 3pt; border: .5pt solid var(--accent); opacity: .3; pointer-events: none; }
+.hrs h3 { margin: 0; font-family: var(--f-display); font-weight: 700; font-size: calc(13pt * var(--t)); color: var(--accent); }
+.hrs dt { font-size: calc(6.5pt * var(--t)); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.hrs dd { margin: 1pt 0 0; font-size: calc(8.5pt * var(--t)); white-space: pre-line; }
+.hrs dl { margin: 0; display: grid; gap: 5pt; }
+.pts { display: grid; gap: calc(8pt * var(--t)); }
+.pts h3 { margin: 0; font-size: calc(7.5pt * var(--t)); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.pt-row { display: grid; grid-template-columns: 22pt 1fr; column-gap: 7pt; align-items: center; }
+.pt-key { width: 22pt; height: 22pt; display: grid; place-items: center; }
+.pt-key .k { width: 14pt; height: 14pt; background: var(--accent2); transform: rotate(45deg); display: grid; place-items: center; }
+.pt-key .k span { transform: rotate(-45deg); color: var(--paperSolid); font-weight: 700; font-size: 7.5pt; }
+.pt-key .k.lg { width: 16pt; height: 16pt; background: #fff; border: 1pt solid var(--accent2); }
+.pt-key .k.lg img { transform: rotate(-45deg); width: 13pt; height: 13pt; object-fit: contain; }
+.pt-row b { font-size: calc(9pt * var(--t)); display: block; }
+.pt-row span.s { font-size: calc(7.5pt * var(--t)); color: var(--muted); display: block; }
+
+/* plan */
+.steps { list-style: none; margin: calc(13pt * var(--t)) 0 0; padding: 0; display: grid; gap: calc(11pt * var(--t)); }
+.steps li { display: grid; grid-template-columns: 22pt 1fr; column-gap: 8pt; }
+.steps .n { font-family: var(--f-display); font-weight: 700; font-size: calc(20pt * var(--t)); line-height: 1; color: var(--accent2); }
+.steps b { display: block; font-size: calc(9.5pt * var(--t)); }
+.steps .w { display: block; font-size: calc(8pt * var(--t)); color: var(--muted); font-style: italic; margin-top: 1pt; }
+.story { margin: calc(12pt * var(--t)) 0 0; font-size: calc(8pt * var(--t)); color: var(--muted); white-space: pre-line; }
+.contact { margin-top: auto; border-top: .75pt solid var(--rule); padding-top: 9pt; display: grid; gap: 3pt; font-size: calc(8pt * var(--t)); }
+.contact b { font-family: var(--f-display); font-weight: 700; font-size: calc(12pt * var(--t)); color: var(--accent); }
+.contact span { white-space: pre-line; }
+
+@media (max-width: 860px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .rail { border-right: 0; border-bottom: 1px solid var(--ui-line); }
+  .rail-body { overflow: visible; }
+  .stage { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .rail-head, .rail-body, .rail-foot { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 }
-
-input{
-  font-size:12px;
-  padding:6px 8px;
-  font-family:inherit;
-  border:2px solid rgba(114, 47, 55, 0.25);
-  background:rgba(230, 200, 156, 0.15);
-  color:var(--charcoal);
-  outline:none;
-  transition:border-color 0.3s ease;
+@media print {
+  html, body { height: auto; background: #fff; }
+  .rail, .stage-head, .side-label, .over-flag { display: none !important; }
+  .app { display: block; height: auto; }
+  .stage { padding: 0; display: block; overflow: visible; }
+  .fit { overflow: visible; height: auto !important; }
+  .fit > .sheet { transform: none !important; box-shadow: none; height: 8.49in; }
+  .pn.over, .spr .side.over { box-shadow: none; }
+  .stage > .sheetwrap { break-after: page; }
+  .stage > .sheetwrap:last-child { break-after: auto; }
 }
-
-input:focus{
-  border-color:var(--bright-orange);
-}
-
-input::placeholder{
-  color:var(--olive-bronze);
-  opacity:0.6;
-  text-transform:lowercase;
-  letter-spacing:0.5px;
-}
-
-input[type="color"]{
-  padding:2px;
-  width:36px;
-  height:30px;
-  cursor:pointer;
-}
-
-#swatches{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:0 6px;
-}
-
-#nibbleLabel, #specialLabel{
-  display:flex;
-  align-items:center;
-  gap:5px;
-  font-size:12px;
-  font-weight:600;
-  letter-spacing:1px;
-  text-transform:lowercase;
-  color:var(--deep-red);
-  cursor:pointer;
-  user-select:none;
-}
-
-#nibbleLabel input, #specialLabel input{
-  accent-color:var(--deep-red);
-  cursor:pointer;
-  width:14px;
-  height:14px;
-}
-
-.swatch{
-  width:18px;
-  height:18px;
-  transform:rotate(45deg);
-  cursor:pointer;
-  border:2px solid rgba(60,60,60,0.2);
-  transition:transform 0.25s ease, border-color 0.25s ease;
-}
-
-.swatch:hover{
-  transform:rotate(45deg) scale(1.2);
-  border-color:var(--charcoal);
-}
-
-.swatch.current{
-  border-color:var(--bright-orange);
-}
-
-button{
-  font-size:12px;
-  font-family:inherit;
-  font-weight:600;
-  letter-spacing:1px;
-  text-transform:lowercase;
-  padding:7px 16px;
-  border:2px solid var(--deep-red);
-  background:transparent;
-  color:var(--deep-red);
-  cursor:pointer;
-  transition:all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-button:hover{
-  background:var(--deep-red);
-  color:var(--cream);
-  letter-spacing:1.5px;
-}
-
-.dropdown{
-  position:relative;
-}
-
-.dropdown-menu{
-  position:fixed;
-  min-width:180px;
-  flex-direction:column;
-  background:var(--cream);
-  border:2px solid var(--deep-red);
-  box-shadow:0 10px 24px rgba(114, 47, 55, 0.18);
-  z-index:20;
-  display:none;
-}
-
-.dropdown-menu.open{
-  display:flex;
-}
-
-.dropdown-item{
-  padding:9px 14px;
-  font-size:12px;
-  font-weight:600;
-  letter-spacing:1px;
-  text-transform:lowercase;
-  color:var(--deep-red);
-  cursor:pointer;
-  white-space:nowrap;
-  transition:background 0.2s ease, color 0.2s ease;
-}
-
-.dropdown-item:hover{
-  background:var(--deep-red);
-  color:var(--cream);
-}
-
-.dropdown-item + .dropdown-item{
-  border-top:1px solid rgba(114, 47, 55, 0.15);
-}
-
-.zoom-group{
-  display:flex;
-  align-items:center;
-  gap:5px;
-}
-
-button.zoom-btn{
-  padding:6px 11px;
-  line-height:1;
-}
-
-#zoomInput{
-  width:44px;
-  text-align:center;
-  padding:6px 4px;
-  -moz-appearance:textfield;
-}
-
-#zoomInput::-webkit-outer-spin-button,
-#zoomInput::-webkit-inner-spin-button{
-  -webkit-appearance:none;
-  margin:0;
-}
-
-.zoom-pct{
-  font-size:11px;
-  color:var(--olive-bronze);
-  margin-left:-3px;
-}
-
-/* ---------------------------
-   Menu tabs — one design per tab
-   (single-click switch, double-click
-   rename, × to delete)
-----------------------------*/
-
-#tabs{
-  position:fixed;
-  top:56px;
-  left:0;
-  right:0;
-  height:36px;
-  display:flex;
-  align-items:stretch;
-  padding:0 14px;
-  background:rgba(230, 200, 156, 0.22);
-  border-bottom:1px solid rgba(114, 47, 55, 0.2);
-  overflow-x:auto;
-  z-index:10;
-}
-
-#tabList{
-  display:flex;
-  align-items:stretch;
-}
-
-.tab{
-  display:flex;
-  align-items:center;
-  gap:7px;
-  padding:0 14px;
-  font-size:12px;
-  letter-spacing:1px;
-  text-transform:lowercase;
-  color:var(--olive-bronze);
-  cursor:pointer;
-  user-select:none;
-  white-space:nowrap;
-  border-right:1px solid rgba(114, 47, 55, 0.12);
-  transition:background 0.25s ease, color 0.25s ease;
-}
-
-.tab:hover{
-  color:var(--deep-red);
-  background:rgba(114, 47, 55, 0.05);
-}
-
-.tab.active{
-  color:var(--deep-red);
-  font-weight:700;
-  background:var(--cream);
-  box-shadow:inset 0 -3px 0 var(--deep-red);
-}
-
-.tab-close{
-  opacity:0;
-  font-size:14px;
-  line-height:1;
-  padding:1px 3px;
-  transition:opacity 0.2s ease;
-}
-
-.tab:hover .tab-close{ opacity:0.55; }
-.tab-close:hover{ opacity:1 !important; color:var(--bright-orange); }
-
-#newTab{
-  border:none;
-  background:transparent;
-  color:var(--deep-red);
-  font-size:16px;
-  font-weight:700;
-  padding:0 12px;
-  cursor:pointer;
-}
-
-#newTab:hover{
-  background:rgba(114, 47, 55, 0.08);
-  color:var(--deep-red);
-  letter-spacing:1px;
-}
-
-#wrap{
-  position:absolute;
-  inset:92px 0 0 0;
-}
-
-svg{
-  width:100%;
-  height:100%;
-  background:var(--cream);
-  cursor:grab;
-}
-svg:active{ cursor:grabbing; }
-
-.item text{
-  pointer-events:none;
-  user-select:none;
-}
-
-/* ---- export toast ---- */
-#exportToast{
-  position:fixed;
-  bottom:24px;
-  left:50%;
-  transform:translateX(-50%);
-  background:var(--deep-red);
-  color:var(--cream);
-  padding:10px 22px;
-  font-family:var(--font-note);
-  font-size:12px;
-  letter-spacing:1px;
-  z-index:100;
-  pointer-events:none;
-  opacity:0;
-  transition:opacity 0.3s ease;
-  white-space:nowrap;
-  box-shadow:0 4px 16px rgba(114,47,55,0.25);
-}
-#exportToast.visible{ opacity:1; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
-<base target="_blank">
 </head>
-
 <body>
 
-<div id="ui">
-  <input id="name" placeholder="item name" />
-  <input id="price" placeholder="price" />
-  <input id="note" placeholder="note" />
-  <label id="nibbleLabel"><input type="checkbox" id="nibble"/> nibble</label>
-  <label id="specialLabel"><input type="checkbox" id="special"/> special</label>
-  <div id="swatches" title="brand colors"></div>
-  <input type="color" id="color" value="#E6C89C"/>
-  <button onclick="addItem()">Add Item</button>
-  <button onclick="del()">Delete</button>
-  <div class="zoom-group" id="zoomGroup">
-    <button id="zoomOut" type="button" class="zoom-btn" title="zoom out">&minus;</button>
-    <input id="zoomInput" type="number" min="25" max="300" step="5" value="100" title="zoom %"/>
-    <span class="zoom-pct">%</span>
-    <button id="zoomIn" type="button" class="zoom-btn" title="zoom in">+</button>
-  </div>
-  <div class="dropdown" id="exportDropdown">
-    <button id="exportToggle" type="button">export ▾</button>
-    <div class="dropdown-menu" id="exportMenu">
-      <div class="dropdown-item" data-action="menu-pdf">menu 24"x36" (pdf)</div>
-      <div class="dropdown-item" data-action="menu-jpg">menu 24"x36" (jpg)</div>
-      <div class="dropdown-item" data-action="menu">menu 24"x36" (svg)</div>
-      <div class="dropdown-item" data-action="food-pdf">food menu 24"x36" (pdf)</div>
-      <div class="dropdown-item" data-action="food-jpg">food menu 24"x36" (jpg)</div>
-      <div class="dropdown-item" data-action="food">food menu 24"x36" (svg)</div>
-      <div class="dropdown-item" data-action="sign-pdf">sign 24"x36" (pdf)</div>
-      <div class="dropdown-item" data-action="sign-jpg">sign 24"x36" (jpg)</div>
-      <div class="dropdown-item" data-action="sign">sign 24"x36" (svg)</div>
+
+<div class="app">
+  <aside class="rail" aria-label="Menu editor">
+    <div class="rail-head">
+      <div class="brand">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><rect x="15" y="15" width="70" height="70" transform="rotate(45 50 50)" fill="#722F37"/></svg>
+        <h1>Menu Studio</h1><span>tri-fold</span>
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="design" aria-selected="true">design</button>
+        <button class="tab" role="tab" data-tab="cover" aria-selected="false">cover</button>
+        <button class="tab" role="tab" data-tab="menu" aria-selected="false">menu</button>
+        <button class="tab" role="tab" data-tab="map" aria-selected="false">partners</button>
+        <button class="tab" role="tab" data-tab="plan" aria-selected="false">plan</button>
+      </div>
     </div>
-  </div>
+    <div class="rail-body" id="rail"></div>
+    <div class="rail-foot" id="foot"></div>
+  </aside>
+
+  <main class="stage" id="stage">
+    <div class="stage-head">
+      <p id="printTip"></p>
+      <button class="btn solid" id="printBtn" hidden>Print menu</button>
+    </div>
+    <div class="sheetwrap"><p class="side-label">Side A · Drinks, Food, Cover</p><div class="fit"><div class="sheet" id="sideA"></div></div></div>
+    <div class="sheetwrap"><p class="side-label">Side B · Map spread (opens from cover), Five-step plan (back)</p><div class="fit"><div class="sheet" id="sideB"></div></div></div>
+  </main>
 </div>
 
-<div id="tabs">
-  <div id="tabList"></div>
-  <button id="newTab" title="new menu">+</button>
-</div>
+<script>
+const MAP={"w": 450, "h": 784, "base": "<rect class=\"m-park\" x=\"30.6\" y=\"532.8\" width=\"39.1\" height=\"58.0\" rx=\"3\"/><rect class=\"m-park\" x=\"183.4\" y=\"128.9\" width=\"37.4\" height=\"32.2\" rx=\"3\"/><path class=\"m-minor\" d=\"M173.2,-21.5 L203.8,180.5\"/><path class=\"m-minor\" d=\"M91.7,-21.5 L122.3,322.2\"/><path class=\"m-minor\" d=\"M93.4,365.2 L118.9,784.1\"/><path class=\"m-minor\" d=\"M59.4,365.2 L84.9,784.1\"/><path class=\"m-minor\" d=\"M475.5,43.0 L220.8,313.6 L246.2,784.1\"/><path class=\"m-minor\" d=\"M280.2,150.4 L441.5,317.9\"/><path class=\"m-minor\" d=\"M186.8,232.0 L322.6,365.2\"/><path class=\"m-minor\" d=\"M0.0,193.3 L220.8,171.9\"/><path class=\"m-minor\" d=\"M0.0,232.0 L186.8,210.5\"/><path class=\"m-minor\" d=\"M0.0,350.2 L173.2,337.3\"/><path class=\"m-minor\" d=\"M0.0,528.5 L450.0,519.9\"/><path class=\"m-minor\" d=\"M0.0,584.3 L450.0,575.7\"/><path class=\"m-minor\" d=\"M0.0,659.5 L450.0,650.9\"/><path class=\"m-major m-market\" id=\"ms-market\" d=\"M594.3,-184.7 L-86.6,504.8\"/><path class=\"m-major\" id=\"ms-van\" d=\"M139.2,-43.0 L181.7,232.0 L214.0,784.1\"/><path class=\"m-major\" id=\"ms-larkin\" d=\"M193.6,-43.0 L227.5,184.7\"/><path class=\"m-major m-hl\" id=\"ms-valencia\" d=\"M120.6,309.3 L154.5,784.1\"/><path class=\"m-major\" id=\"ms-mission\" d=\"M526.4,-85.9 L174.9,330.8 L198.7,784.1\"/><path class=\"m-major\" id=\"ms-folsom\" d=\"M568.9,-43.0 L268.3,317.9 L292.1,784.1\"/><path class=\"m-major\" id=\"ms-16th\" d=\"M0.0,472.6 L450.0,446.8\"/><path class=\"m-major\" id=\"ms-24th\" d=\"M0.0,730.4 L450.0,715.4\"/><text class=\"m-st\"><textPath href=\"#ms-market\" startOffset=\"62%\" text-anchor=\"middle\">MARKET ST</textPath></text><text class=\"m-st\"><textPath href=\"#ms-van\" startOffset=\"30%\" text-anchor=\"middle\">VAN NESS</textPath></text><text class=\"m-st\"><textPath href=\"#ms-larkin\" startOffset=\"30%\" text-anchor=\"middle\">LARKIN ST</textPath></text><text class=\"m-st\"><textPath href=\"#ms-valencia\" startOffset=\"55%\" text-anchor=\"middle\">VALENCIA ST</textPath></text><text class=\"m-st\"><textPath href=\"#ms-mission\" startOffset=\"52%\" text-anchor=\"middle\">MISSION ST</textPath></text><text class=\"m-st\"><textPath href=\"#ms-folsom\" startOffset=\"74%\" text-anchor=\"middle\">FOLSOM ST</textPath></text><text class=\"m-st\"><textPath href=\"#ms-16th\" startOffset=\"28%\" text-anchor=\"middle\">16TH ST</textPath></text><text class=\"m-st\"><textPath href=\"#ms-24th\" startOffset=\"75%\" text-anchor=\"middle\">24TH ST</textPath></text><text class=\"m-hood\" x=\"271.7\" y=\"53.7\">CIVIC CENTER</text><text class=\"m-hood\" x=\"365.1\" y=\"247.0\">SOMA</text><text class=\"m-hood\" x=\"254.7\" y=\"627.3\">MISSION</text><text class=\"m-hood\" x=\"64.5\" y=\"268.5\">HAYES VALLEY</text><text class=\"m-parkl\" x=\"49.2\" y=\"558.5\">Dolores Park</text><g class=\"m-scale\" transform=\"translate(322,762)\"><path d=\"M0,0 h96.5 M0,-4 v8 M96.5,-4 v8\"/><text x=\"48.2\" y=\"-8\">\u00bd km \u00b7 ~7 min walk</text></g><g class=\"m-north\" transform=\"translate(22,26)\"><path d=\"M0,-12 L6,6 L0,2 L-6,6 Z\"/><text y=\"20\">N</text></g>", "inset": "<svg viewBox=\"-4 -4 128 115\" aria-hidden=\"true\"><path class=\"m-land\" d=\"M3.8,26.3 L31.5,3.9 L62.3,7.8 L79.2,5.8 L88.5,6.8 L96.9,18.5 L100.0,24.3 L100.8,42.8 L103.1,54.5 L116.2,82.7 L106.2,99.3 L96.2,103.2 L12.3,103.2 L9.2,76.9 L6.2,52.5 L5.4,38.0Z\"/><rect class=\"m-zoom\" x=\"67.7\" y=\"27.2\" width=\"20.4\" height=\"35.5\"/></svg>", "pins": {"home": [239.4, 150.4], "A": [292.1, 296.5], "B": [140.9, 532.8], "C": [159.6, 708.9]}};
 
-<div id="wrap">
-<svg id="svg"></svg>
-</div>
-
-<!-- export toast -->
-<div id="exportToast"></div>
-
-<script type="module">
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyD7a6t76FQj4FBJSObPntecdIypF9lhi_E",
-  authDomain: "rotated-square.firebaseapp.com",
-  databaseURL: "https://rotated-square-default-rtdb.firebaseio.com",
-  projectId: "rotated-square",
-  storageBucket: "rotated-square.firebasestorage.app",
-  messagingSenderId: "185495802916",
-  appId: "1:185495802916:web:54f9c7798477e6b292b4b1"
+/* ---------------- presets ---------------- */
+const PRESETS = {
+  classic: { name: "Gratified Classic", note: "Cream, deep red, double frames",
+    colors: { paper:"#EDE8E0", ink:"#3C3C3C", accent:"#722F37", accent2:"#CC5500", muted:"#6B5740", fill:"#EBDECC", cover:"#722F37", coverInk:"#EDE8E0" },
+    cover: "framed", frames: true },
+  visit: { name: "Visit Red", note: "Solid red cover, warm amber",
+    colors: { paper:"#EDE8E0", ink:"#3C3C3C", accent:"#722F37", accent2:"#D2691E", muted:"#6B5740", fill:"#E6C89C", cover:"#722F37", coverInk:"#EDE8E0" },
+    cover: "solid", frames: false },
+  golden: { name: "Golden Sand", note: "Sand cover, olive and orange",
+    colors: { paper:"#F4EEE4", ink:"#3C3C3C", accent:"#6B5740", accent2:"#CC5500", muted:"#7A6852", fill:"#EBD7B5", cover:"#E6C89C", coverInk:"#722F37" },
+    cover: "solid", frames: true },
+  ink: { name: "Ink Saver", note: "White paper, one red, no fills",
+    colors: { paper:"#FFFFFF", ink:"#2B2B2B", accent:"#722F37", accent2:"#722F37", muted:"#5E5A55", fill:"#F3EEE9", cover:"#FFFFFF", coverInk:"#722F37" },
+    cover: "paper", frames: false }
 };
 
-const fbApp = initializeApp(firebaseConfig);
-const db = getDatabase(fbApp);
-
-const svg = document.getElementById("svg");
-
-let state = {
-  scale: 40,
-  ox: 0,
-  oy: 0,
-  dragging:false,
-  dragStart:null,
-  selected:null,
-  items:[]
+/* ---------------- default content (Nov 6 menu) ---------------- */
+const I = (name, price, desc = "", o = {}) => ({ name, price, desc, tag: o.tag || "", special: !!o.special, brand: o.brand || "" });
+const DEFAULT = {
+  preset: "classic",
+  colors: { ...PRESETS.classic.colors },
+  coverStyle: "framed", frames: true, printBg: true, textScale: 0.94, mark: "diamond",
+  diamonds: true, texture: false, brandMode: "beside",
+  logo: null,
+  cover: { top: "nourish collab create", name: "Gratified", tagline: "coffee + art", bottom: "Lower level · SF Main Library" },
+  drinks: { eyebrow: "Nourish", title: "Drinks", foot: "", sections: [
+    { title: "Coffee", note: "", items: [
+      I("Drip coffee", "3", "“Fog Chaser” from SF Bay Coffee", { brand: "sfbay" }),
+      I("Double espresso", "4", "“Maiden Voyage” from Sextant Roasters", { brand: "sextant" }),
+      I("Cappuccino / latte", "5", "Double espresso with steamed milk"),
+      I("Iced mocha", "4") ] },
+    { title: "Other sips", note: "", items: [
+      I("Yerba mate", "3 / 5", "Brewed tea or sweet latte"),
+      I("Hot tea", "3"),
+      I("Dandelion hot chocolate", "6", "", { brand: "dandelion" }),
+      I("Lemonade", "2"),
+      I("Water cup + ice", "1") ] },
+    { title: "Make it yours", note: "", items: [
+      I("Add espresso shot", "+2"),
+      I("Any drink iced", "+0.50"),
+      I("Flavors", "", "Vanilla, orange blossom date, dark brown sugar, spearmint green tea, gingerbread chai (next) · chocolate for mocha") ] },
+    { title: "Special", note: "", items: [
+      I("Peter’s Taiwanese milk tea", "4", "", { special: true }) ] } ] },
+  food: { eyebrow: "Nourish", title: "Food", foot: "", sections: [
+    { title: "Bakery", note: "", items: [
+      I("Pastries", "3 / 4 / 5", "Teacake, muffin, scone"),
+      I("Betty’s brown butter cookie", "3", "Or two for 5", { special: true }) ] },
+    { title: "Peasant pies", note: "7 each", items: [
+      I("Egg, cheese, bacon", "7"),
+      I("Lentil and yam", "7"),
+      I("Spinach and feta", "7") ] },
+    { title: "Lunch", note: "", items: [
+      I("Moroccan ground chili", "8", "12 oz · 11:30am–3:30pm only"),
+      I("Gratified house salad", "8", "16 oz, in the fridge · add shrimp +4"),
+      I("Turkey sandwich", "12", "On traditional Jewish rye"),
+      I("Personal pan flatbread", "10", "Chickpea or wheat crust") ] },
+    { title: "Snacks", note: "", items: [
+      I("Croissant", "3", "From Costco"),
+      I("Seaweed", "3"),
+      I("Meat stick", "3"),
+      I("Kombucha", "ask", "New in the fridge") ] } ] },
+  visit: { eyebrow: "Visit", title: "Find us downstairs", lede: "Grab a drink and a bite before your study session <3",
+    boxTitle: "Hours & location",
+    where: "Lower Level, SF Main Library\n100 Larkin St, San Francisco",
+    when: "Open during all library hours.\nService during conferences whenever possible.",
+    expect: "Laptop chargers, pleasant seats to curl up on for some chapters, reliable service.",
+    partnersTitle: "Ingredient partners nearby", showLabels: false,
+    home: { label: "GRATIFIED", sub: "SF Main Library, lower level", x: MAP.pins.home[0], y: MAP.pins.home[1] },
+    partners: [
+      { id: "sextant", name: "Sextant Coffee Roasters", addr: "1415 Folsom St", note: "our espresso", logo: null, onMap: true, x: MAP.pins.A[0], y: MAP.pins.A[1] },
+      { id: "dandelion", name: "Dandelion Chocolate", addr: "740 Valencia St", note: "our hot chocolate", logo: null, onMap: true, x: MAP.pins.B[0], y: MAP.pins.B[1] },
+      { id: "arizmendi", name: "Arizmendi Bakery", addr: "1268 Valencia St", note: "bakery", logo: null, onMap: true, x: MAP.pins.C[0], y: MAP.pins.C[1] },
+      { id: "sfbay", name: "SF Bay Coffee", addr: "", note: "our drip coffee", logo: null, onMap: false, x: 330, y: 560 } ] },
+  plan: { eyebrow: "About", title: "Five step plan", steps: [
+      { main: "Embed in the hottest tech centers", why: "for the vibes" },
+      { main: "Set up pilot locations inside libraries", why: "for the rapport" },
+      { main: "Partner with airlines to serve complimentary terminal coffee", why: "for the demand" },
+      { main: "Reroute beans through Morocco instead of Switzerland", why: "for the supply" },
+      { main: "Acquire Starbucks", why: "because we could make it better" } ],
+    story: "A cafe franchise focused on collaboration instead of competition, healthy drinks instead of sugary rushes, and every location developed to fit its community.",
+    contactTitle: "Connect", contact: "leah@gratified.com\ngratified.com · Substack · Discord · Partiful" }
 };
 
-/* ---------------------------
-   Persistence — multi-menu tabs
-----------------------------*/
+const KEY = "gratified-menu-studio-v2";
+const clone = o => JSON.parse(JSON.stringify(o));
+let S = clone(DEFAULT);
+try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(clone(DEFAULT), JSON.parse(raw)); } catch (e) {}
+function normalize() { S.visit.partners.forEach(p => { p.id = p.id || "p" + Math.random().toString(36).slice(2, 8); if (p.onMap === undefined) p.onMap = true; }); }
+normalize();
+let tab = "design";
+const inFrame = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
 
-const STORE_PREFIX = "diamond-menu-v2:";
-const LEGACY_STORE_KEY = "diamond-menu-v1";
-const INDEX_KEY = "diamond-menu-index-v1";
-const SNAPSHOT_VERSION = 2;
-let saveTimer = null;
-
-let menuIndex = [];
-let currentMenuId = null;
-
-const menuRef = id => ref(db, "menus/" + id);
-const indexRef = ref(db, "menuIndex");
-
-function snapshot(){
-  return {
-    v: SNAPSHOT_VERSION,
-    items: state.items,
-    scale: state.scale,
-    ox: state.ox,
-    oy: state.oy
-  };
+/* ---------------- helpers ---------------- */
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const get = (p) => p.split(".").reduce((o, k) => o?.[k], S);
+function set(p, v) { const ks = p.split("."); let o = S; ks.slice(0, -1).forEach(k => o = o[k]); o[ks.at(-1)] = v; }
+let saveT, renderT;
+function save() {
+  clearTimeout(saveT);
+  saveT = setTimeout(() => {
+    const el = document.getElementById("saveState");
+    try { localStorage.setItem(KEY, JSON.stringify(S)); if (el) el.textContent = "Saved in this browser"; }
+    catch (e) { if (el) el.textContent = "Couldn't save here (images may be too large)"; }
+  }, 300);
 }
+function changed() { clearTimeout(renderT); renderT = setTimeout(renderSheets, 60); save(); }
+const LETTERS = "ABCDEFGHIJKLMNOP";
 
-function applySnapshot(data){
-  if(!data) return;
-  const v = data.v || 1;
-  state.items = (data.items || []).map(raw=>{
-    const it = { ...raw };
-    if(it.gx === undefined && it.q !== undefined){
-      it.gx = (it.q - it.r) * 2;
-      it.gy = it.q + it.r;
-      delete it.q; delete it.r;
-    }else if(v < 2){
-      it.gx = it.gx * 2;
-    }
-    return it;
+/* ---------------- sheet rendering ---------------- */
+function themeVars() {
+  const c = S.colors;
+  const mapbg = mix(c.paper, "#ffffff", .45);
+  return `--paper:${S.printBg ? c.paper : "#ffffff"};--paperSolid:${c.paper === "#FFFFFF" ? "#ffffff" : c.paper};--ink:${c.ink};--accent:${c.accent};--accent2:${c.accent2};--muted:${c.muted};--fill:${c.fill};--cover:${c.cover};--coverInk:${c.coverInk};--rule:${mix(c.muted, c.paper, .72)};--mapbg:${mapbg};--t:${S.textScale}`;
+}
+function mix(a, b, t) {
+  const h = x => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16));
+  const [r1, g1, b1] = h(a), [r2, g2, b2] = h(b);
+  return "#" + [r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t].map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
+}
+function tagHTML(t) { return t ? t.split("+").map(x => `<span class="tg">${esc(x.trim())}</span>`).join("") : ""; }
+const brandOf = id => id ? S.visit.partners.find(p => p.id === id) : null;
+function itemHTML(i) {
+  const br = brandOf(i.brand);
+  const logo = S.brandMode === "beside" && br && br.logo ? `<img class="bl" src="${br.logo}" alt="${esc(br.name)}">` : "";
+  const desc = (logo || i.desc) ? `<p>${logo}${esc(i.desc)}</p>` : "";
+  return `<div class="it${i.special ? " sp" : ""}"><b>${esc(i.name)}${tagHTML(i.tag)}</b><span class="pr">${esc(i.price)}</span>${desc}</div>`;
+}
+function stripHTML(m) {
+  if (S.brandMode !== "strip") return "";
+  const ids = [...new Set(m.sections.flatMap(s => s.items.map(i => i.brand)).filter(Boolean))];
+  const bs = ids.map(brandOf).filter(Boolean);
+  if (!bs.length) return "";
+  return `<div class="strip"><span>Proudly serving</span><div>${bs.map(b => b.logo ? `<img src="${b.logo}" alt="${esc(b.name)}">` : `<em>${esc(b.name)}</em>`).join("")}</div></div>`;
+}
+function menuPanel(m) {
+  const secs = m.sections.map(s => `<div class="sec"><h3>${esc(s.title)}<span class="ln"></span>${s.note ? `<small>${esc(s.note)}</small>` : ""}</h3>${
+    s.items.map(itemHTML).join("")}</div>`).join("");
+  const usedTags = new Set(m.sections.flatMap(s => s.items.flatMap(i => (i.tag || "").split("+").map(x => x.trim()).filter(Boolean))));
+  const key = [...usedTags].map(t => `<span class="tg" style="margin:0 3pt 0 0">${esc(t)}</span>${t === "V" ? "vegan" : t === "WF" ? "wheat-free" : t === "GF" ? "gluten-free" : t === "DF" ? "dairy-free" : ""}`).join(" &nbsp; ");
+  const foot = [m.foot, key].filter(Boolean);
+  return `<section class="pn fr"><p class="eb">${esc(m.eyebrow)}</p><h2 class="pt">${esc(m.title)}</h2>${secs}${stripHTML(m)}${foot.length ? `<p class="ft">${foot.map(f => f === key ? f : esc(f)).join("<br>")}</p>` : ""}<span class="over-flag">Too long, shorten or shrink text</span></section>`;
+}
+const DIAMOND = `<svg class="cv-mark" viewBox="0 0 100 100" aria-hidden="true"><rect x="15" y="15" width="70" height="70" transform="rotate(45 50 50)" fill="currentColor"/><rect x="23" y="23" width="54" height="54" transform="rotate(45 50 50)" fill="none" stroke="var(--cvbg)" stroke-width="2" opacity=".55"/></svg>`;
+function coverPanel() {
+  const c = S.cover;
+  let mark = "";
+  if (S.mark === "logo" && S.logo) mark = `<img class="cv-logo" src="${S.logo}" alt="">`;
+  else if (S.mark === "diamond") mark = DIAMOND;
+  const cvbg = S.coverStyle === "solid" ? S.colors.cover : (S.printBg ? S.colors.paper : "#fff");
+  return `<section class="pn cv cv-${S.coverStyle}" style="--cvbg:${cvbg}"><div class="cv-in">${c.top ? `<p class="cv-top">${esc(c.top)}</p>` : ""}${mark}${c.name ? `<h2 class="cv-name">${esc(c.name)}</h2>` : ""}${c.tagline ? `<p class="cv-tag">${esc(c.tagline)}</p>` : ""}${c.bottom ? `<p class="cv-bot">${esc(c.bottom)}</p>` : ""}</div></section>`;
+}
+/* house rule from the wall-menu generator: no circles, only diamonds */
+function pinSVG(p, i, L) {
+  const x = p.x, y = p.y;
+  const label = S.visit.showLabels ? `<text class="plabel" x="${x + (p.logo ? 22 : 16)}" y="${y + 3}">${esc(p.name)}</text>` : "";
+  if (p.logo) {
+    return `<g class="pin" data-pin="${i}"><rect class="ring" x="${x - 15}" y="${y - 15}" width="30" height="30" transform="rotate(45 ${x} ${y})"/><image href="${p.logo}" x="${x - 10}" y="${y - 10}" width="20" height="20" preserveAspectRatio="xMidYMid meet"/>${label}</g>`;
+  }
+  return `<g class="pin" data-pin="${i}"><rect class="dm" x="${x - 9}" y="${y - 9}" width="18" height="18" transform="rotate(45 ${x} ${y})"/><text x="${x}" y="${y + 3.8}">${L}</text>${label}</g>`;
+}
+function homeSVG() {
+  const h = S.visit.home, x = h.x, y = h.y;
+  return `<g class="pin home" data-pin="home"><rect class="halo" x="${x - 19}" y="${y - 19}" width="38" height="38" transform="rotate(45 ${x} ${y})"/><rect class="dm" x="${x - 11}" y="${y - 11}" width="22" height="22" transform="rotate(45 ${x} ${y})"/><rect x="${x - 5.5}" y="${y - 5.5}" width="11" height="11" transform="rotate(45 ${x} ${y})" fill="none" stroke="var(--paperSolid)" stroke-width="1.2"/>${h.label ? `<text class="hl" x="${x + 20}" y="${y - 12}">${esc(h.label)}</text>` : ""}${h.sub ? `<text class="hs" x="${x + 20}" y="${y - 1}">${esc(h.sub)}</text>` : ""}</g>`;
+}
+function mapSpread() {
+  const v = S.visit;
+  const onMap = v.partners.map((p, i) => ({ p, i })).filter(o => o.p.onMap);
+  const pins = onMap.map((o, n) => pinSVG(o.p, o.i, LETTERS[n])).join("") + homeSVG();
+  const list = onMap.map(({ p }, n) => `<div class="pt-row"><div class="pt-key">${p.logo ? `<div class="k lg"><img src="${p.logo}" alt=""></div>` : `<div class="k"><span>${LETTERS[n]}</span></div>`}</div><div><b>${esc(p.name)}</b><span class="s">${esc([p.addr, p.note].filter(Boolean).join(" · "))}</span></div></div>`).join("");
+  return `<section class="spr"><div class="mapbox"><svg class="mp" id="mapsvg" viewBox="0 0 ${MAP.w} ${MAP.h}" role="img" aria-label="Map showing Gratified and nearby partners">${MAP.base}<g id="pins">${pins}</g></svg><div class="inset">${MAP.inset}<span>San Francisco</span></div></div>
+  <div class="side"><div><p class="eb">${esc(v.eyebrow)}</p><h2 class="pt">${esc(v.title)}</h2>${v.lede ? `<p class="lede">${esc(v.lede)}</p>` : ""}</div>
+  <div class="hrs"><h3>${esc(v.boxTitle)}</h3><dl>${v.where ? `<div><dt>Where</dt><dd>${esc(v.where)}</dd></div>` : ""}${v.when ? `<div><dt>When</dt><dd>${esc(v.when)}</dd></div>` : ""}${v.expect ? `<div><dt>Expect</dt><dd>${esc(v.expect)}</dd></div>` : ""}</dl></div>
+  ${onMap.length ? `<div class="pts"><h3>${esc(v.partnersTitle)}</h3>${list}</div>` : ""}<span class="over-flag">Too long, shorten or shrink text</span></div></section>`;
+}
+function planPanel() {
+  const p = S.plan;
+  return `<section class="pn fr"><p class="eb">${esc(p.eyebrow)}</p><h2 class="pt">${esc(p.title)}</h2><ol class="steps">${p.steps.map((s, i) => `<li><span class="n">${i + 1}</span><div><b>${esc(s.main)}</b>${s.why ? `<span class="w">${esc(s.why)}</span>` : ""}</div></li>`).join("")}</ol>${p.story ? `<p class="story">${esc(p.story)}</p>` : ""}<div class="contact">${p.contactTitle ? `<b>${esc(p.contactTitle)}</b>` : ""}<span>${esc(p.contact)}</span></div><span class="over-flag">Too long, shorten or shrink text</span></section>`;
+}
+function renderSheets() {
+  const A = document.getElementById("sideA"), B = document.getElementById("sideB");
+  [A, B].forEach(el => { el.setAttribute("style", themeVars()); el.classList.toggle("framed", !!S.frames); el.classList.toggle("dia", !!S.diamonds); el.classList.toggle("texture", !!S.texture); });
+  A.innerHTML = menuPanel(S.drinks) + menuPanel(S.food) + coverPanel();
+  B.innerHTML = mapSpread() + planPanel();
+  requestAnimationFrame(() => {
+    document.querySelectorAll(".pn:not(.cv), .spr .side").forEach(el => el.classList.toggle("over", el.scrollHeight > el.clientHeight + 1));
+    fit();
   });
-  if(typeof data.scale === "number") state.scale = data.scale;
-  if(typeof data.ox === "number") state.ox = data.ox;
-  if(typeof data.oy === "number") state.oy = data.oy;
-  syncZoomInput();
+  bindPins();
 }
 
-function save(){
-  if(!currentMenuId) return;
-  const data = snapshot();
-  const id = currentMenuId;
-  try{ localStorage.setItem(STORE_PREFIX + id, JSON.stringify(data)); }catch(err){}
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(()=>{
-    set(menuRef(id), data).catch(err=>{ console.error("Firebase save failed:", err); });
-  }, 400);
-}
-
-function flushSave(){
-  if(!currentMenuId) return;
-  clearTimeout(saveTimer);
-  const data = snapshot();
-  try{ localStorage.setItem(STORE_PREFIX + currentMenuId, JSON.stringify(data)); }catch(err){}
-  set(menuRef(currentMenuId), data).catch(err=>{ console.error("Firebase save failed:", err); });
-}
-
-function saveIndex(){
-  try{ localStorage.setItem(INDEX_KEY, JSON.stringify(menuIndex)); }catch(err){}
-  set(indexRef, menuIndex).catch(err=>{ console.error("Firebase index save failed:", err); });
-}
-
-async function loadIndex(){
-  try{
-    const snap = await get(indexRef);
-    if(snap.exists()){
-      const v = snap.val();
-      menuIndex = Array.isArray(v) ? v.filter(Boolean) : Object.values(v);
-      if(menuIndex.length) return;
-    }
-  }catch(err){ console.error("Firebase index load failed, trying local:", err); }
-  try{
-    const raw = localStorage.getItem(INDEX_KEY);
-    if(raw){ menuIndex = JSON.parse(raw); if(menuIndex.length) return; }
-  }catch(err){}
-  menuIndex = [{ id:"default", name:"Drinks and nibbles" }];
-  saveIndex();
-}
-
-async function loadMenu(id){
-  state.items = [];
-  state.selected = null;
-  try{
-    const snap = await get(menuRef(id));
-    if(snap.exists()){ applySnapshot(snap.val()); return; }
-  }catch(err){ console.error("Firebase load failed, using local cache:", err); }
-  try{
-    const raw = localStorage.getItem(STORE_PREFIX + id) ||
-                (id === "default" ? localStorage.getItem(LEGACY_STORE_KEY) : null);
-    if(raw) applySnapshot(JSON.parse(raw));
-  }catch(err){ console.error("Local load failed:", err); }
-}
-
-/* ---------------------------
-   Tab bar
-----------------------------*/
-
-const tabList = document.getElementById("tabList");
-
-function currentMenuName(){
-  const m = menuIndex.find(t=>t.id===currentMenuId);
-  return m ? m.name : "Menu";
-}
-
-function renderTabs(){
-  tabList.innerHTML = "";
-  for(const m of menuIndex){
-    const el = document.createElement("div");
-    el.className = "tab" + (m.id === currentMenuId ? " active" : "");
-    el.title = "click to open · double-click to rename";
-    const lbl = document.createElement("span");
-    lbl.textContent = m.name;
-    el.appendChild(lbl);
-    const x = document.createElement("span");
-    x.className = "tab-close";
-    x.textContent = "\u00d7";
-    x.title = "delete menu";
-    el.appendChild(x);
-    el.addEventListener("click", (e)=>{ if(e.target === x) return; switchMenu(m.id); });
-    el.addEventListener("dblclick", ()=>{
-      const name = prompt("Rename menu:", m.name);
-      if(name && name.trim()){ m.name = name.trim(); saveIndex(); renderTabs(); }
-    });
-    x.addEventListener("click", (e)=>{ e.stopPropagation(); deleteMenu(m.id); });
-    tabList.appendChild(el);
-  }
-}
-
-async function switchMenu(id){
-  if(id === currentMenuId) return;
-  flushSave();
-  currentMenuId = id;
-  renderTabs();
-  await loadMenu(id);
-  render();
-}
-
-function newMenu(){
-  flushSave();
-  const id = crypto.randomUUID();
-  const name = prompt("Name the new menu:", "Menu " + (menuIndex.length + 1));
-  if(name === null) return;
-  menuIndex.push({ id, name: (name.trim() || "Menu " + menuIndex.length) });
-  saveIndex();
-  currentMenuId = id;
-  state.items = [];
-  state.selected = null;
-  renderTabs();
-  render();
-  save();
-}
-
-function deleteMenu(id){
-  const m = menuIndex.find(t=>t.id===id);
-  if(!m) return;
-  if(menuIndex.length <= 1){ alert("Can't delete the last menu — make a new one first."); return; }
-  if(!confirm(`Delete "${m.name}"? This can't be undone.`)) return;
-  menuIndex = menuIndex.filter(t=>t.id!==id);
-  saveIndex();
-  try{ localStorage.removeItem(STORE_PREFIX + id); }catch(err){}
-  set(menuRef(id), null).catch(()=>{});
-  if(currentMenuId === id){ currentMenuId = null; switchMenu(menuIndex[0].id); }
-  else{ renderTabs(); }
-}
-
-document.getElementById("newTab").addEventListener("click", newMenu);
-
-/* ---------------------------
-   Typography (trad layout)
-----------------------------*/
-
-const FONT_PRICE = "Satoshi, system-ui, sans-serif";
-const FONT_NAME  = "'Bluu Next', Georgia, serif";
-const FONT_NOTE  = "Satoshi, system-ui, sans-serif";
-
-/* Taglines are matched by menu name: tabs whose name contains
-   "drink" get the drinks line and tabs containing "food" get
-   the food line, so a tab named "Food" exports correctly on
-   its own. The dedicated "food menu" export option also forces
-   the Food title + tagline regardless of the current tab. */
-const TAGLINE_DRINKS = "hot or iced &#160;//&#160; dairy or oat";
-const TAGLINE_FOOD = "grab n go &#160;//&#160; pizza";
-const FOOTER_FOOD = "see all ingredients \u2192 gratified.com/#menu";
-const FOOTER_TEXT  = "prices include tax &#160;//&#160; suggested 50&#162; tip";
-
-function menuTagline(title){
-  const t = String(title || "").toLowerCase();
-  if(t.includes("drink")) return TAGLINE_DRINKS;
-  if(t.includes("food")) return TAGLINE_FOOD;
-  return "";
-}
-
-const SIGN_FIND_US_LINE = "find us on the";
-const SIGN_LOCATION_LINE = "Lower Level";
-const SIGN_HOURS_LINE = "open during all library hours";
-const SIGN_TAGLINE_TEXT = "Coffee and a book. Perfect pair.";
-const ENTRY_GREETING = "Gratified";
-const ENTRY_GREETING_SUB = "coffee + book =";
-
-const SIGN_BG = "#722F37";
-const SIGN_PARCHMENT = "#EDE8E0";
-const SIGN_GOLD = "#E6C89C";
-const SIGN_AMBER = "#D2691E";
-
-function esc(str){
-  return String(str)
-    .replace(/&/g,"&amp;")
-    .replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;")
-    .replace(/"/g,"&quot;");
-}
-
-/* ---------------------------
-   Diamond-aware text wrapping
-----------------------------*/
-
-const measCtx = document.createElement("canvas").getContext("2d");
-function textW(text, font){
-  /* wrapping always measures with the same canvas engine the
-     editor uses, so exported line breaks match the on-screen
-     design exactly; the outline renderer draws the same font,
-     so any width delta is a fraction of a percent */
-  measCtx.font = font;
-  return measCtx.measureText(text).width;
-}
-
-function wrapText(text, font, widthAt, dyOf, maxLines){
-  const words = String(text || "").trim().split(/\s+/).filter(Boolean);
-  if(!words.length) return [];
-  let n = 1;
-  let lines = [words.join(" ")];
-  for(let pass = 0; pass < 5; pass++){
-    const out = [];
-    let cur = "";
-    for(const w of words){
-      const li = Math.min(out.length, n - 1);
-      const maxW = widthAt(dyOf(li, n));
-      const test = cur ? cur + " " + w : w;
-      if(cur && textW(test, font) > maxW){ out.push(cur); cur = w; }
-      else{ cur = test; }
-    }
-    if(cur) out.push(cur);
-    if(out.length === n){ lines = out; break; }
-    n = out.length;
-    lines = out;
-  }
-  if(maxLines && lines.length > maxLines){
-    lines = lines.slice(0, maxLines - 1)
-      .concat(lines.slice(maxLines - 1).join(" "));
-  }
-  return lines;
-}
-
-function fitSingleLine(text, weight, family, baseSize, maxW){
-  const w = textW(String(text || ""), `${weight} ${baseSize}px ${family}`);
-  if(!w || w <= maxW) return baseSize;
-  return Math.max(26, baseSize * maxW / w);
-}
-
-/* ---------------------------
-   Text emission — every piece of drawn text goes through
-   emitText(). On screen it produces normal <text> elements.
-   During export builds (OUTLINE_TEXT on) it converts each line
-   to real vector outlines via opentype.js, using the same font
-   files for measuring AND drawing — so spacing is identical in
-   the browser, the PDF, Inkscape, and at the print shop, with
-   no fonts required at all.
-----------------------------*/
-
-let OUTLINE_TEXT = false;
-let _textFallbacks = 0;
-let TEXT_COLLECT = null;        /* when set (array), emitText records ops for canvas painting */
-let _collectTransform = null;   /* group transform ({tx,ty,F}) active for recorded ops */
-
-function decodeEntities(str){
-  return String(str)
-    .replace(/&#(\d+);/g, (m, n)=>String.fromCharCode(parseInt(n, 10)))
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"');
-}
-
-function emitText(text, x, y, o){
-  o = o || {};
-  const size = o.size, weight = o.weight || 400, family = o.family;
-  const anchor = o.anchor || "middle";
-  const ls = o.letterSpacing || 0;
-  const ws = o.wordSpacing || 0;
-
-  if(TEXT_COLLECT){
-    TEXT_COLLECT.push({
-      text: (o.raw ? decodeEntities(text) : String(text)).replace(/\u00a0/g, " "),
-      x, y, size, weight, family, fill: o.fill, opacity: o.opacity,
-      letterSpacing: ls, wordSpacing: ws, italic: !!o.italic, tf: _collectTransform
-    });
-    return "";
-  }
-
-  let of = OUTLINE_TEXT ? findOutlineFont(family, weight) : null;
-  let t = null;
-  if(of){
-    t = (o.raw ? decodeEntities(text) : String(text)).replace(/\u00a0/g, " ");
-    /* if the face is missing any glyph we need, fall back to live text */
-    for(const ch of t){
-      if(ch !== " " && of.font.charToGlyphIndex(ch) === 0){ of = null; break; }
-    }
-  }
-
-  if(!of){
-    if(OUTLINE_TEXT) _textFallbacks++;
-    let attrs = `x="${x}" y="${y}" text-anchor="${anchor}"
-      font-size="${size}" font-weight="${weight}" fill="${o.fill}"`;
-    if(o.opacity !== undefined) attrs += ` opacity="${o.opacity}"`;
-    if(o.italic) attrs += ` font-style="italic"`;
-    attrs += `\n      font-family="${family}"`;
-    if(ls) attrs += ` letter-spacing="${ls}"`;
-    if(ws) attrs += ` style="word-spacing:${ws}px"`;
-    return `
-    <text ${attrs}>${o.raw ? String(text) : esc(text)}</text>`;
-  }
-
-  const font = of.font;
-  const opts = { kerning: true, letterSpacing: size ? ls / size : 0 };
-  const measure = str => font.getAdvanceWidth(str, size, opts);
-  const words = ws ? t.split(" ") : [t];
-  const spaceW = ws ? measure(" ") + ws : 0;
-  const widths = words.map(measure);
-  const total = widths.reduce((a, b)=>a + b, 0) + (words.length - 1) * spaceW;
-  let sx = anchor === "middle" ? x - total / 2 : (anchor === "end" ? x - total : x);
-  let d = "";
-  words.forEach((wd, i)=>{
-    if(wd) d += font.getPath(wd, sx, y, size, opts).toPathData(2) + " ";
-    sx += widths[i] + spaceW;
-  });
-  let attrs = `fill="${o.fill}"`;
-  if(o.opacity !== undefined) attrs += ` fill-opacity="${o.opacity}"`;
-  const tr = o.italic ? ` transform="translate(${x} ${y}) skewX(-12) translate(${-x} ${-y})"` : "";
-  return `
-    <path d="${d.trim()}"${tr} ${attrs}/>`;
-}
-
-const NAME_FS = 14, NAME_LH = 15;
-const NOTE_FS = 9,  NOTE_LH = 11;
-const PRICE_FS = 9.5;
-const EDGE_PAD = 5;
-
-function isDarkFill(hex){
-  const c = String(hex || "").replace("#","");
-  if(c.length !== 6) return false;
-  const r = parseInt(c.slice(0,2),16)/255;
-  const g = parseInt(c.slice(2,4),16)/255;
-  const b = parseInt(c.slice(4,6),16)/255;
-  return (0.2126*r + 0.7152*g + 0.0722*b) < 0.55;
-}
-
-function hexToRgb(hex){
-  const c = String(hex || "").replace("#","");
-  return { r: parseInt(c.slice(0,2),16)||0, g: parseInt(c.slice(2,4),16)||0, b: parseInt(c.slice(4,6),16)||0 };
-}
-function rgbToHsl(r,g,b){
-  r/=255; g/=255; b/=255;
-  const max=Math.max(r,g,b), min=Math.min(r,g,b);
-  let h,s,l=(max+min)/2;
-  if(max===min){ h=s=0; }
-  else{
-    const d=max-min;
-    s = l>0.5 ? d/(2-max-min) : d/(max+min);
-    if(max===r) h=((g-b)/d + (g<b?6:0));
-    else if(max===g) h=(b-r)/d+2;
-    else h=(r-g)/d+4;
-    h/=6;
-  }
-  return {h,s,l};
-}
-function hslToRgb(h,s,l){
-  let r,g,b;
-  if(s===0){ r=g=b=l; }
-  else{
-    const hue2rgb=(p,q,t)=>{
-      if(t<0) t+=1; if(t>1) t-=1;
-      if(t<1/6) return p+(q-p)*6*t;
-      if(t<1/2) return q;
-      if(t<2/3) return p+(q-p)*(2/3-t)*6;
-      return p;
-    };
-    const q = l<0.5 ? l*(1+s) : l+s-l*s;
-    const p = 2*l-q;
-    r=hue2rgb(p,q,h+1/3); g=hue2rgb(p,q,h); b=hue2rgb(p,q,h-1/3);
-  }
-  return { r:Math.round(r*255), g:Math.round(g*255), b:Math.round(b*255) };
-}
-function toHex2(n){ return Math.max(0,Math.min(255,n)).toString(16).padStart(2,"0"); }
-
-function deepenColor(hex, maxL){
-  maxL = maxL===undefined ? 0.30 : maxL;
-  const {r,g,b} = hexToRgb(hex);
-  let {h,s,l} = rgbToHsl(r,g,b);
-  if(l > maxL) l = maxL;
-  s = Math.min(1, s*1.15);
-  const out = hslToRgb(h,s,l);
-  return "#" + toHex2(out.r) + toHex2(out.g) + toHex2(out.b);
-}
-
-function itemTexts(it, x, y, s, fontScale, colorOverride){
-  fontScale = fontScale || 1;
-  const nameFS = NAME_FS*fontScale, nameLH = NAME_LH*fontScale;
-  const noteFS = NOTE_FS*fontScale, noteLH = NOTE_LH*fontScale;
-  const priceFS = PRICE_FS*fontScale, edgePad = EDGE_PAD*fontScale;
-  const S = it.nibble ? s * 0.82 : s;
-  const widthAt = dy => Math.max(10, 2 * (S - Math.abs(dy)) - edgePad * 2);
-  let nameCol, subCol, subOp;
-  if(colorOverride){
-    nameCol = colorOverride.nameCol;
-    subCol = colorOverride.subCol;
-    subOp = colorOverride.subOp !== undefined ? colorOverride.subOp : 0.85;
-  }else{
-    const dark = isDarkFill(it.color);
-    nameCol = dark ? "#EDE8E0" : "#722F37";
-    subCol  = dark ? "#E6C89C" : "#6B5740";
-    subOp   = dark ? 0.95 : 0.85;
-  }
-  const nameFont = `700 ${nameFS}px ${FONT_NAME}`;
-  const noteFont = `300 ${noteFS}px ${FONT_NOTE}`;
-  const nameLines = wrapText(it.name, nameFont, widthAt,
-    (i, n) => (i - (n - 1) / 2) * nameLH, 3);
-  const nN = Math.max(1, nameLines.length);
-  const nameTop = -((nN - 1) / 2) * nameLH - nameFS * 0.55;
-  const nameBot =  ((nN - 1) / 2) * nameLH + nameFS * 0.45;
-  const noteStart = nameBot + 10*fontScale;
-  const noteLines = wrapText(it.note, noteFont, widthAt,
-    (i) => noteStart + i * noteLH - noteFS * 0.35, 2);
-  let out = "";
-  if(String(it.price || "").trim()){
-    out += emitText(it.price, x, y + nameTop - 9*fontScale, {
-      size: priceFS, weight: 500, family: FONT_PRICE,
-      fill: subCol, opacity: subOp, letterSpacing: 1
-    });
-  }
-  nameLines.forEach((ln, i)=>{
-    out += emitText(ln, x, y + (i - (nN - 1) / 2) * nameLH + 5*fontScale, {
-      size: nameFS, weight: 700, family: FONT_NAME, fill: nameCol
+/* ---------------- draggable pins ---------------- */
+function bindPins() {
+  const svg = document.getElementById("mapsvg");
+  if (!svg) return;
+  svg.querySelectorAll(".pin").forEach(g => {
+    g.addEventListener("pointerdown", e => {
+      e.preventDefault();
+      const id = g.dataset.pin;
+      const target = id === "home" ? S.visit.home : S.visit.partners[+id];
+      const pt = svg.createSVGPoint();
+      const toSvg = ev => { pt.x = ev.clientX; pt.y = ev.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); };
+      const start = toSvg(e), ox = target.x, oy = target.y;
+      g.setPointerCapture(e.pointerId);
+      const move = ev => {
+        const p = toSvg(ev);
+        target.x = Math.max(10, Math.min(MAP.w - 10, Math.round(ox + p.x - start.x)));
+        target.y = Math.max(10, Math.min(MAP.h - 10, Math.round(oy + p.y - start.y)));
+        g.setAttribute("transform", `translate(${target.x - ox} ${target.y - oy})`);
+      };
+      const up = () => { g.removeEventListener("pointermove", move); g.removeEventListener("pointerup", up); g.removeEventListener("pointercancel", up); renderSheets(); save(); };
+      g.addEventListener("pointermove", move); g.addEventListener("pointerup", up); g.addEventListener("pointercancel", up);
     });
   });
-  noteLines.forEach((ln, i)=>{
-    out += emitText(ln, x, y + noteStart + i * noteLH, {
-      size: noteFS, weight: 300, family: FONT_NOTE,
-      fill: subCol, opacity: subOp
-    });
-  });
-  return out;
 }
 
-/* ---------------------------
-   Special pattern glyphs
-   (k = scale factor so the pattern keeps its
-   density/size ratio on big print exports)
-----------------------------*/
-
-function hashStr(str){
-  let h = 2166136261;
-  for(const c of String(str)){ h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
-  return h >>> 0;
-}
-
-function glyphCarrot(x,y,rot,k){
-  return `<g transform="translate(${x},${y}) rotate(${rot}) scale(${k || 1})">
-    <polygon points="-2.2,-4 2.2,-4 0,5.4" fill="#CC5500"/>
-    <line x1="0" y1="-4" x2="0" y2="-6.8" stroke="#5E7A3A" stroke-width="1.4"/>
-  </g>`;
-}
-
-function glyphBeet(x,y,rot,k){
-  return `<g transform="translate(${x},${y}) rotate(${rot}) scale(${k || 1})">
-    <path d="M0,-2.4 C3.4,-2.4 3.6,1.2 0,5 C-3.6,1.2 -3.4,-2.4 0,-2.4 Z" fill="#8A2E4F"/>
-    <line x1="0" y1="-2.4" x2="-1.8" y2="-6" stroke="#5E7A3A" stroke-width="1.3"/>
-    <line x1="0" y1="-2.4" x2="1.6" y2="-6" stroke="#5E7A3A" stroke-width="1.3"/>
-  </g>`;
-}
-
-function glyphSunflower(x,y,k){
-  /* diamond petals — no circles allowed, even on the flowers */
-  let out = `<g transform="translate(${x},${y}) scale(${k || 1})">`;
-  for(let a = 0; a < 360; a += 45){
-    out += `<g transform="rotate(${a})"><polygon points="2.4,0 4,-1.6 5.6,0 4,1.6" fill="#E6B84C"/></g>`;
-  }
-  return out + `<polygon points="0,-2.2 2.2,0 0,2.2 -2.2,0" fill="#6B4A1E"/></g>`;
-}
-
-function specialPattern(it, x, y, s, k){
-  k = k || 1;
-  if(!it.special) return "";
-  const Si = (it.nibble ? s * 0.82 : s) - 9*k;
-  if(Si < 22*k) return "";
-  const h = 18*k;
-  const N = Math.ceil(Si / h);
-  const off = hashStr(it.id || "") % 3;
-  let g = `<g opacity="0.5">`;
-  for(let j = -N; j <= N; j++){
-    for(let i = -N; i <= N; i++){
-      if((i + j) % 2 !== 0) continue;
-      const dx = i * h, dy = j * h;
-      if(Math.abs(dx) + Math.abs(dy) > Si * 0.9) continue;
-      const a = (i + j) / 2, b = (i - j) / 2;
-      const kind = ((a + 2 * b) % 3 + 3 + off) % 3;
-      const hsh = hashStr(i + "," + j + "," + (it.id || ""));
-      const tilt = ((hsh >> 3) % 2 ? 1 : -1) * (8 + (hsh >> 5) % 12);
-      const gx = x + dx, gy = y + dy;
-      if(kind === 0)      g += glyphCarrot(gx, gy, tilt, k);
-      else if(kind === 1) g += glyphBeet(gx, gy, tilt, k);
-      else                g += glyphSunflower(gx, gy, k);
-    }
-  }
-  return g + `</g>`;
-}
-
-/* ---------------------------
-   Diamond coordinate system
-----------------------------*/
-
-function toScreen(gx,gy){
-  const u = state.scale * 0.5;
-  return { x: gx * u + state.ox, y: gy * u + state.oy };
-}
-
-function toGrid(x,y){
-  const u = state.scale * 0.5;
-  return { gx: Math.round((x - state.ox) / u), gy: Math.round((y - state.oy) / u) };
-}
-
-function isLatticeCentre(gx, gy){
-  return gx % 2 === 0 && gy % 2 === 0 && ((gx + gy) / 2) % 2 === 0;
-}
-
-function svgPoint(e){
-  const r = svg.getBoundingClientRect();
-  return { x: e.clientX - r.left, y: e.clientY - r.top };
-}
-
-/* ---------------------------
-   Diamond shape — flat solid fills throughout,
-   no gradient overlays.
-----------------------------*/
-
-function diamond(x,y,s,fill,stroke){
-  return `
-    <polygon
-      points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
-      fill="${fill}"
-      stroke="${stroke}"
-    />
-  `;
-}
-
-/* tiny diamond "dot" — the strict Gratified no-circles policy
-   applies all the way down to the background texture :) */
-function dotDiamond(x, y, r, fill, opacity){
-  return `<polygon points="${x},${y-r} ${x+r},${y} ${x},${y+r} ${x-r},${y}" fill="${fill}"${opacity !== undefined ? ` fill-opacity="${opacity}"` : ""}/>`;
-}
-
-/* the house logo mark — nested diamond straight from the
-   storefront decal: outer oxblood, inner gold #E8A317 at 40%
-   of the outer size (no circles, naturally) */
-function logoDiamond(cx, cy, D, color, inner){
-  const o = D / 2;
-  const i = D * 0.4 / 2;
-  const g = inner || "#E8A317";
-  return `
-    <g>
-      <polygon points="${cx},${cy-o} ${cx+o},${cy} ${cx},${cy+o} ${cx-o},${cy}" fill="${color}"/>
-      <polygon points="${cx},${cy-i} ${cx+i},${cy} ${cx},${cy+i} ${cx-i},${cy}" fill="${g}"/>
-    </g>
-  `;
-}
-
-function downChevron(cx, cy, w, color, sw){
-  const hw = w/2, h = w*0.55;
-  return `
-    <polyline points="${cx-hw},${cy-h/2} ${cx},${cy+h/2} ${cx+hw},${cy-h/2}"
-      fill="none" stroke="${color}" stroke-width="${sw || 3.5}" stroke-linecap="square" stroke-linejoin="miter"/>
-  `;
-}
-
-/* diamondItem — flat solid fill + optional nibble band.
-   No gradient overlays: colours print exactly as picked.
-   strokeW lets the print exports keep the border weight
-   proportional to the diamond size. */
-function diamondItem(x,y,s,fill,stroke,nibble,nibbleBand,strokeW){
-  const sw = strokeW || 1.6;
-  const si = s*0.82;
-  if(nibble){
-    return `
-      <polygon
-        points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
-        fill="${nibbleBand || '#722F37'}"
-        stroke="${stroke}"
-        stroke-width="${sw}"
-        stroke-linejoin="round"
-      />
-      <polygon
-        points="${x},${y-si} ${x+si},${y} ${x},${y+si} ${x-si},${y}"
-        fill="${fill}"
-      />
-    `;
-  }
-  return `
-    <polygon
-      points="${x},${y-s} ${x+s},${y} ${x},${y+s} ${x-s},${y}"
-      fill="${fill}"
-      stroke="${stroke}"
-      stroke-width="${sw}"
-      stroke-linejoin="round"
-    />
-  `;
-}
-
-/* ---------------------------
-   Render menu item
-----------------------------*/
-
-function renderItem(it){
-  const p = toScreen(it.gx,it.gy);
-  const isSel = state.selected === it;
-  return `
-    <g class="item" data-id="${it.id}">
-      ${diamondItem(
-        p.x,p.y,
-        state.scale,
-        it.color,
-        isSel ? "#CC5500" : "#722F37",
-        it.nibble
-      )}
-      ${specialPattern(it, p.x, p.y, state.scale)}
-      ${itemTexts(it, p.x, p.y, state.scale)}
-    </g>
-  `;
-}
-
-/* ---------------------------
-   Render loop
-   Flat fills; slightly crisper lattice dots at lattice
-   centres make the background pattern read more on screen.
-----------------------------*/
-
-function render(){
-
-  let out = "";
-
-  const w = svg.clientWidth || 800;
-  const h = svg.clientHeight || 600;
-  const s = state.scale;
-  const u = s * 0.5;
-
-  const gx0 = Math.floor((0 - state.ox)/u) - 2;
-  const gx1 = Math.ceil((w - state.ox)/u) + 2;
-  const gy0 = Math.floor((0 - state.oy)/u) - 2;
-  const gy1 = Math.ceil((h - state.oy)/u) + 2;
-
-  const cells = (gx1-gx0)*(gy1-gy0);
-  const showDots = u >= 9;
-
-  if(cells <= 30000){
-    for(let gx=gx0; gx<=gx1; gx++){
-      for(let gy=gy0; gy<=gy1; gy++){
-        const p = toScreen(gx,gy);
-        if(isLatticeCentre(gx,gy)){
-          out += diamond(p.x,p.y,s,"none","rgba(114, 47, 55, 0.10)");
-        }
-        if(showDots){
-          /* slightly larger diamond dot at lattice centres for a
-             more legible grid (sized up a touch vs the old round
-             dots so they carry the same visual weight) */
-          const isLC = isLatticeCentre(gx,gy);
-          out += dotDiamond(p.x, p.y, isLC ? 2.1 : 1.3, `rgba(114, 47, 55, ${isLC ? 0.18 : 0.12})`);
-        }
-      }
-    }
-  }
-
-  for(const it of state.items){
-    out += renderItem(it);
-  }
-
-  svg.innerHTML = out;
-}
-
-/* ---------------------------
-   Interaction
-----------------------------*/
-
-let draggingItem = null;
-let dragOffset = {x:0, y:0};
-
-const fName  = document.getElementById("name");
-const fPrice = document.getElementById("price");
-const fNote  = document.getElementById("note");
-const fColor = document.getElementById("color");
-const fNibble = document.getElementById("nibble");
-const fSpecial = document.getElementById("special");
-
-function populateFields(it){
-  fName.value  = it.name;
-  fPrice.value = it.price;
-  fNote.value  = it.note;
-  fColor.value = it.color;
-  fNibble.checked = !!it.nibble;
-  fSpecial.checked = !!it.special;
-}
-
-svg.addEventListener("mousedown",(e)=>{
-  const g = e.target.closest?.("g");
-  const pt = svgPoint(e);
-  if(g && g.dataset.id){
-    const id = g.dataset.id;
-    const it = state.items.find(x=>x.id===id);
-    if(it){
-      state.selected = it;
-      draggingItem = it;
-      const p = toScreen(it.gx, it.gy);
-      dragOffset = { x: p.x - pt.x, y: p.y - pt.y };
-      populateFields(it);
-      render();
-      return;
-    }
-  }
-  state.selected = null;
-  state.dragging = true;
-  state.dragStart = {x:e.clientX,y:e.clientY};
-  render();
-});
-
-window.addEventListener("mousemove",(e)=>{
-  if(state.dragging && !draggingItem){
-    state.ox += e.clientX - state.dragStart.x;
-    state.oy += e.clientY - state.dragStart.y;
-    state.dragStart = {x:e.clientX,y:e.clientY};
-    render();
-  }
-  if(draggingItem){
-    const pt = svgPoint(e);
-    const g = toGrid(pt.x + dragOffset.x, pt.y + dragOffset.y);
-    if(g.gx !== draggingItem.gx || g.gy !== draggingItem.gy){
-      draggingItem.gx = g.gx;
-      draggingItem.gy = g.gy;
-      render();
-    }
-  }
-});
-
-function liveEdit(field, input){
-  input.addEventListener("input", ()=>{
-    if(!state.selected) return;
-    state.selected[field] = input.value;
-    render();
-    save();
+/* ---------------- preview scaling ---------------- */
+function fit() {
+  if (window.matchMedia("print").matches) return;
+  document.querySelectorAll(".fit").forEach(w => {
+    const s = w.firstElementChild; s.style.transform = "none";
+    const k = Math.min(1, w.clientWidth / s.offsetWidth);
+    s.style.transform = `scale(${k})`; w.style.height = s.offsetHeight * k + "px";
   });
 }
-liveEdit("name",  fName);
-liveEdit("price", fPrice);
-liveEdit("note",  fNote);
-liveEdit("color", fColor);
+window.addEventListener("resize", fit);
+window.addEventListener("beforeprint", () => document.querySelectorAll(".fit").forEach(w => { w.firstElementChild.style.transform = "none"; w.style.height = "auto"; }));
+window.addEventListener("afterprint", fit);
 
-fNibble.addEventListener("change", ()=>{
-  if(!state.selected) return;
-  state.selected.nibble = fNibble.checked;
-  render();
-  save();
+/* ---------------- editor UI ---------------- */
+const field = (label, path, kind = "text", ph = "") => kind === "textarea"
+  ? `<label class="field"><span>${label}</span><textarea id="f-${path}" data-path="${path}" rows="2" placeholder="${esc(ph)}">${esc(get(path))}</textarea></label>`
+  : `<label class="field"><span>${label}</span><input type="text" id="f-${path}" data-path="${path}" value="${esc(get(path))}" placeholder="${esc(ph)}"></label>`;
+const seg = (path, opts) => `<div class="seg" role="group">${opts.map(([v, l]) => `<button type="button" data-seg="${path}" data-val="${v}" aria-pressed="${get(path) === v}">${l}</button>`).join("")}</div>`;
+const upload = (label, path, round) => { const v = get(path); return `<div class="upload"><div class="thumb${round ? " round" : ""}" style="${v ? `background-image:url(${v})` : ""}">${v ? "" : "none"}</div><span class="btn small file-btn">${v ? "Replace" : "Upload"} ${label}<input type="file" accept="image/*" id="u-${path}" data-upload="${path}"></span>${v ? `<button class="btn small ghost" data-clear="${path}">Remove</button>` : ""}</div>`; };
+const tools = (path, i, n) => `<div class="tools"><button class="icon-btn" title="Move up" aria-label="Move up" data-move="${path}" data-i="${i}" data-d="-1" ${i === 0 ? "disabled" : ""}>↑</button><button class="icon-btn" title="Move down" aria-label="Move down" data-move="${path}" data-i="${i}" data-d="1" ${i === n - 1 ? "disabled" : ""}>↓</button><button class="icon-btn" title="Delete" aria-label="Delete" data-del="${path}" data-i="${i}">×</button></div>`;
+
+function designTab() {
+  const pre = Object.entries(PRESETS).map(([k, p]) => `<button class="preset" data-preset="${k}" aria-pressed="${S.preset === k}"><span class="sw"><i style="background:${p.colors.paper}"></i><i style="background:${p.colors.accent2}"></i><i style="background:${p.cover === "solid" ? p.colors.cover : p.colors.paper};color:${p.cover === "solid" ? p.colors.coverInk : p.colors.accent}">G</i></span><b>${p.name}</b><small>${p.note}</small></button>`).join("");
+  const sw = [["paper", "Paper"], ["ink", "Text"], ["accent", "Headings"], ["accent2", "Prices, pins"], ["muted", "Details"], ["fill", "Highlights"], ["cover", "Cover"], ["coverInk", "Cover text"]]
+    .map(([k, l]) => `<label class="swatch"><input type="color" id="c-${k}" data-color="${k}" value="${S.colors[k]}">${l}</label>`).join("");
+  return `<div class="group"><h2>Prebuilt designs</h2><div class="presets">${pre}</div><p class="hint">Picking a design keeps all your words and logos.</p></div>
+  <div class="group"><h2>Colors</h2><div class="colors">${sw}</div></div>
+  <div class="group"><h2>Layout</h2>
+    <span class="field"><span>Cover style</span></span>${seg("coverStyle", [["framed", "Framed"], ["solid", "Solid color"], ["paper", "Plain"]])}
+    <label class="check"><input type="checkbox" id="frames" data-check="frames" ${S.frames ? "checked" : ""}> Double-line frames on panels</label>
+    <label class="check"><input type="checkbox" id="diamonds" data-check="diamonds" ${S.diamonds ? "checked" : ""}> Diamond markers on section titles</label>
+    <label class="check"><input type="checkbox" id="texture" data-check="texture" ${S.texture ? "checked" : ""}> Diamond-dot paper texture</label>
+    <label class="check"><input type="checkbox" id="printBg" data-check="printBg" ${S.printBg ? "checked" : ""}> Print paper color (turn off for white paper)</label>
+    <label class="field"><span>Text size</span><span class="range"><input type="range" id="textScale" min="0.8" max="1.25" step="0.01" value="${S.textScale}" data-range="textScale"><output id="tsOut">${Math.round(S.textScale * 100)}%</output></span></label>
+    <p class="hint">A red outline on a panel means it's overflowing. Shrink the text size or trim items.</p></div>
+  <div class="group"><h2>Fonts</h2>
+    <p class="status" id="fontStatus">Checking fonts…</p>
+    <div class="row"><span class="btn small file-btn">Headline font file<input type="file" accept=".otf,.ttf,.woff,.woff2" id="fontDisplay" data-font="UserDisplay"></span><span class="btn small file-btn">Body font file<input type="file" accept=".otf,.ttf,.woff,.woff2" id="fontBody" data-font="UserBody"></span></div>
+    <p class="hint">Put this page in your website folder next to fonts/ and BluuNext loads by itself. Or upload BluuNext-Bold.otf and a Satoshi file here (lasts until you reload).</p></div>`;
+}
+function coverTab() {
+  return `<div class="group"><h2>Logo</h2>${seg("mark", [["diamond", "Diamond"], ["logo", "My logo"], ["none", "Name only"]])}${upload("logo", "logo", false)}<p class="hint">PNG or SVG with a transparent background works best.</p></div>
+  <div class="group"><h2>Words</h2>${field("Name", "cover.name")}${field("Tagline", "cover.tagline")}${field("Top line", "cover.top")}${field("Bottom line", "cover.bottom")}</div>`;
+}
+const brandOpts = sel => `<option value="">No brand logo</option>` + S.visit.partners.map(b => `<option value="${esc(b.id)}" ${b.id === sel ? "selected" : ""}>Brand: ${esc(b.name)}${b.logo ? "" : " (no logo yet)"}</option>`).join("");
+function menuEditor(key) {
+  const m = S[key];
+  const secs = m.sections.map((s, si) => {
+    const base = `${key}.sections.${si}`;
+    const items = s.items.map((it, ii) => {
+      const p = `${base}.items.${ii}`;
+      return `<div class="item-ed"><input type="text" id="f-${p}.name" data-path="${p}.name" value="${esc(it.name)}" placeholder="Item" aria-label="Item name"><input type="text" id="f-${p}.price" data-path="${p}.price" value="${esc(it.price)}" placeholder="0.00" aria-label="Price">${tools(`${base}.items`, ii, s.items.length)}
+      <div class="full"><input type="text" id="f-${p}.desc" data-path="${p}.desc" value="${esc(it.desc)}" placeholder="Description" aria-label="Description"><select id="f-${p}.tag" data-path="${p}.tag" aria-label="Diet tag">${["", "V", "WF", "GF", "DF", "V + WF"].map(t => `<option value="${t}" ${it.tag === t ? "selected" : ""}>${t || "no tag"}</option>`).join("")}</select><label class="check" title="Highlight"><input type="checkbox" id="f-${p}.special" data-check="${p}.special" ${it.special ? "checked" : ""}>★</label></div>
+      <div class="full brandpick"><select id="f-${p}.brand" data-path="${p}.brand" aria-label="Brand logo">${brandOpts(it.brand)}</select></div></div>`;
+    }).join("");
+    return `<div class="card"><div class="card-head"><input class="grow" type="text" id="f-${base}.title" data-path="${base}.title" value="${esc(s.title)}" aria-label="Section title" style="font-weight:700;padding:6px 8px;border:1px solid var(--ui-line)"><input type="text" id="f-${base}.note" data-path="${base}.note" value="${esc(s.note)}" placeholder="note" aria-label="Section note" style="width:84px;padding:6px 8px;border:1px solid var(--ui-line)">${tools(`${key}.sections`, si, m.sections.length)}</div>${items}<button class="btn small" data-add="${base}.items">+ Add item</button></div>`;
+  }).join("");
+  return `<div class="group"><h2>${esc(m.title)} panel <button class="btn small" data-add="${key}.sections">+ Section</button></h2><div class="row">${field("Small label", key + ".eyebrow")}${field("Title", key + ".title")}</div>${secs}${field("Footer note", key + ".foot", "text", "optional")}</div>`;
+}
+function menuTab() {
+  return `<div class="group"><h2>Brand logos</h2>${seg("brandMode", [["beside", "Beside items"], ["strip", "Logo row"], ["off", "Hide"]])}
+  <p class="hint">Link an item to a brand with its "Brand" menu. Upload logos and add new brands in the partners tab.</p></div>
+  <p class="hint">★ highlights an item. Diet tags add a key at the bottom of the panel automatically.</p>` + menuEditor("drinks") + menuEditor("food");
+}
+function mapTab() {
+  const v = S.visit;
+  const used = id => ["drinks", "food"].reduce((n, k) => n + S[k].sections.reduce((m, s) => m + s.items.filter(i => i.brand === id).length, 0), 0);
+  const ps = v.partners.map((p, i) => { const u = used(p.id); return `<div class="card"><div class="card-head"><strong class="grow">${esc(p.name) || "New brand"}</strong>${tools("visit.partners", i, v.partners.length)}</div>
+    ${upload("logo", `visit.partners.${i}.logo`, false)}
+    ${field("Name", `visit.partners.${i}.name`)}<div class="row">${field("Address", `visit.partners.${i}.addr`)}${field("What they make for us", `visit.partners.${i}.note`)}</div>
+    <label class="check"><input type="checkbox" id="f-visit.partners.${i}.onMap" data-check="visit.partners.${i}.onMap" ${p.onMap ? "checked" : ""}> Pin on the map</label>
+    <p class="hint">${u ? `Logo shows on ${u} menu item${u > 1 ? "s" : ""}.` : "Not linked to any menu item yet."}</p></div>`; }).join("");
+  return `<div class="group"><h2>Brands &amp; partners <button class="btn small" data-add="visit.partners">+ Brand</button></h2><p class="hint">One list for every brand you serve. Its logo becomes a diamond pin on the map, a key in the partner list, and a badge on any menu item you link it to. Drag pins on the map to move them.</p>
+    <label class="check"><input type="checkbox" id="showLabels" data-check="visit.showLabels" ${v.showLabels ? "checked" : ""}> Show partner names next to pins</label>${ps}</div>
+  <div class="group"><h2>Your pin</h2><div class="row">${field("Label", "visit.home.label")}${field("Sub-label", "visit.home.sub")}</div></div>
+  <div class="group"><h2>Visit text</h2><div class="row">${field("Small label", "visit.eyebrow")}${field("Title", "visit.title")}</div>${field("Intro", "visit.lede", "textarea")}${field("Box title", "visit.boxTitle")}${field("Where", "visit.where", "textarea")}${field("When", "visit.when", "textarea")}${field("What to expect", "visit.expect", "textarea")}${field("Partners heading", "visit.partnersTitle")}</div>`;
+}
+function planTab() {
+  const p = S.plan;
+  const st = p.steps.map((s, i) => `<div class="card"><div class="card-head"><strong class="grow">Step ${i + 1}</strong>${tools("plan.steps", i, p.steps.length)}</div>${field("Step", `plan.steps.${i}.main`)}${field("Why", `plan.steps.${i}.why`)}</div>`).join("");
+  return `<div class="group"><h2>Back panel</h2><div class="row">${field("Small label", "plan.eyebrow")}${field("Title", "plan.title")}</div></div>
+  <div class="group"><h2>Steps <button class="btn small" data-add="plan.steps">+ Step</button></h2>${st}</div>
+  <div class="group"><h2>Story &amp; contact</h2>${field("Story", "plan.story", "textarea")}${field("Contact heading", "plan.contactTitle")}${field("Contact lines", "plan.contact", "textarea")}</div>`;
+}
+function renderRail() {
+  const rail = document.getElementById("rail"), y = rail.scrollTop;
+  rail.innerHTML = ({ design: designTab, cover: coverTab, menu: menuTab, map: mapTab, plan: planTab })[tab]();
+  rail.scrollTop = y;
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.tab === tab));
+  if (tab === "design") checkFonts();
+}
+function renderFoot() {
+  const exportBtn = inFrame ? "" : `<button class="btn small" id="exportBtn">Save file</button>`;
+  document.getElementById("foot").innerHTML = `${exportBtn}<span class="btn small file-btn">Open file<input type="file" accept="application/json,.json" id="importFile"></span><button class="btn small ghost" id="resetBtn">Reset</button><span class="save-state" id="saveState">Saved in this browser</span>`;
+}
+const blank = {
+  items: () => ({ name: "New item", price: "0", desc: "", tag: "", special: false, brand: "" }),
+  sections: () => ({ title: "New section", note: "", items: [blank.items()] }),
+  partners: () => ({ id: "p" + Math.random().toString(36).slice(2, 8), name: "New brand", addr: "", note: "", logo: null, onMap: true, x: Math.round(MAP.w / 2), y: Math.round(MAP.h / 2) }),
+  steps: () => ({ main: "New step", why: "" })
+};
+
+/* events (delegated) */
+document.querySelector(".tabs").addEventListener("click", e => { const t = e.target.closest(".tab"); if (t) { tab = t.dataset.tab; renderRail(); } });
+const rail = document.getElementById("rail");
+rail.addEventListener("input", e => {
+  const t = e.target;
+  if (t.dataset.path) { set(t.dataset.path, t.value); changed(); }
+  else if (t.dataset.color) { S.colors[t.dataset.color] = t.value; changed(); }
+  else if (t.dataset.range) { S[t.dataset.range] = +t.value; document.getElementById("tsOut").textContent = Math.round(t.value * 100) + "%"; changed(); }
+});
+rail.addEventListener("change", e => {
+  const t = e.target;
+  if (t.dataset.check) { set(t.dataset.check, t.checked); changed(); }
+  if (t.dataset.upload && t.files[0]) readImage(t.files[0], url => { set(t.dataset.upload, url); if (t.dataset.upload === "logo") S.mark = "logo"; changed(); renderRail(); });
+  if (t.dataset.font && t.files[0]) loadFont(t.dataset.font, t.files[0]);
+});
+rail.addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.preset) {
+    const p = PRESETS[b.dataset.preset]; S.preset = b.dataset.preset; S.colors = { ...p.colors }; S.coverStyle = p.cover; S.frames = p.frames;
+    if (b.dataset.preset === "ink") S.printBg = false; changed(); renderRail();
+  } else if (b.dataset.seg) { set(b.dataset.seg, b.dataset.val); changed(); renderRail(); }
+  else if (b.dataset.add) { const arr = get(b.dataset.add); arr.push(blank[b.dataset.add.split(".").at(-1)]()); changed(); renderRail(); }
+  else if (b.dataset.del) { get(b.dataset.del).splice(+b.dataset.i, 1); changed(); renderRail(); }
+  else if (b.dataset.move) { const a = get(b.dataset.move), i = +b.dataset.i, j = i + +b.dataset.d; [a[i], a[j]] = [a[j], a[i]]; changed(); renderRail(); }
+  else if (b.dataset.clear) { set(b.dataset.clear, null); if (b.dataset.clear === "logo" && S.mark === "logo") S.mark = "diamond"; changed(); renderRail(); }
 });
 
-fSpecial.addEventListener("change", ()=>{
-  if(!state.selected) return;
-  state.selected.special = fSpecial.checked;
-  render();
-  save();
-});
-
-/* ---------------------------
-   Brand color swatches
-----------------------------*/
-
-const BRAND_COLORS = [
-  { name:"deep red",      hex:"#722F37" },
-  { name:"bright orange", hex:"#CC5500" },
-  { name:"warm amber",    hex:"#D2691E" },
-  { name:"olive bronze",  hex:"#6B5740" },
-  { name:"golden sand",   hex:"#E6C89C" },
-  { name:"cream",         hex:"#EDE8E0" }
-];
-
-const swatchBox = document.getElementById("swatches");
-
-for(const c of BRAND_COLORS){
-  const el = document.createElement("div");
-  el.className = "swatch";
-  el.style.background = c.hex;
-  el.title = c.name;
-  el.addEventListener("click", ()=>{
-    fColor.value = c.hex;
-    swatchBox.querySelectorAll(".swatch").forEach(s=>s.classList.remove("current"));
-    el.classList.add("current");
-    if(state.selected){ state.selected.color = c.hex; render(); save(); }
-  });
-  swatchBox.appendChild(el);
-}
-
-window.addEventListener("mouseup",()=>{
-  if(state.dragging || draggingItem) save();
-  state.dragging = false;
-  draggingItem = null;
-});
-
-window.addEventListener("resize", render);
-
-/* ---------------------------
-   Zoom
-----------------------------*/
-
-const SCALE_MIN = 10, SCALE_MAX = 120, SCALE_BASE = 40;
-const ZOOM_STEP_PCT = 10;
-
-const zoomInput = document.getElementById("zoomInput");
-const zoomOutBtn = document.getElementById("zoomOut");
-const zoomInBtn = document.getElementById("zoomIn");
-
-function scaleToPct(sc){ return Math.round(sc / SCALE_BASE * 100); }
-function pctToScale(pct){ return pct / 100 * SCALE_BASE; }
-
-function syncZoomInput(){
-  zoomInput.value = scaleToPct(state.scale);
-}
-
-function setScale(newScale){
-  state.scale = Math.max(SCALE_MIN, Math.min(SCALE_MAX, newScale));
-  syncZoomInput();
-  render();
-  save();
-}
-
-zoomOutBtn.addEventListener("click", ()=>{
-  setScale(pctToScale(scaleToPct(state.scale) - ZOOM_STEP_PCT));
-});
-zoomInBtn.addEventListener("click", ()=>{
-  setScale(pctToScale(scaleToPct(state.scale) + ZOOM_STEP_PCT));
-});
-zoomInput.addEventListener("change", ()=>{
-  const pct = parseFloat(zoomInput.value);
-  if(Number.isFinite(pct)) setScale(pctToScale(pct));
-  else syncZoomInput();
-});
-zoomInput.addEventListener("keydown", (e)=>{ if(e.key === "Enter") zoomInput.blur(); });
-
-svg.addEventListener("wheel",(e)=>{
-  e.preventDefault();
-  const f = e.deltaY < 0 ? 1.1 : 0.9;
-  setScale(state.scale * f);
-});
-
-/* ---------------------------
-   Add / delete
-----------------------------*/
-
-function addItem(){
-  const centre = toGrid(
-    (svg.clientWidth || 800)/2,
-    (svg.clientHeight || 600)/2
-  );
-  const it = {
-    id:crypto.randomUUID(),
-    gx:centre.gx,
-    gy:centre.gy,
-    name:fName.value || "Item",
-    price:fPrice.value || "$0",
-    note:fNote.value || "",
-    color:fColor.value,
-    nibble:fNibble.checked,
-    special:fSpecial.checked
-  };
-  state.items.push(it);
-  state.selected = it;
-  render();
-  save();
-}
-
-function del(){
-  if(!state.selected) return;
-  state.items = state.items.filter(x=>x!==state.selected);
-  state.selected=null;
-  render();
-  save();
-}
-
-/* ---------------------------
-   Toast notification
-----------------------------*/
-
-const toastEl = document.getElementById("exportToast");
-let toastTimer = null;
-
-function showToast(msg, duration){
-  duration = duration || 3000;
-  toastEl.textContent = msg;
-  toastEl.classList.add("visible");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>{ toastEl.classList.remove("visible"); }, duration);
-}
-
-/* ---------------------------
-   Font embedding for print-safe SVG export.
-
-   Web @import() rules are ignored by Inkscape (it doesn't
-   make HTTP requests when opening an SVG file), so any
-   custom font just falls back to a system face and your
-   Bluu Next / Satoshi glyphs disappear.
-
-   The fix: fetch the font CSS from both providers, then
-   fetch every woff2 file they reference and inline it as
-   a base64 data: URI inside the @font-face block. Inkscape
-   (and Illustrator, and most PDF exporters) can read fonts
-   embedded this way without any network access at all.
-
-   Result is cached so subsequent exports are instant.
-   If a CDN is unreachable the SVG falls back to @import
-   (same as before), but a toast warns you.
-----------------------------*/
-
-let _cachedFontStyle = null;
-let _fontEmbedInProgress = null;
-
-async function toBase64DataUrl(buffer, mimeType){
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunk = 0x8000;
-  for(let i = 0; i < bytes.length; i += chunk){
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-  }
-  return `data:${mimeType};base64,${btoa(binary)}`;
-}
-
-async function buildFontStyle(){
-  if(_cachedFontStyle !== null) return { style: _cachedFontStyle, anyEmbedFailed: false };
-  if(_fontEmbedInProgress) return _fontEmbedInProgress;
-
-  _fontEmbedInProgress = (async ()=>{
-    const cssUrls = [
-      "https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap",
-      "https://fonts.cdnfonts.com/css/bluu-next"
-    ];
-
-    let combined = "";
-    let anyEmbedFailed = false;
-
-    for(const cssUrl of cssUrls){
-      try{
-        const cssRes = await fetch(cssUrl);
-        if(!cssRes.ok) throw new Error(`HTTP ${cssRes.status}`);
-        let css = await cssRes.text();
-
-        /* strip @import wrapper lines — we're inlining @font-face directly */
-        css = css.replace(/@import\s+url\([^)]+\)\s*;?\n?/g, "");
-
-        /* find every font file URL and replace with base64 data URI */
-        const urlRegex = /url\(["']?(https?:\/\/[^"'\)\s]+)["']?\)/g;
-        const matches = [...css.matchAll(urlRegex)];
-
-        for(const m of matches){
-          const fontUrl = m[1];
-          try{
-            const fontRes = await fetch(fontUrl);
-            if(!fontRes.ok) throw new Error(`HTTP ${fontRes.status}`);
-            const buf = await fontRes.arrayBuffer();
-            const rawExt = fontUrl.split(".").pop().split("?")[0].toLowerCase();
-            const mime = rawExt === "woff2" ? "font/woff2"
-                       : rawExt === "woff"  ? "font/woff"
-                       : rawExt === "ttf"   ? "font/truetype"
-                       : "font/opentype";
-            const dataUrl = await toBase64DataUrl(buf, mime);
-            /* escape the original URL for safe use in a RegExp */
-            const escaped = fontUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            css = css.replace(new RegExp(escaped, "g"), dataUrl);
-          }catch(e){
-            console.warn("Font file embed failed:", fontUrl, e);
-            anyEmbedFailed = true;
-          }
-        }
-        combined += css + "\n";
-      }catch(e){
-        console.warn("Font CSS fetch failed:", cssUrl, e);
-        combined += `@import url('${cssUrl}');\n`;
-        anyEmbedFailed = true;
-      }
-    }
-
-    _cachedFontStyle = combined ||
-      ["@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap');",
-       "@import url('https://fonts.cdnfonts.com/css/bluu-next');"].join("\n");
-
-    return { style: _cachedFontStyle, anyEmbedFailed };
-  })();
-
-  return _fontEmbedInProgress;
-}
-
-/* ---------------------------
-   Export dropdown
-----------------------------*/
-
-const exportToggle = document.getElementById("exportToggle");
-const exportMenuEl = document.getElementById("exportMenu");
-
-function openExportMenu(){
-  const r = exportToggle.getBoundingClientRect();
-  exportMenuEl.style.top = "98px";
-  exportMenuEl.style.right = Math.max(8, window.innerWidth - r.right) + "px";
-  exportMenuEl.classList.add("open");
-}
-
-exportToggle.addEventListener("click", (e)=>{
-  e.stopPropagation();
-  if(exportMenuEl.classList.contains("open")){
-    exportMenuEl.classList.remove("open");
-  }else{
-    openExportMenu();
-  }
-});
-
-exportMenuEl.addEventListener("click", (e)=>{
-  const opt = e.target.closest(".dropdown-item");
-  if(!opt) return;
-  exportMenuEl.classList.remove("open");
-  if(opt.dataset.action === "menu") exportMenuSVG();
-  else if(opt.dataset.action === "menu-pdf") exportMenuPDF();
-  else if(opt.dataset.action === "menu-jpg") exportMenuJPEG();
-  else if(opt.dataset.action === "food") exportMenuSVG({ title: "Food", tagline: TAGLINE_FOOD });
-  else if(opt.dataset.action === "food-pdf") exportMenuPDF({ title: "Food", tagline: TAGLINE_FOOD });
-  else if(opt.dataset.action === "food-jpg") exportMenuJPEG({ title: "Food", tagline: TAGLINE_FOOD });
-  else if(opt.dataset.action === "sign") exportSignSVG();
-  else if(opt.dataset.action === "sign-pdf") exportSignPDF();
-  else if(opt.dataset.action === "sign-jpg") exportSignJPEG();
-});
-
-document.addEventListener("click", ()=>{ exportMenuEl.classList.remove("open"); });
-window.addEventListener("resize", ()=>{ exportMenuEl.classList.remove("open"); });
-
-/* ---------------------------
-   Shared export helpers.
-
-   Three formats:
-
-   • SVG — the editable vector master. Text is converted to
-     glyph outlines with opentype.js when the font files can be
-     fetched + parsed; otherwise it falls back to live text with
-     browser-only embedded webfonts.
-
-   • PDF / JPG — the print files, painted in two layers:
-       1. everything EXCEPT text (diamonds, lattice, patterns,
-          glyph art) comes from the vector layer, rasterised via
-          an SVG image — reliable, since nothing font-related is
-          left in it;
-       2. the text is then painted directly onto the canvas by
-          THIS page, using the same loaded fonts and the same
-          measuring engine that chose the line breaks in the
-          editor. What you see on screen is what exports — the
-          isolated SVG-image font quirks are out of the loop
-          entirely.
-     The PDF wraps that canvas on a true 24" x 36" page; the JPG
-     is the canvas itself at print resolution.
-----------------------------*/
-
-let _outlineFonts = null;
-let _outlineLoadPromise = null;
-
-function pickFontUrl(faceCss){
-  /* prefer formats opentype.js can parse: ttf/otf, then woff(1).
-     woff2 can't be parsed, but the same file usually exists as
-     .woff, so try that URL speculatively as a last resort. */
-  const urls = [...faceCss.matchAll(/url\(["']?(https?:\/\/[^"')\s]+)["']?\)(?:\s*format\(["']?([a-z0-9-]+)["']?\))?/gi)]
-    .map(m => ({ url: m[1], fmt: (m[2] || m[1].split(".").pop().split("?")[0] || "").toLowerCase() }));
-  for(const want of ["truetype", "ttf", "opentype", "otf", "woff"]){
-    const hit = urls.find(u => u.fmt === want);
-    if(hit) return hit.url;
-  }
-  const w2 = urls.find(u => u.fmt === "woff2");
-  if(w2) return w2.url.replace(/\.woff2(\?|$)/, ".woff$1");
-  return null;
-}
-
-async function loadOutlineFonts(){
-  if(_outlineFonts) return _outlineFonts;
-  if(_outlineLoadPromise) return _outlineLoadPromise;
-  _outlineLoadPromise = (async ()=>{
-    if(!window.opentype){ console.warn("opentype.js not loaded — exporting live text instead of outlines"); return null; }
-    const cssUrls = [
-      "https://api.fontshare.com/v2/css?f[]=satoshi@300,500,700&display=swap",
-      "https://fonts.cdnfonts.com/css/bluu-next"
-    ];
-    const faces = [];
-    for(const cssUrl of cssUrls){
-      try{
-        const res = await fetch(cssUrl);
-        if(!res.ok) throw new Error("HTTP " + res.status);
-        const css = await res.text();
-        for(const m of css.matchAll(/@font-face\s*{([^}]*)}/g)){
-          const b = m[1];
-          if(/font-style:\s*italic/i.test(b)) continue;
-          const fam = (b.match(/font-family:\s*['"]?([^'";]+)/i) || [])[1];
-          const wRaw = (b.match(/font-weight:\s*([0-9]+)/i) || [])[1];
-          const url = pickFontUrl(b);
-          if(!fam || !url) continue;
-          faces.push({ family: fam.trim(), weight: parseInt(wRaw || "400", 10), url });
-        }
-      }catch(err){ console.warn("outline: css fetch failed", cssUrl, err); }
-    }
-    const loaded = [];
-    for(const f of faces){
-      try{
-        const res = await fetch(f.url);
-        if(!res.ok) throw new Error("HTTP " + res.status);
-        const font = window.opentype.parse(await res.arrayBuffer());
-        loaded.push({ family: f.family, weight: f.weight, font });
-      }catch(err){ console.warn("outline: font unusable", f.family, f.weight, err); }
-    }
-    _outlineFonts = loaded.length ? { list: loaded } : null;
-    return _outlineFonts;
-  })();
-  return _outlineLoadPromise;
-}
-
-function findOutlineFont(familyCss, weight){
-  if(!_outlineFonts) return null;
-  const fams = String(familyCss || "").split(",")
-    .map(s => s.trim().replace(/^['"]|['"]$/g, "").toLowerCase());
-  for(const fam of fams){
-    const cands = _outlineFonts.list.filter(f => f.family.toLowerCase() === fam);
-    if(cands.length){
-      cands.sort((a, b)=>Math.abs(a.weight - weight) - Math.abs(b.weight - weight));
-      return cands[0];
-    }
-  }
-  return null;
-}
-
-async function beginOutlineText(){
-  const fonts = await loadOutlineFonts();
-  OUTLINE_TEXT = !!fonts;
-  _textFallbacks = 0;
-  return OUTLINE_TEXT;
-}
-
-function endOutlineText(){ OUTLINE_TEXT = false; }
-
-/* fills the __FONT_STYLE__ slot: nothing when the file is fully
-   outlined, embedded webfont CSS when any live text remains */
-async function finishSvg(out, canOutline){
-  const fullyOutlined = canOutline && _textFallbacks === 0;
-  let styleBlock = "";
-  let anyEmbedFailed = false;
-  if(!fullyOutlined){
-    const fs = await buildFontStyle();
-    styleBlock = `
-    <style><![CDATA[${fs.style}]]></style>
-`;
-    anyEmbedFailed = fs.anyEmbedFailed;
-  }
-  return { out: out.split("__FONT_STYLE__").join(styleBlock), outlined: fullyOutlined, anyEmbedFailed: anyEmbedFailed };
-}
-
-function downloadBlob(text, filename, mime){
-  const blob = new Blob([text], { type: mime });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-}
-
-function loadSVGImage(svgText){
-  return new Promise((resolve, reject)=>{
-    const blob = new Blob([svgText], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
+/* images: downscale so they save */
+function readImage(file, cb) {
+  const r = new FileReader();
+  r.onload = () => {
+    if (file.type === "image/svg+xml") return cb(r.result);
     const img = new Image();
-    img.onload = ()=>resolve({ img, done: ()=>URL.revokeObjectURL(url) });
-    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("SVG could not be rasterised")); };
-    img.src = url;
+    img.onload = () => {
+      const m = 360, k = Math.min(1, m / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); cb(c.toDataURL("image/png"));
+    };
+    img.src = r.result;
+  };
+  r.readAsDataURL(file);
+}
+/* fonts */
+async function loadFont(name, file) {
+  try { const f = new FontFace(name, await file.arrayBuffer()); await f.load(); document.fonts.add(f); renderSheets(); checkFonts(file.name); }
+  catch (e) { const el = document.getElementById("fontStatus"); if (el) { el.className = "status no"; el.textContent = "That font file couldn't be read. Try .otf, .ttf or .woff2."; } }
+}
+function checkFonts(uploaded) {
+  document.fonts.ready.then(() => {
+    const el = document.getElementById("fontStatus"); if (!el) return;
+    const has = n => { try { return document.fonts.check(`700 16px "${n}"`) && [...document.fonts].some(f => f.family.replace(/"/g, "") === n && f.status === "loaded"); } catch (e) { return false; } };
+    const disp = has("UserDisplay") ? "your headline font" : has("BluuNext") ? "BluuNext" : null;
+    const body = has("UserBody") ? "your body font" : has("Satoshi") ? "Satoshi" : null;
+    el.className = "status " + (disp && body ? "ok" : "no");
+    el.textContent = `Headlines: ${disp || "stand-in (BluuNext not found)"} · Body: ${body || "stand-in (Satoshi not found)"}`;
   });
 }
 
-/* paint one text op with the live page's canvas font engine */
-function drawCanvasText(ctx, op){
-  const t = op.text;
-  const ls = op.letterSpacing || 0, ws = op.wordSpacing || 0;
-  const nativeLS = ("letterSpacing" in ctx), nativeWS = ("wordSpacing" in ctx);
-  if(nativeLS) ctx.letterSpacing = ls + "px";
-  if(nativeWS) ctx.wordSpacing = ws + "px";
-  if((ls && !nativeLS) || (ws && !nativeWS)){
-    /* manual spacing for browsers without canvas spacing support */
-    ctx.textAlign = "left";
-    const chunks = ws ? t.split(" ") : [...t];
-    const gap = ws ? ctx.measureText(" ").width + ws : ls;
-    const widths = chunks.map(c => ctx.measureText(c).width);
-    const total = widths.reduce((a, b)=>a + b, 0) + gap * Math.max(0, chunks.length - 1);
-    let x = op.x - total / 2;
-    chunks.forEach((c, i)=>{ ctx.fillText(c, x, op.y); x += widths[i] + gap; });
-    return;
+/* footer actions */
+document.getElementById("foot").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.id === "exportBtn") {
+    const blob = new Blob([JSON.stringify(S, null, 1)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "gratified-menu.json"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
-  ctx.textAlign = "center";
-  ctx.fillText(t, op.x, op.y);
-}
-
-async function renderExportCanvas(svgTextNoText, textOps, dpi, wIn, hIn){
-  const { img, done } = await loadSVGImage(svgTextNoText);
-  try{
-    const w = Math.round(wIn * dpi), h = Math.round(hIn * dpi);
-    const canvas = document.createElement("canvas");
-    canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext("2d");
-    if(!ctx) throw new Error("no 2d context");
-    ctx.drawImage(img, 0, 0, w, h);
-    try{
-      await Promise.all([
-        document.fonts.load('700 32px "Bluu Next"'),
-        document.fonts.load("300 16px Satoshi"),
-        document.fonts.load("500 16px Satoshi"),
-        document.fonts.load("700 16px Satoshi")
-      ]);
-      await document.fonts.ready;
-    }catch(_){ /* fonts are almost certainly already active from the editor */ }
-    const k = dpi / 72;   /* device px per SVG (pt) unit */
-    for(const op of (textOps || [])){
-      ctx.save();
-      if(op.tf) ctx.setTransform(k * op.tf.F, 0, 0, k * op.tf.F, k * op.tf.tx, k * op.tf.ty);
-      else ctx.setTransform(k, 0, 0, k, 0, 0);
-      ctx.fillStyle = op.fill;
-      ctx.globalAlpha = op.opacity !== undefined ? op.opacity : 1;
-      ctx.textBaseline = "alphabetic";
-      ctx.font = `${op.italic ? "italic " : ""}${op.weight} ${op.size}px ${op.family}`;
-      drawCanvasText(ctx, op);
-      ctx.restore();
-    }
-    return canvas;
-  } finally { done(); }
-}
-
-async function buildExportCanvas(build){
-  const wIn = build.pageWIn || 24, hIn = build.pageHIn || 36;
-  let canvas = null, usedDpi = 0;
-  for(const dpi of [200, 150, 100]){
-    try{ canvas = await renderExportCanvas(build.out, build.textOps, dpi, wIn, hIn); usedDpi = dpi; break; }
-    catch(err){ console.warn("render at " + dpi + "dpi failed:", err); }
+  if (b.id === "resetBtn") {
+    const foot = document.getElementById("foot");
+    foot.innerHTML = `<div class="confirm">Reset everything to the website version? Your logos will be removed. <button class="btn small solid" id="yesReset">Reset</button><button class="btn small ghost" id="noReset">Keep</button></div>`;
   }
-  return canvas ? { canvas: canvas, dpi: usedDpi, wIn: wIn, hIn: hIn } : null;
+  if (b.id === "yesReset") { S = clone(DEFAULT); changed(); renderRail(); renderFoot(); }
+  if (b.id === "noReset") renderFoot();
+});
+document.getElementById("foot").addEventListener("change", e => {
+  if (e.target.id !== "importFile" || !e.target.files[0]) return;
+  const r = new FileReader();
+  r.onload = () => { try { S = Object.assign(clone(DEFAULT), JSON.parse(r.result)); normalize(); changed(); renderRail(); document.getElementById("saveState").textContent = "Opened " + e.target.files[0].name; } catch (err) { document.getElementById("saveState").textContent = "That file isn't a menu file."; } };
+  r.readAsText(e.target.files[0]);
+});
+
+/* print */
+const tip = document.getElementById("printTip"), pb = document.getElementById("printBtn");
+if (inFrame) {
+  tip.innerHTML = "Edits save in this browser. To print, download this page as an HTML file, open it in Chrome or Safari, and use Print. Drag pins on the map to move them.";
+} else {
+  pb.hidden = false; pb.addEventListener("click", () => window.print());
+  tip.innerHTML = "Print settings: Letter, landscape, margins none, scale 100%, background graphics on, double-sided <b>flip on short edge</b>. Fold: cover side up, fold Drinks onto Food, then tuck that pair behind the cover.";
 }
 
-async function exportBuildAsPDF(build, filename){
-  const lib = window.jspdf;
-  if(!lib || !lib.jsPDF){
-    alert("The PDF library didn't load — check your internet connection and reload, or use the JPG / SVG export.");
-    return;
-  }
-  showToast("rendering print pdf… a few seconds", 20000);
-  const r = await buildExportCanvas(build);
-  if(!r){ alert("Couldn't render the PDF on this machine — try the JPG or SVG export."); return; }
-  const pdf = new lib.jsPDF({ orientation: "portrait", unit: "in", format: [r.wIn, r.hIn], compress: true });
-  pdf.addImage(r.canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, r.wIn, r.hIn);
-  pdf.save(filename);
-  showToast(`exported ${r.wIn}"x${r.hIn}" pdf \u2713 \u2014 ${r.dpi}dpi, text matches your screen exactly`, 5000);
-}
-
-async function exportBuildAsJPEG(build, filename){
-  showToast("rendering print jpg… a few seconds", 20000);
-  const r = await buildExportCanvas(build);
-  if(!r){ alert("Couldn't render the JPG on this machine — try the SVG export."); return; }
-  const a = document.createElement("a");
-  a.href = r.canvas.toDataURL("image/jpeg", 0.95);
-  a.download = filename;
-  a.click();
-  showToast(`exported ${r.wIn}"x${r.hIn}" jpg \u2713 \u2014 ${r.dpi}dpi, text matches your screen exactly`, 5000);
-}
-
-function svgExportToast(r){
-  if(r.outlined) return "exported 24\"x36\" svg \u2713 \u2014 text outlined, opens perfectly anywhere";
-  if(r.anyEmbedFailed) return "exported 24\"x36\" svg \u2014 fonts couldn't fully embed; send the pdf or jpg to print";
-  return "exported 24\"x36\" svg \u2014 live text (browser fonts only); send the pdf or jpg to print";
-}
-
-const PRINT_NOTE_COMMENT = `
-  <!--
-    PRINT: 24in x 36in portrait (Arch D).
-    Text is converted to vector outlines at export when possible,
-    so no fonts are required - this file opens identically in
-    browsers, Inkscape, Illustrator, and print RIPs. If outlining
-    wasn't available, live text with browser-only webfonts is used
-    instead; in that case send the PDF or JPG export to print.
-  -->
-`;
-
-/* ---------------------------
-   Build SVG — menu.
-   Always a fixed 24" x 36" portrait sheet (Arch D poster).
-   The drawing itself is the classic export — your diamonds at
-   the editor's current zoom, the same text sizes, the same
-   wrapping you see on screen — and that whole design is then
-   uniformly scaled + centred to fill the sheet, with the
-   lattice background extended to the page edges.
-
-   Pass an override ({title, tagline}) to force a format —
-   the "food menu" dropdown options use this to export the
-   current tab with the Food title + tagline.
-
-   buildOpts.collectText: emit a TEXTLESS svg and record every
-   text op for canvas painting (the PDF / JPG pipeline).
-----------------------------*/
-
-async function buildMenuSVG(override, buildOpts){
-
-  if(!state.items.length){ alert("Add some menu items first :)"); return null; }
-
-  const collect = !!(buildOpts && buildOpts.collectText);
-  showToast(collect ? "rendering print file… a few seconds" : "preparing print-ready vectors… one moment", 12000);
-
-  const canOutline = collect ? false : await beginOutlineText();
-  if(collect){ TEXT_COLLECT = []; _collectTransform = null; }
-  let out = "";
-  let fileBase = "";
-  let textOps = null;
-  let pageWIn = 24, pageHIn = 36;
-  try{
-
-  const PT_PER_IN = 72;
-  const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
-  const PAGE_H = 36 * PT_PER_IN;   /* 36" tall — vertical */
-  pageWIn = PAGE_W / PT_PER_IN; pageHIn = PAGE_H / PT_PER_IN;
-  const PAGE_MARGIN = 54;          /* 0.75" quiet zone on the sheet */
-
-  const s = state.scale;
-  const title = (override && override.title) || currentMenuName();
-  const tagline = (override && override.tagline !== undefined)
-    ? override.tagline
-    : menuTagline(title);
-
-  /* ---- lay the design out in editor coordinates, exactly
-     like the classic auto-crop export ---- */
-  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
-  for(const it of state.items){
-    const p = toScreen(it.gx,it.gy);
-    minX = Math.min(minX, p.x - s); maxX = Math.max(maxX, p.x + s);
-    minY = Math.min(minY, p.y - s); maxY = Math.max(maxY, p.y + s);
-  }
-
-  const pad = 48;
-  const headerH = tagline ? 128 : 108;
-  const footerH = 60;
-  const x0 = minX - pad;
-  const y0 = minY - pad - headerH;
-  const w  = (maxX - minX) + pad*2;
-  const h  = (maxY - minY) + pad*2 + headerH + footerH;
-  const cx = (minX + maxX)/2;
-
-  /* ---- uniform scale + centre onto the fixed sheet ---- */
-  const F = Math.min((PAGE_W - PAGE_MARGIN*2) / w, (PAGE_H - PAGE_MARGIN*2) / h);
-  const tx = (PAGE_W - w * F) / 2 - x0 * F;
-  const ty = (PAGE_H - h * F) / 2 - y0 * F;
-
-  if(collect) _collectTransform = { tx: tx, ty: ty, F: F };
-
-  /* editor-space region visible through the full sheet, so the
-     paper texture + lattice run edge to edge on the print */
-  const vx0 = (0 - tx) / F;
-  const vy0 = (0 - ty) / F;
-  const vw = PAGE_W / F;
-  const vh = PAGE_H / F;
-
-  /* dot-grid pattern: a simple repeating 10×10 cell with a tiny
-     diamond at its centre — background texture that gives the
-     print a deliberate paper-menu feel */
-  const DOT_SPACING = 10;
-
-  out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
-
-  out += `__FONT_STYLE__
-    <defs>
-      <!-- repeating diamond-dot grid -->
-      <pattern id="dotGrid" x="${vx0 % DOT_SPACING}" y="${vy0 % DOT_SPACING}"
-        width="${DOT_SPACING}" height="${DOT_SPACING}" patternUnits="userSpaceOnUse">
-        ${dotDiamond(DOT_SPACING/2, DOT_SPACING/2, 0.85, "#722F37", 0.13)}
-      </pattern>
-    </defs>
-
-    <g transform="translate(${tx},${ty}) scale(${F})">
-
-    <rect x="${vx0}" y="${vy0}" width="${vw}" height="${vh}" fill="#EDE8E0"/>
-    <rect x="${vx0}" y="${vy0}" width="${vw}" height="${vh}" fill="url(#dotGrid)"/>
-  `;
-
-  /* diamond lattice — slightly bolder than on screen (0.08 vs 0.05)
-     so it reads through the dot grid on a physical print */
-  {
-    const u = s * 0.5;
-    const lgx0 = Math.floor((vx0 - state.ox)/u) - 1;
-    const lgx1 = Math.ceil((vx0 + vw - state.ox)/u) + 1;
-    const lgy0 = Math.floor((vy0 - state.oy)/u) - 1;
-    const lgy1 = Math.ceil((vy0 + vh - state.oy)/u) + 1;
-    if((lgx1-lgx0)*(lgy1-lgy0) <= 60000){
-      for(let gx=lgx0; gx<=lgx1; gx++){
-        for(let gy=lgy0; gy<=lgy1; gy++){
-          if(isLatticeCentre(gx,gy)){
-            const p = toScreen(gx,gy);
-            out += `
-              <polygon
-                points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
-                fill="none" stroke="#722F37" stroke-opacity="0.08" stroke-width="1"
-              />
-              ${dotDiamond(p.x, p.y, 2.3, "#722F37", 0.08)}`;
-          }
-        }
-      }
-    }
-  }
-
-  const titleFS = fitSingleLine(title, 700, FONT_NAME, 32, w - 80);
-  const titleY = y0 + 78;
-  out += emitText(title, cx, titleY, {
-    size: titleFS, weight: 700, family: FONT_NAME, fill: "#722F37", letterSpacing: 3
-  });
-  if(tagline){
-    out += emitText(tagline, cx, titleY + 26, {
-      size: 11, weight: 300, family: FONT_NOTE, fill: "#6B5740",
-      opacity: 0.8, letterSpacing: 1.5, raw: true
-    });
-  }
-
-  const footY = maxY + pad + 28;
-  const footer = /food/i.test(title) ? FOOTER_FOOD : FOOTER_TEXT;
-  out += emitText(footer, cx, footY, {
-    size: 11, weight: 300, family: FONT_NOTE, fill: "#6B5740",
-    opacity: 0.8, letterSpacing: 1.5, raw: true
-  });
-
-  for(const it of state.items){
-    const p = toScreen(it.gx,it.gy);
-    out += diamondItem(p.x, p.y, s, it.color, "#722F37", it.nibble);
-    out += specialPattern(it, p.x, p.y, s);
-    out += itemTexts(it, p.x, p.y, s);
-  }
-
-  out += `
-    </g>${PRINT_NOTE_COMMENT}</svg>`;
-
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  fileBase = "gratified-" + (slug || "menu") + "-24x36";
-
-  }finally{
-    endOutlineText();
-    textOps = TEXT_COLLECT;
-    TEXT_COLLECT = null;
-    _collectTransform = null;
-  }
-
-  const fin = collect
-    ? { out: out.split("__FONT_STYLE__").join(""), outlined: true, anyEmbedFailed: false }
-    : await finishSvg(out, canOutline);
-  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps, pageWIn: pageWIn, pageHIn: pageHIn };
-}
-
-async function exportMenuSVG(override){
-  const r = await buildMenuSVG(override);
-  if(!r) return;
-  downloadBlob(r.out, r.fileBase + ".svg", "image/svg+xml");
-  showToast(svgExportToast(r), 5000);
-}
-
-async function exportMenuPDF(override){
-  const r = await buildMenuSVG(override, { collectText: true });
-  if(!r) return;
-  await exportBuildAsPDF(r, r.fileBase + ".pdf");
-}
-
-async function exportMenuJPEG(override){
-  const r = await buildMenuSVG(override, { collectText: true });
-  if(!r) return;
-  await exportBuildAsJPEG(r, r.fileBase + ".jpg");
-}
-
-/* ---------------------------
-   Build SVG — 24"x36" sign.
-----------------------------*/
-
-async function buildSignSVG(buildOpts){
-  const isEntry = currentMenuName().toLowerCase().includes("entry");
-  if(!state.items.length && !isEntry){ alert("Add some menu items first :)"); return null; }
-  return isEntry ? await buildEntrySignSVG(buildOpts) : await buildRegularSignSVG(buildOpts);
-}
-
-async function exportSignSVG(){
-  const r = await buildSignSVG();
-  if(!r) return;
-  downloadBlob(r.out, r.fileBase + ".svg", "image/svg+xml");
-  showToast(svgExportToast(r), 5000);
-}
-
-async function exportSignPDF(){
-  const r = await buildSignSVG({ collectText: true });
-  if(!r) return;
-  await exportBuildAsPDF(r, r.fileBase + ".pdf");
-}
-
-async function exportSignJPEG(){
-  const r = await buildSignSVG({ collectText: true });
-  if(!r) return;
-  await exportBuildAsJPEG(r, r.fileBase + ".jpg");
-}
-
-async function buildRegularSignSVG(buildOpts){
-
-  const collect = !!(buildOpts && buildOpts.collectText);
-  showToast(collect ? "rendering print file… a few seconds" : "preparing print-ready vectors… one moment", 12000);
-
-  const canOutline = collect ? false : await beginOutlineText();
-  if(collect){ TEXT_COLLECT = []; _collectTransform = null; }
-  let out = "";
-  let fileBase = "";
-  let textOps = null;
-  let pageWIn = 24, pageHIn = 36;
-  try{
-
-  const PT_PER_IN = 72;
-  const PAGE_W = 24 * PT_PER_IN;   /* 24" wide */
-  const PAGE_H = 36 * PT_PER_IN;   /* 36" tall — vertical */
-  pageWIn = PAGE_W / PT_PER_IN; pageHIn = PAGE_H / PT_PER_IN;
-  const K = 1.66;                  /* layout scale-up from the old 14"x22" design */
-  const MARGIN = Math.round(56 * K);
-
-  const title = currentMenuName();
-  const cx = PAGE_W / 2;
-
-  let y = MARGIN;
-  const WORD_FS = Math.round(90*K), WORD_LETTER = Math.round(6*K);
-  y += Math.round(92*K); const wordmarkY = y;
-  const SUB_FS = Math.round(36*K);
-  y += Math.round(58*K); const subtitleY = y;
-  const LOGO_D = Math.round(82*K);
-  y += Math.round(36*K) + LOGO_D/2; const logoDiamondY = y;
-  y += LOGO_D/2;
-  y += Math.round(54*K); const taglineY = y;
-  y += Math.round(50*K); const sectionLabelY = y;
-  y += Math.round(32*K); const contentTop = y;
-
-  const hoursY = PAGE_H - MARGIN - Math.round(40*K);
-  const LOWER_FS = Math.round(68*K);
-  const lowerLevelY = hoursY - Math.round(80*K);
-  const chevronY = lowerLevelY - Math.round(74*K);
-  const findUsY = chevronY - Math.round(48*K);
-  const footerDividerY = findUsY - Math.round(52*K);
-  const contentBottom = footerDividerY - Math.round(36*K);
-
-  let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
-  for(const it of state.items){
-    gx0 = Math.min(gx0, it.gx); gx1 = Math.max(gx1, it.gx);
-    gy0 = Math.min(gy0, it.gy); gy1 = Math.max(gy1, it.gy);
-  }
-  const spanX = gx1 - gx0;
-  const spanY = gy1 - gy0;
-  const availW = PAGE_W - MARGIN*2;
-  const availH = contentBottom - contentTop;
-
-  const sW = availW / (spanX/2 + 2);
-  const sH = availH / (spanY/2 + 2);
-  const s = Math.max(Math.round(16*K), Math.min(sW, sH, Math.round(230*K)));
-  const u = s * 0.5;
-
-  const gxMid = (gx0 + gx1) / 2;
-  const sox = cx - gxMid * u;
-  const clusterGap = Math.round(32*K);
-  const soy = (contentTop + clusterGap) + s - gy0 * u;
-  const sToScreen = (gx, gy) => ({ x: gx*u + sox, y: gy*u + soy });
-
-  /* text-to-diamond ratio synced to the editor's current zoom */
-  const fontScale = s / Math.max(20, state.scale);
-  const itemStroke = 1.6 * K;
-  const sectionLabelSize = fitSingleLine(title, 700, FONT_NAME, Math.round(26*K), PAGE_W - MARGIN*2 - Math.round(60*K));
-  const B = Math.round(40*K);
-
-  out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="24in" height="36in">`;
-
-  out += `__FONT_STYLE__
-    <defs>
-      <radialGradient id="signGlow" cx="50%" cy="14%" r="55%">
-        <stop offset="0%"   stop-color="${SIGN_AMBER}" stop-opacity="0.16"/>
-        <stop offset="100%" stop-color="${SIGN_AMBER}" stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id="signVignette" cx="50%" cy="50%" r="75%">
-        <stop offset="60%"  stop-color="#000000" stop-opacity="0"/>
-        <stop offset="100%" stop-color="#000000" stop-opacity="0.18"/>
-      </radialGradient>
-      <pattern id="dotGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
-        ${dotDiamond(5, 5, 0.75, SIGN_PARCHMENT, 0.12)}
-      </pattern>
-    </defs>
-
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="${SIGN_BG}"/>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signGlow)"/>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#signVignette)"/>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
-    <rect x="${B}" y="${B}" width="${PAGE_W-2*B}" height="${PAGE_H-2*B}" fill="none" stroke="${SIGN_AMBER}" stroke-width="2.5" opacity="0.55"/>
-  `;
-
-  /* diamond lattice on dark background */
-  {
-    const lgx0 = Math.floor((0 - sox)/u) - 1;
-    const lgx1 = Math.ceil((PAGE_W - sox)/u) + 1;
-    const lgy0 = Math.floor((0 - soy)/u) - 1;
-    const lgy1 = Math.ceil((PAGE_H - soy)/u) + 1;
-    const latticeStroke = 1 * K;
-    const latticeDot = 2.3 * K;
-    if((lgx1-lgx0)*(lgy1-lgy0) <= 60000){
-      for(let gx=lgx0; gx<=lgx1; gx++){
-        for(let gy=lgy0; gy<=lgy1; gy++){
-          if(isLatticeCentre(gx,gy)){
-            const p = sToScreen(gx,gy);
-            out += `
-              <polygon
-                points="${p.x},${p.y-s} ${p.x+s},${p.y} ${p.x},${p.y+s} ${p.x-s},${p.y}"
-                fill="none" stroke="${SIGN_PARCHMENT}" stroke-opacity="0.07" stroke-width="${latticeStroke}"
-              />
-              ${dotDiamond(p.x, p.y, latticeDot, SIGN_PARCHMENT, 0.07)}`;
-          }
-        }
-      }
-    }
-  }
-
-  out += emitText("Gratified", cx, wordmarkY, {
-    size: WORD_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT, letterSpacing: WORD_LETTER
-  });
-  out += emitText("coffee + art", cx, subtitleY, {
-    size: SUB_FS, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT,
-    letterSpacing: 3, wordSpacing: 8
-  });
-  out += logoDiamond(cx, logoDiamondY, LOGO_D, SIGN_PARCHMENT);
-
-  if(SIGN_TAGLINE_TEXT.trim()){
-    out += emitText(SIGN_TAGLINE_TEXT, cx, taglineY, {
-      size: Math.round(17*K), weight: 300, family: FONT_PRICE, fill: SIGN_GOLD,
-      opacity: 0.85, letterSpacing: 1.5, italic: true
-    });
-  }
-
-  out += emitText(title, cx, sectionLabelY, {
-    size: sectionLabelSize, weight: 700, family: FONT_NAME, fill: SIGN_PARCHMENT, letterSpacing: 3
-  });
-
-  for(const it of state.items){
-    const p = sToScreen(it.gx, it.gy);
-    out += diamondItem(p.x, p.y, s, SIGN_PARCHMENT, SIGN_AMBER, it.nibble, SIGN_AMBER, itemStroke);
-    out += specialPattern(it, p.x, p.y, s, fontScale);
-    const deepColor = deepenColor(it.color);
-    out += itemTexts(it, p.x, p.y, s, fontScale, { nameCol: deepColor, subCol: deepColor, subOp: 0.7 });
-  }
-
-  out += `
-    <line x1="${cx-Math.round(130*K)}" y1="${footerDividerY}" x2="${cx+Math.round(130*K)}" y2="${footerDividerY}" stroke="${SIGN_AMBER}" stroke-width="2.5" opacity="0.7"/>
-  `;
-  out += emitText(SIGN_FIND_US_LINE, cx, findUsY, {
-    size: Math.round(24*K), weight: 700, family: FONT_PRICE, fill: SIGN_GOLD, letterSpacing: 3
-  });
-  out += downChevron(cx, chevronY, Math.round(30*K), SIGN_GOLD, 6);
-  out += emitText(SIGN_LOCATION_LINE, cx, lowerLevelY, {
-    size: LOWER_FS, weight: 700, family: FONT_PRICE, fill: SIGN_PARCHMENT, letterSpacing: 1.5
-  });
-  out += emitText(SIGN_HOURS_LINE, cx, hoursY, {
-    size: Math.round(22*K), weight: 700, family: FONT_PRICE, fill: SIGN_GOLD,
-    opacity: 0.85, letterSpacing: 2
-  });
-
-  out += `${PRINT_NOTE_COMMENT}</svg>`;
-
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  fileBase = "gratified-sign-" + (slug || "menu") + "-24x36";
-
-  }finally{
-    endOutlineText();
-    textOps = TEXT_COLLECT;
-    TEXT_COLLECT = null;
-    _collectTransform = null;
-  }
-
-  const fin = collect
-    ? { out: out.split("__FONT_STYLE__").join(""), outlined: true, anyEmbedFailed: false }
-    : await finishSvg(out, canOutline);
-  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps, pageWIn: pageWIn, pageHIn: pageHIn };
-}
-
-/* ---------------------------
-   Build SVG — 24"x36" Entry / Wayfinding Sign.
-----------------------------*/
-
-async function buildEntrySignSVG(buildOpts){
-
-  const collect = !!(buildOpts && buildOpts.collectText);
-  showToast(collect ? "rendering print file… a few seconds" : "preparing print-ready vectors… one moment", 12000);
-
-  const canOutline = collect ? false : await beginOutlineText();
-  if(collect){ TEXT_COLLECT = []; _collectTransform = null; }
-  let out = "";
-  let fileBase = "";
-  let textOps = null;
-  let pageWIn = 24, pageHIn = 36;
-  try{
-
-  /* Entry / wayfinding sign — styled after gratified.com:
-     cream paper, oxblood serif, olive accents, plenty of air.
-     No gradients, no border, no arrow — a double chevron
-     carries the "head downstairs" cue. */
-
-  const PT_PER_IN = 72;
-  const SIGN_W_IN = 14, SIGN_H_IN = 22;   /* entry sign prints smaller than the 24"x36" menus/signs */
-  const PAGE_W = SIGN_W_IN * PT_PER_IN;   /* 1008 */
-  const PAGE_H = SIGN_H_IN * PT_PER_IN;   /* 1584 */
-  pageWIn = PAGE_W / PT_PER_IN; pageHIn = PAGE_H / PT_PER_IN;
-  /* every fixed measurement below was tuned on a 1728x2592 (24x36)
-     canvas — KW/KH rescale it all so the layout keeps the same
-     proportions and balance at 14x22 */
-  const KW = PAGE_W / 1728;
-  const KH = PAGE_H / 2592;
-  const M = 120 * KW;
-  const cx = PAGE_W / 2;
-  const OX = "#722F37";      /* oxblood */
-  const OLIVE = "#6B5740";
-
-  out = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PAGE_W} ${PAGE_H}" width="${SIGN_W_IN}in" height="${SIGN_H_IN}in">`;
-
-  out += `__FONT_STYLE__
-    <defs>
-      <pattern id="dotGrid" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
-        ${dotDiamond(5, 5, 0.85, OX, 0.13)}
-      </pattern>
-    </defs>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="#EDE8E0"/>
-    <rect x="0" y="0" width="${PAGE_W}" height="${PAGE_H}" fill="url(#dotGrid)"/>
-  `;
-
-  /* ---- masthead: plain announcement — no wordmark, no logo ----
-     the "=" resolves to a real inline diamond, not a Unicode
-     glyph, so it always matches the app's diamond motif exactly
-     (and never forces this line out of the vector-outline path
-     on export the way a missing font glyph would). Text stays
-     center-anchored at its own midpoint so emitText's existing
-     "middle" behaviour needs no changes; the diamond's x is then
-     solved so [text][gap][diamond] sits centered on cx as a
-     group. */
-  const subY = 320 * KH;
-  const titleY = 480 * KH;
-  const subFS = 44 * KW;
-  const subLS = 5 * KW;
-  const subWeight = 640;
-  const subGap = 12 * KW;                                  /* space between "=" and the diamond */
-  const subDiaHalf = subFS * 0.4;                           /* diamond half-width — noticeably bigger than an inline glyph */
-  const subTextW = textW(ENTRY_GREETING_SUB, `${subWeight} ${subFS}px ${FONT_NOTE}`)
-    + subLS * ENTRY_GREETING_SUB.length;                    /* canvas measureText ignores letter-spacing — approximate it back in */
-  const subTextCX = cx - (subGap + subDiaHalf * 2) / 2;
-  const subDiaCX = cx + (subTextW + subGap) / 2;
-  const subDiaCY = subY - subFS * 0.3;                      /* vertically centred on the "=" bars, not the text baseline */
-  out += emitText(ENTRY_GREETING_SUB, subTextCX, subY, {
-    size: subFS, weight: subWeight, family: FONT_NOTE, fill: OLIVE, letterSpacing: subLS
-  });
-  out += diamond(subDiaCX, subDiaCY, subDiaHalf, OX, "none");
-  out += emitText(ENTRY_GREETING, cx, titleY, {
-    size: 140 * KW, weight: 800, family: FONT_NAME, fill: OX, letterSpacing: 2 * KW
-  });
-
-  /* ---- bottom block: wayfinding ----
-     with items it hugs the base; when the sheet is otherwise
-     empty it grows and floats up so the poster doesn't gape */
-  const hasItems = state.items.length > 0;
-  const chevW = (hasItems ? 128 : 170) * KW;
-  const chevSW = (hasItems ? 12 : 14) * KW;
-  const chev2Y = hasItems ? PAGE_H - M - 90 * KH : 1950 * KH;
-  const chev1Y = chev2Y - (hasItems ? 62 : 74) * KH;
-  out += downChevron(cx, chev1Y, chevW, OX, chevSW);
-  out += downChevron(cx, chev2Y, chevW, OX, chevSW);
-  const lowerY = chev1Y - (hasItems ? 96 : 112) * KH;
-  out += emitText("Lower Level", cx, lowerY, {
-    size: (hasItems ? 126 : 150) * KW, weight: 800, family: FONT_NAME, fill: OX, letterSpacing: 2 * KW
-  });
-  const findUsY = lowerY - (hasItems ? 156 : 182) * KH;
-  out += emitText("open rn on the", cx, findUsY, {
-    size: (hasItems ? 44 : 50) * KW, weight: 640, family: FONT_NOTE, fill: OLIVE, letterSpacing: 5 * KW
-  });
-
-  /* ---- middle: featured items in full menu style, or air ---- */
-  if(state.items.length > 0){
-    const contentTop = titleY + 120 * KH;
-    const contentBottom = findUsY - (44 + 70) * KH;
-    const availH = Math.max(150 * KH, contentBottom - contentTop);
-    const availW = PAGE_W - M*2;
-    let gx0=Infinity, gx1=-Infinity, gy0=Infinity, gy1=-Infinity;
-    for(const it of state.items){
-      gx0 = Math.min(gx0, it.gx); gx1 = Math.max(gx1, it.gx);
-      gy0 = Math.min(gy0, it.gy); gy1 = Math.max(gy1, it.gy);
-    }
-    const spanX = Math.max(gx1 - gx0, 1);
-    const spanY = Math.max(gy1 - gy0, 1);
-    const sW = availW / (spanX/2 + 2);
-    const sH = availH / (spanY/2 + 2);
-    const s = Math.max(46 * KW, Math.min(sW, sH, 300 * KW));
-    const u = s * 0.5;
-    const gxMid = (gx0 + gx1) / 2;
-    const gyMid = (gy0 + gy1) / 2;
-    const sox = cx - gxMid * u;
-    const soy = (contentTop + contentBottom) / 2 - gyMid * u;
-    const fontScale = s / Math.max(20, state.scale);
-    for(const it of state.items){
-      const p = { x: it.gx*u + sox, y: it.gy*u + soy };
-      out += diamondItem(p.x, p.y, s, it.color, OX, it.nibble);
-      out += specialPattern(it, p.x, p.y, s, fontScale);
-      out += itemTexts(it, p.x, p.y, s, fontScale);
-    }
-  }
-
-  out += `${PRINT_NOTE_COMMENT}</svg>`;
-
-  const slug = currentMenuName().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  fileBase = "gratified-entry-" + (slug || "sign") + "-14x22";
-
-  }finally{
-    endOutlineText();
-    textOps = TEXT_COLLECT;
-    TEXT_COLLECT = null;
-    _collectTransform = null;
-  }
-
-  const fin = collect
-    ? { out: out.split("__FONT_STYLE__").join(""), outlined: true, anyEmbedFailed: false }
-    : await finishSvg(out, canOutline);
-  return { out: fin.out, fileBase: fileBase, outlined: fin.outlined, anyEmbedFailed: fin.anyEmbedFailed, textOps: textOps, pageWIn: pageWIn, pageHIn: pageHIn };
-}
-
-/* ----------------------------------- */
-
-window.addItem = addItem;
-window.del = del;
-
-render();
-
-(async ()=>{
-  await loadIndex();
-  currentMenuId = menuIndex[0].id;
-  renderTabs();
-  await loadMenu(currentMenuId);
-  render();
-})();
-
-if(document.fonts && document.fonts.ready){
-  document.fonts.ready.then(render);
-}
-
+renderFoot(); renderRail(); renderSheets();
+document.fonts && document.fonts.ready.then(() => { renderSheets(); });
 </script>
 
 </body>
