@@ -7,6 +7,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <!-- Fonts: Gratified's own files. Keep this page in your website folder (next to fonts/) and BluuNext + Switzer load automatically. -->
 <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700&display=swap">
+<link rel="stylesheet" href="https://fonts.cdnfonts.com/css/bluu-next">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Outfit:wght@300;400;500;600;700&display=swap">
@@ -25,7 +26,7 @@
   --ui-accent: #722F37;    /* deep red */
   --ui-accent-2: #CC5500;  /* bright orange */
   --ui-warn: #B3261E;
-  --f-display: "UserDisplay", "BluuNext", "Playfair Display", Georgia, serif;
+  --f-display: "UserDisplay", "BluuNext", "Bluu Next", "Playfair Display", Georgia, serif;
   --f-body: "UserBody", "Satoshi", "Outfit", "Helvetica Neue", Arial, sans-serif;
   color-scheme: light;
 }
@@ -103,6 +104,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .item-ed { display: grid; grid-template-columns: 1fr 64px auto; gap: 6px; align-items: start; padding-top: 8px; border-top: 1px dashed var(--ui-line); }
 .item-ed .full { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; }
 .tools { display: flex; gap: 4px; }
+.item-ed .full.brandpick { grid-template-columns: 1fr; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.chip { width: 16px; height: 16px; border: 1px solid rgba(60,60,60,.25); padding: 0; cursor: pointer; transform: rotate(45deg) scale(.85); }
+.chip[aria-pressed="true"] { outline: 2px solid var(--ui-accent-2); outline-offset: 1px; }
+.chip.none { background: linear-gradient(135deg, #fff 45%, #b3261e 46%, #b3261e 54%, #fff 55%); }
+.chips input[type=color] { width: 24px; height: 20px; padding: 0; border: 1px solid var(--ui-line); background: none; cursor: pointer; }
+.item-ed select { width: 100%; padding: 6px 7px; border: 1px solid var(--ui-line); background: #fff; min-width: 0; }
+.item-ed input[type=text] { padding: 6px 8px; border: 1px solid var(--ui-line); background: #fff; min-width: 0; width: 100%; }
 .status { font-size: 12px; color: var(--ui-muted); }
 .status.ok::before { content: "● "; color: #3c7a4c; }
 .status.no::before { content: "● "; color: var(--ui-accent-2); }
@@ -143,6 +152,23 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .sec { margin-top: calc(13pt * var(--t)); display: grid; gap: calc(6pt * var(--t)); }
 .sec h3 { margin: 0; font-size: calc(7.5pt * var(--t)); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; display: flex; align-items: center; gap: 6pt; color: var(--ink); }
 .sec h3 .ln { flex: 1; border-top: .75pt solid var(--rule); order: 1; }
+.dia .sec h3::before { content: ""; width: 4.5pt; height: 4.5pt; background: var(--accent2); transform: rotate(45deg); flex: none; margin-right: 1pt; }
+.sheet.texture { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Crect x='6' y='6' width='2' height='2' transform='rotate(45 7 7)' fill='%23722F37' fill-opacity='.16'/%3E%3C/svg%3E"); background-size: 14px 14px; }
+.sec.c h3 { color: var(--sct); }
+.sec.c h3 .ln { border-top-color: var(--scl); }
+.dia .sec.c h3::before { background: var(--scd); }
+.sec.c .pr { color: var(--sct); }
+.sec.c .it.sp { background: var(--scs); }
+.code-tint .sec.c { background: var(--scf); padding: calc(6pt * var(--t)) 7pt calc(7pt * var(--t)); margin-top: calc(9pt * var(--t)); }
+.code-tint .sec.c + .sec.c { margin-top: calc(5pt * var(--t)); }
+.code-accent .sec.c { border-left: 2.25pt solid var(--scd); padding-left: 7pt; }
+.bl { height: calc(10pt * var(--t)); max-width: 42pt; width: auto; object-fit: contain; vertical-align: -2pt; margin-right: 4pt; }
+.strip { margin-top: auto; padding-top: 10pt; display: grid; gap: 5pt; }
+.strip + .ft { margin-top: 0; }
+.strip span { font-size: calc(6.5pt * var(--t)); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.strip div { display: flex; flex-wrap: wrap; gap: 8pt 12pt; align-items: center; }
+.strip img { height: calc(18pt * var(--t)); max-width: 60pt; object-fit: contain; }
+.strip em { font-style: normal; font-weight: 700; font-size: calc(8pt * var(--t)); color: var(--accent); }
 .sec h3 small { order: 2; font-weight: 600; letter-spacing: .04em; text-transform: none; color: var(--accent2); font-size: calc(7.5pt * var(--t)); }
 .it { display: grid; grid-template-columns: 1fr auto; column-gap: 8pt; }
 .it b { font-weight: 700; font-size: calc(9.5pt * var(--t)); }
@@ -189,7 +215,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pin { cursor: grab; }
 .pin:active { cursor: grabbing; }
 .pin .dm { fill: var(--accent2); stroke: var(--paperSolid); stroke-width: 2.5; }
-.pin .ring { fill: var(--paperSolid); stroke: var(--accent2); stroke-width: 2.5; }
+.pin .ring { fill: #fff; stroke: var(--accent2); stroke-width: 2.2; }
 .pin text { font-family: var(--f-body); font-size: 10.5px; font-weight: 700; fill: var(--paperSolid); text-anchor: middle; pointer-events: none; }
 .pin .plabel { font-size: 8px; font-weight: 700; fill: var(--ink); text-anchor: start; paint-order: stroke; stroke: var(--mapbg); stroke-width: 3px; }
 .home .halo { fill: var(--accent); opacity: .15; }
@@ -213,7 +239,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pt-key { width: 22pt; height: 22pt; display: grid; place-items: center; }
 .pt-key .k { width: 14pt; height: 14pt; background: var(--accent2); transform: rotate(45deg); display: grid; place-items: center; }
 .pt-key .k span { transform: rotate(-45deg); color: var(--paperSolid); font-weight: 700; font-size: 7.5pt; }
-.pt-key img { width: 22pt; height: 22pt; border-radius: 50%; object-fit: cover; border: 1.25pt solid var(--accent2); background: #fff; }
+.pt-key .k.lg { width: 16pt; height: 16pt; background: #fff; border: 1pt solid var(--accent2); }
+.pt-key .k.lg img { transform: rotate(-45deg); width: 13pt; height: 13pt; object-fit: contain; }
 .pt-row b { font-size: calc(9pt * var(--t)); display: block; }
 .pt-row span.s { font-size: calc(7.5pt * var(--t)); color: var(--muted); display: block; }
 
@@ -263,7 +290,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
         <button class="tab" role="tab" data-tab="design" aria-selected="true">design</button>
         <button class="tab" role="tab" data-tab="cover" aria-selected="false">cover</button>
         <button class="tab" role="tab" data-tab="menu" aria-selected="false">menu</button>
-        <button class="tab" role="tab" data-tab="map" aria-selected="false">map</button>
+        <button class="tab" role="tab" data-tab="map" aria-selected="false">partners</button>
         <button class="tab" role="tab" data-tab="plan" aria-selected="false">plan</button>
       </div>
     </div>
@@ -300,38 +327,56 @@ const PRESETS = {
     cover: "paper", frames: false }
 };
 
-/* ---------------- default content (from gratified.com) ---------------- */
+/* ---------------- default content (Nov 6 menu) ---------------- */
+const SECTION_COLORS = [
+  ["#8B6A4F", "Coffee"], ["#8FA383", "Tea"], ["#4E3027", "Chocolate"], ["#D8C3A0", "Pastry"],
+  ["#B98A55", "Savory"], ["#9DB4BE", "Cold"], ["#A99A86", "Snack"], ["#CC5500", "Special"], ["#9C8F80", "Extras"]
+];
+const I = (name, price, desc = "", o = {}) => ({ name, price, desc, tag: o.tag || "", special: !!o.special, brand: o.brand || "" });
 const DEFAULT = {
   preset: "classic",
   colors: { ...PRESETS.classic.colors },
-  coverStyle: "framed", frames: true, printBg: true, textScale: 1, mark: "diamond",
+  coverStyle: "framed", frames: true, printBg: true, textScale: 0.94, mark: "diamond",
+  diamonds: true, texture: false, brandMode: "beside", codeMode: "tint",
   logo: null,
   cover: { top: "nourish collab create", name: "Gratified", tagline: "coffee + art", bottom: "Lower level · SF Main Library" },
-  drinks: { eyebrow: "Nourish", title: "Drinks", foot: "Ask us about today's specials.", sections: [
-    { title: "Coffee", note: "", items: [
-      { name: "Drip coffee", price: "3.50", desc: "Caf or decaf", tag: "", special: false },
-      { name: "Espresso / americano", price: "3.50", desc: "Sextant Roasters' Maiden Voyage blend", tag: "", special: false },
-      { name: "Espresso drinks", price: "5.50", desc: "Latte, cappuccino and friends", tag: "", special: false } ] },
-    { title: "Lattes", note: "", items: [
-      { name: "Chai latte", price: "5.50", desc: "Sweetened with honey", tag: "", special: false },
-      { name: "Matcha latte", price: "5.50", desc: "Oat or dairy, hot or iced", tag: "", special: false },
-      { name: "Yerba m'latte", price: "6.50", desc: "Try something new", tag: "", special: false } ] },
-    { title: "Chocolate", note: "", items: [
-      { name: "Hot chocolate", price: "6.50", desc: "Dandelion Chocolate · add a shot +1", tag: "", special: false },
-      { name: "Mission chocolate", price: "6.50", desc: "Local Dandelion Chocolate", tag: "", special: false } ] },
-    { title: "Special", note: "", items: [
-      { name: "Moroccan mint lemonade", price: "4.50", desc: "Two for 7.50", tag: "", special: true } ] } ] },
+  drinks: { eyebrow: "Nourish", title: "Drinks", foot: "", sections: [
+    { title: "Coffee", note: "", color: "#8B6A4F", items: [
+      I("Drip coffee", "3", "\u201cFog Chaser\u201d from SF Bay Coffee", { brand: "sfbay" }),
+      I("Double espresso", "4", "\u201cMaiden Voyage\u201d from Sextant Roasters", { brand: "sextant" }),
+      I("Cappuccino / latte", "5", "Double espresso with steamed milk"),
+      I("Iced mocha", "4") ] },
+    { title: "Tea", note: "", color: "#8FA383", items: [
+      I("Yerba mate", "3 / 5", "Brewed tea or sweet latte"),
+      I("Hot tea", "3"),
+      I("Peter\u2019s Taiwanese milk tea", "4", "Special", { special: true }) ] },
+    { title: "Chocolate", note: "", color: "#4E3027", items: [
+      I("Dandelion hot chocolate", "6", "", { brand: "dandelion" }) ] },
+    { title: "Cold", note: "", color: "#9DB4BE", items: [
+      I("Lemonade", "2"),
+      I("Water cup + ice", "1") ] },
+    { title: "Make it yours", note: "", color: "#9C8F80", items: [
+      I("Add espresso shot", "+2"),
+      I("Any drink iced", "+0.50"),
+      I("Flavors", "", "Vanilla, orange blossom date, dark brown sugar, spearmint green tea, gingerbread chai (next) · chocolate for mocha") ] } ] },
   food: { eyebrow: "Nourish", title: "Food", foot: "", sections: [
-    { title: "Light fare", note: "", items: [
-      { name: "Carrot muffin", price: "4.50", desc: "From Arizmendi Bakery", tag: "WF", special: false },
-      { name: "Blueberry scone", price: "5.50", desc: "Classic coffee pairing", tag: "V", special: false },
-      { name: "Acai cup", price: "7.50", desc: "Sweetened with fruit, cacao nibs on top", tag: "", special: false },
-      { name: "White bean soup", price: "7.50", desc: "With smoked carrots", tag: "V", special: false },
-      { name: "Gratified house salad", price: "9.50", desc: "With garbanzo · add lamb +6", tag: "V", special: false },
-      { name: "Turkey sub sandwich", price: "11.50", desc: "Full of veg and flavor", tag: "", special: false } ] },
-    { title: "Pizza", note: "after noon", items: [
-      { name: "Personal pan pizza", price: "9.50", desc: "Double cheese, halal pepperoni, vegan veggie, or Moroccan-spiced chicken", tag: "", special: false },
-      { name: "Two personal pans", price: "15.50", desc: "We support you and your friends hanging out", tag: "", special: true } ] } ] },
+    { title: "Bakery", note: "", color: "#D8C3A0", items: [
+      I("Pastries", "3 / 4 / 5", "Teacake, muffin, scone"),
+      I("Betty’s brown butter cookie", "3", "Or two for 5", { special: true }) ] },
+    { title: "Peasant pies", note: "7 each", color: "#B98A55", items: [
+      I("Egg, cheese, bacon", "7"),
+      I("Lentil and yam", "7"),
+      I("Spinach and feta", "7") ] },
+    { title: "Lunch", note: "", color: "#B98A55", items: [
+      I("Moroccan ground chili", "8", "12 oz · 11:30am–3:30pm only"),
+      I("Gratified house salad", "8", "16 oz, in the fridge · add shrimp +4"),
+      I("Turkey sandwich", "12", "On traditional Jewish rye"),
+      I("Personal pan flatbread", "10", "Chickpea or wheat crust") ] },
+    { title: "Snacks", note: "", color: "#A99A86", items: [
+      I("Croissant", "3", "From Costco"),
+      I("Seaweed", "3"),
+      I("Meat stick", "3"),
+      I("Kombucha", "ask", "New in the fridge") ] } ] },
   visit: { eyebrow: "Visit", title: "Find us downstairs", lede: "Grab a drink and a bite before your study session <3",
     boxTitle: "Hours & location",
     where: "Lower Level, SF Main Library\n100 Larkin St, San Francisco",
@@ -340,9 +385,10 @@ const DEFAULT = {
     partnersTitle: "Ingredient partners nearby", showLabels: false,
     home: { label: "GRATIFIED", sub: "SF Main Library, lower level", x: MAP.pins.home[0], y: MAP.pins.home[1] },
     partners: [
-      { name: "Sextant Coffee Roasters", addr: "1415 Folsom St", note: "our espresso", logo: null, x: MAP.pins.A[0], y: MAP.pins.A[1] },
-      { name: "Dandelion Chocolate", addr: "740 Valencia St", note: "our hot chocolate", logo: null, x: MAP.pins.B[0], y: MAP.pins.B[1] },
-      { name: "Arizmendi Bakery", addr: "1268 Valencia St", note: "our carrot muffins", logo: null, x: MAP.pins.C[0], y: MAP.pins.C[1] } ] },
+      { id: "sextant", name: "Sextant Coffee Roasters", addr: "1415 Folsom St", note: "our espresso", logo: null, onMap: true, x: MAP.pins.A[0], y: MAP.pins.A[1] },
+      { id: "dandelion", name: "Dandelion Chocolate", addr: "740 Valencia St", note: "our hot chocolate", logo: null, onMap: true, x: MAP.pins.B[0], y: MAP.pins.B[1] },
+      { id: "arizmendi", name: "Arizmendi Bakery", addr: "1268 Valencia St", note: "bakery", logo: null, onMap: true, x: MAP.pins.C[0], y: MAP.pins.C[1] },
+      { id: "sfbay", name: "SF Bay Coffee", addr: "", note: "our drip coffee", logo: null, onMap: false, x: 330, y: 560 } ] },
   plan: { eyebrow: "About", title: "Five step plan", steps: [
       { main: "Embed in the hottest tech centers", why: "for the vibes" },
       { main: "Set up pilot locations inside libraries", why: "for the rapport" },
@@ -353,10 +399,12 @@ const DEFAULT = {
     contactTitle: "Connect", contact: "leah@gratified.com\ngratified.com · Substack · Discord · Partiful" }
 };
 
-const KEY = "gratified-menu-studio-v1";
+const KEY = "gratified-menu-studio-v3";
 const clone = o => JSON.parse(JSON.stringify(o));
 let S = clone(DEFAULT);
 try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(clone(DEFAULT), JSON.parse(raw)); } catch (e) {}
+function normalize() { ["drinks", "food"].forEach(k => S[k].sections.forEach(s => { if (s.color === undefined) s.color = ""; })); S.visit.partners.forEach(p => { p.id = p.id || "p" + Math.random().toString(36).slice(2, 8); if (p.onMap === undefined) p.onMap = true; }); }
+normalize();
 let tab = "design";
 const inFrame = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
 
@@ -388,13 +436,33 @@ function mix(a, b, t) {
   return "#" + [r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t].map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
 }
 function tagHTML(t) { return t ? t.split("+").map(x => `<span class="tg">${esc(x.trim())}</span>`).join("") : ""; }
+const brandOf = id => id ? S.visit.partners.find(p => p.id === id) : null;
+function itemHTML(i) {
+  const br = brandOf(i.brand);
+  const logo = S.brandMode === "beside" && br && br.logo ? `<img class="bl" src="${br.logo}" alt="${esc(br.name)}">` : "";
+  const desc = (logo || i.desc) ? `<p>${logo}${esc(i.desc)}</p>` : "";
+  return `<div class="it${i.special ? " sp" : ""}"><b>${esc(i.name)}${tagHTML(i.tag)}</b><span class="pr">${esc(i.price)}</span>${desc}</div>`;
+}
+function stripHTML(m) {
+  if (S.brandMode !== "strip") return "";
+  const ids = [...new Set(m.sections.flatMap(s => s.items.map(i => i.brand)).filter(Boolean))];
+  const bs = ids.map(brandOf).filter(Boolean);
+  if (!bs.length) return "";
+  return `<div class="strip"><span>Proudly serving</span><div>${bs.map(b => b.logo ? `<img src="${b.logo}" alt="${esc(b.name)}">` : `<em>${esc(b.name)}</em>`).join("")}</div></div>`;
+}
+function secVars(c) {
+  const p = S.printBg ? S.colors.paper : "#ffffff", ink = S.colors.ink;
+  const lum = (h => { const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255); return .2126 * r + .7152 * g + .0722 * b; })(c);
+  const text = lum > .45 ? mix(c, ink, .55) : mix(c, ink, .15);
+  return `--sct:${text};--scd:${lum > .6 ? mix(c, ink, .3) : c};--scf:${mix(c, p, .84)};--scs:${mix(c, p, .66)};--scl:${mix(c, p, .5)}`;
+}
 function menuPanel(m) {
-  const secs = m.sections.map(s => `<div class="sec"><h3>${esc(s.title)}<span class="ln"></span>${s.note ? `<small>${esc(s.note)}</small>` : ""}</h3>${
-    s.items.map(i => `<div class="it${i.special ? " sp" : ""}"><b>${esc(i.name)}${tagHTML(i.tag)}</b><span class="pr">${esc(i.price)}</span>${i.desc ? `<p>${esc(i.desc)}</p>` : ""}</div>`).join("")}</div>`).join("");
+  const secs = m.sections.map(s => `<div class="sec${s.color && S.codeMode !== "off" ? " c" : ""}"${s.color && S.codeMode !== "off" ? ` style="${secVars(s.color)}"` : ""}><h3>${esc(s.title)}<span class="ln"></span>${s.note ? `<small>${esc(s.note)}</small>` : ""}</h3>${
+    s.items.map(itemHTML).join("")}</div>`).join("");
   const usedTags = new Set(m.sections.flatMap(s => s.items.flatMap(i => (i.tag || "").split("+").map(x => x.trim()).filter(Boolean))));
   const key = [...usedTags].map(t => `<span class="tg" style="margin:0 3pt 0 0">${esc(t)}</span>${t === "V" ? "vegan" : t === "WF" ? "wheat-free" : t === "GF" ? "gluten-free" : t === "DF" ? "dairy-free" : ""}`).join(" &nbsp; ");
   const foot = [m.foot, key].filter(Boolean);
-  return `<section class="pn fr"><p class="eb">${esc(m.eyebrow)}</p><h2 class="pt">${esc(m.title)}</h2>${secs}${foot.length ? `<p class="ft">${foot.map(f => f === key ? f : esc(f)).join("<br>")}</p>` : ""}<span class="over-flag">Too long, shorten or shrink text</span></section>`;
+  return `<section class="pn fr"><p class="eb">${esc(m.eyebrow)}</p><h2 class="pt">${esc(m.title)}</h2>${secs}${stripHTML(m)}${foot.length ? `<p class="ft">${foot.map(f => f === key ? f : esc(f)).join("<br>")}</p>` : ""}<span class="over-flag">Too long, shorten or shrink text</span></section>`;
 }
 const DIAMOND = `<svg class="cv-mark" viewBox="0 0 100 100" aria-hidden="true"><rect x="15" y="15" width="70" height="70" transform="rotate(45 50 50)" fill="currentColor"/><rect x="23" y="23" width="54" height="54" transform="rotate(45 50 50)" fill="none" stroke="var(--cvbg)" stroke-width="2" opacity=".55"/></svg>`;
 function coverPanel() {
@@ -405,26 +473,28 @@ function coverPanel() {
   const cvbg = S.coverStyle === "solid" ? S.colors.cover : (S.printBg ? S.colors.paper : "#fff");
   return `<section class="pn cv cv-${S.coverStyle}" style="--cvbg:${cvbg}"><div class="cv-in">${c.top ? `<p class="cv-top">${esc(c.top)}</p>` : ""}${mark}${c.name ? `<h2 class="cv-name">${esc(c.name)}</h2>` : ""}${c.tagline ? `<p class="cv-tag">${esc(c.tagline)}</p>` : ""}${c.bottom ? `<p class="cv-bot">${esc(c.bottom)}</p>` : ""}</div></section>`;
 }
-function pinSVG(p, i) {
-  const L = LETTERS[i], x = p.x, y = p.y;
-  const label = S.visit.showLabels ? `<text class="plabel" x="${x + 16}" y="${y + 3}">${esc(p.name)}</text>` : "";
+/* house rule from the wall-menu generator: no circles, only diamonds */
+function pinSVG(p, i, L) {
+  const x = p.x, y = p.y;
+  const label = S.visit.showLabels ? `<text class="plabel" x="${x + (p.logo ? 22 : 16)}" y="${y + 3}">${esc(p.name)}</text>` : "";
   if (p.logo) {
-    return `<g class="pin" data-pin="${i}"><defs><clipPath id="pc${i}"><circle cx="${x}" cy="${y}" r="13"/></clipPath></defs><circle class="ring" cx="${x}" cy="${y}" r="15"/><image href="${p.logo}" x="${x - 13}" y="${y - 13}" width="26" height="26" preserveAspectRatio="xMidYMid slice" clip-path="url(#pc${i})"/>${label}</g>`;
+    return `<g class="pin" data-pin="${i}"><rect class="ring" x="${x - 15}" y="${y - 15}" width="30" height="30" transform="rotate(45 ${x} ${y})"/><image href="${p.logo}" x="${x - 10}" y="${y - 10}" width="20" height="20" preserveAspectRatio="xMidYMid meet"/>${label}</g>`;
   }
   return `<g class="pin" data-pin="${i}"><rect class="dm" x="${x - 9}" y="${y - 9}" width="18" height="18" transform="rotate(45 ${x} ${y})"/><text x="${x}" y="${y + 3.8}">${L}</text>${label}</g>`;
 }
 function homeSVG() {
   const h = S.visit.home, x = h.x, y = h.y;
-  return `<g class="pin home" data-pin="home"><circle class="halo" cx="${x}" cy="${y}" r="22"/><rect class="dm" x="${x - 11}" y="${y - 11}" width="22" height="22" transform="rotate(45 ${x} ${y})"/><rect x="${x - 5.5}" y="${y - 5.5}" width="11" height="11" transform="rotate(45 ${x} ${y})" fill="none" stroke="var(--paperSolid)" stroke-width="1.2"/>${h.label ? `<text class="hl" x="${x + 20}" y="${y - 12}">${esc(h.label)}</text>` : ""}${h.sub ? `<text class="hs" x="${x + 20}" y="${y - 1}">${esc(h.sub)}</text>` : ""}</g>`;
+  return `<g class="pin home" data-pin="home"><rect class="halo" x="${x - 19}" y="${y - 19}" width="38" height="38" transform="rotate(45 ${x} ${y})"/><rect class="dm" x="${x - 11}" y="${y - 11}" width="22" height="22" transform="rotate(45 ${x} ${y})"/><rect x="${x - 5.5}" y="${y - 5.5}" width="11" height="11" transform="rotate(45 ${x} ${y})" fill="none" stroke="var(--paperSolid)" stroke-width="1.2"/>${h.label ? `<text class="hl" x="${x + 20}" y="${y - 12}">${esc(h.label)}</text>` : ""}${h.sub ? `<text class="hs" x="${x + 20}" y="${y - 1}">${esc(h.sub)}</text>` : ""}</g>`;
 }
 function mapSpread() {
   const v = S.visit;
-  const pins = v.partners.map(pinSVG).join("") + homeSVG();
-  const list = v.partners.map((p, i) => `<div class="pt-row"><div class="pt-key">${p.logo ? `<img src="${p.logo}" alt="">` : `<div class="k"><span>${LETTERS[i]}</span></div>`}</div><div><b>${esc(p.name)}</b><span class="s">${esc([p.addr, p.note].filter(Boolean).join(" · "))}</span></div></div>`).join("");
+  const onMap = v.partners.map((p, i) => ({ p, i })).filter(o => o.p.onMap);
+  const pins = onMap.map((o, n) => pinSVG(o.p, o.i, LETTERS[n])).join("") + homeSVG();
+  const list = onMap.map(({ p }, n) => `<div class="pt-row"><div class="pt-key">${p.logo ? `<div class="k lg"><img src="${p.logo}" alt=""></div>` : `<div class="k"><span>${LETTERS[n]}</span></div>`}</div><div><b>${esc(p.name)}</b><span class="s">${esc([p.addr, p.note].filter(Boolean).join(" · "))}</span></div></div>`).join("");
   return `<section class="spr"><div class="mapbox"><svg class="mp" id="mapsvg" viewBox="0 0 ${MAP.w} ${MAP.h}" role="img" aria-label="Map showing Gratified and nearby partners">${MAP.base}<g id="pins">${pins}</g></svg><div class="inset">${MAP.inset}<span>San Francisco</span></div></div>
   <div class="side"><div><p class="eb">${esc(v.eyebrow)}</p><h2 class="pt">${esc(v.title)}</h2>${v.lede ? `<p class="lede">${esc(v.lede)}</p>` : ""}</div>
   <div class="hrs"><h3>${esc(v.boxTitle)}</h3><dl>${v.where ? `<div><dt>Where</dt><dd>${esc(v.where)}</dd></div>` : ""}${v.when ? `<div><dt>When</dt><dd>${esc(v.when)}</dd></div>` : ""}${v.expect ? `<div><dt>Expect</dt><dd>${esc(v.expect)}</dd></div>` : ""}</dl></div>
-  ${v.partners.length ? `<div class="pts"><h3>${esc(v.partnersTitle)}</h3>${list}</div>` : ""}<span class="over-flag">Too long, shorten or shrink text</span></div></section>`;
+  ${onMap.length ? `<div class="pts"><h3>${esc(v.partnersTitle)}</h3>${list}</div>` : ""}<span class="over-flag">Too long, shorten or shrink text</span></div></section>`;
 }
 function planPanel() {
   const p = S.plan;
@@ -432,7 +502,7 @@ function planPanel() {
 }
 function renderSheets() {
   const A = document.getElementById("sideA"), B = document.getElementById("sideB");
-  [A, B].forEach(el => { el.setAttribute("style", themeVars()); el.classList.toggle("framed", !!S.frames); });
+  [A, B].forEach(el => { el.setAttribute("style", themeVars()); el.classList.toggle("framed", !!S.frames); el.classList.toggle("code-tint", S.codeMode === "tint"); el.classList.toggle("code-accent", S.codeMode === "accent"); el.classList.toggle("dia", !!S.diamonds); el.classList.toggle("texture", !!S.texture); });
   A.innerHTML = menuPanel(S.drinks) + menuPanel(S.food) + coverPanel();
   B.innerHTML = mapSpread() + planPanel();
   requestAnimationFrame(() => {
@@ -497,6 +567,8 @@ function designTab() {
   <div class="group"><h2>Layout</h2>
     <span class="field"><span>Cover style</span></span>${seg("coverStyle", [["framed", "Framed"], ["solid", "Solid color"], ["paper", "Plain"]])}
     <label class="check"><input type="checkbox" id="frames" data-check="frames" ${S.frames ? "checked" : ""}> Double-line frames on panels</label>
+    <label class="check"><input type="checkbox" id="diamonds" data-check="diamonds" ${S.diamonds ? "checked" : ""}> Diamond markers on section titles</label>
+    <label class="check"><input type="checkbox" id="texture" data-check="texture" ${S.texture ? "checked" : ""}> Diamond-dot paper texture</label>
     <label class="check"><input type="checkbox" id="printBg" data-check="printBg" ${S.printBg ? "checked" : ""}> Print paper color (turn off for white paper)</label>
     <label class="field"><span>Text size</span><span class="range"><input type="range" id="textScale" min="0.8" max="1.25" step="0.01" value="${S.textScale}" data-range="textScale"><output id="tsOut">${Math.round(S.textScale * 100)}%</output></span></label>
     <p class="hint">A red outline on a panel means it's overflowing. Shrink the text size or trim items.</p></div>
@@ -509,6 +581,7 @@ function coverTab() {
   return `<div class="group"><h2>Logo</h2>${seg("mark", [["diamond", "Diamond"], ["logo", "My logo"], ["none", "Name only"]])}${upload("logo", "logo", false)}<p class="hint">PNG or SVG with a transparent background works best.</p></div>
   <div class="group"><h2>Words</h2>${field("Name", "cover.name")}${field("Tagline", "cover.tagline")}${field("Top line", "cover.top")}${field("Bottom line", "cover.bottom")}</div>`;
 }
+const brandOpts = sel => `<option value="">No brand logo</option>` + S.visit.partners.map(b => `<option value="${esc(b.id)}" ${b.id === sel ? "selected" : ""}>Brand: ${esc(b.name)}${b.logo ? "" : " (no logo yet)"}</option>`).join("");
 function menuEditor(key) {
   const m = S[key];
   const secs = m.sections.map((s, si) => {
@@ -516,19 +589,27 @@ function menuEditor(key) {
     const items = s.items.map((it, ii) => {
       const p = `${base}.items.${ii}`;
       return `<div class="item-ed"><input type="text" id="f-${p}.name" data-path="${p}.name" value="${esc(it.name)}" placeholder="Item" aria-label="Item name"><input type="text" id="f-${p}.price" data-path="${p}.price" value="${esc(it.price)}" placeholder="0.00" aria-label="Price">${tools(`${base}.items`, ii, s.items.length)}
-      <div class="full"><input type="text" id="f-${p}.desc" data-path="${p}.desc" value="${esc(it.desc)}" placeholder="Description" aria-label="Description"><select id="f-${p}.tag" data-path="${p}.tag" aria-label="Diet tag">${["", "V", "WF", "GF", "DF", "V + WF"].map(t => `<option value="${t}" ${it.tag === t ? "selected" : ""}>${t || "no tag"}</option>`).join("")}</select><label class="check" title="Highlight"><input type="checkbox" id="f-${p}.special" data-check="${p}.special" ${it.special ? "checked" : ""}>★</label></div></div>`;
+      <div class="full"><input type="text" id="f-${p}.desc" data-path="${p}.desc" value="${esc(it.desc)}" placeholder="Description" aria-label="Description"><select id="f-${p}.tag" data-path="${p}.tag" aria-label="Diet tag">${["", "V", "WF", "GF", "DF", "V + WF"].map(t => `<option value="${t}" ${it.tag === t ? "selected" : ""}>${t || "no tag"}</option>`).join("")}</select><label class="check" title="Highlight"><input type="checkbox" id="f-${p}.special" data-check="${p}.special" ${it.special ? "checked" : ""}>★</label></div>
+      <div class="full brandpick"><select id="f-${p}.brand" data-path="${p}.brand" aria-label="Brand logo">${brandOpts(it.brand)}</select></div></div>`;
     }).join("");
-    return `<div class="card"><div class="card-head"><input class="grow" type="text" id="f-${base}.title" data-path="${base}.title" value="${esc(s.title)}" aria-label="Section title" style="font-weight:700;padding:6px 8px;border:1px solid var(--ui-line)"><input type="text" id="f-${base}.note" data-path="${base}.note" value="${esc(s.note)}" placeholder="note" aria-label="Section note" style="width:84px;padding:6px 8px;border:1px solid var(--ui-line)">${tools(`${key}.sections`, si, m.sections.length)}</div>${items}<button class="btn small" data-add="${base}.items">+ Add item</button></div>`;
+    return `<div class="card"><div class="card-head"><input class="grow" type="text" id="f-${base}.title" data-path="${base}.title" value="${esc(s.title)}" aria-label="Section title" style="font-weight:700;padding:6px 8px;border:1px solid var(--ui-line)"><input type="text" id="f-${base}.note" data-path="${base}.note" value="${esc(s.note)}" placeholder="note" aria-label="Section note" style="width:84px;padding:6px 8px;border:1px solid var(--ui-line)">${tools(`${key}.sections`, si, m.sections.length)}</div><div class="chips" role="group" aria-label="Section color">${SECTION_COLORS.map(([c, n]) => `<button type="button" class="chip" title="${n}" aria-label="${n}" style="background:${c}" data-chip="${base}.color" data-val="${c}" aria-pressed="${(s.color || "").toLowerCase() === c.toLowerCase()}"></button>`).join("")}<button type="button" class="chip none" title="No color" aria-label="No color" data-chip="${base}.color" data-val="" aria-pressed="${!s.color}"></button><input type="color" id="f-${base}.color" data-path="${base}.color" value="${s.color || "#9c8f80"}" title="Custom color" aria-label="Custom color"></div>${items}<button class="btn small" data-add="${base}.items">+ Add item</button></div>`;
   }).join("");
   return `<div class="group"><h2>${esc(m.title)} panel <button class="btn small" data-add="${key}.sections">+ Section</button></h2><div class="row">${field("Small label", key + ".eyebrow")}${field("Title", key + ".title")}</div>${secs}${field("Footer note", key + ".foot", "text", "optional")}</div>`;
 }
-function menuTab() { return `<p class="hint">★ highlights an item. Diet tags add a key at the bottom of the panel automatically.</p>` + menuEditor("drinks") + menuEditor("food"); }
+function menuTab() {
+  return `<div class="group"><h2>Color coding</h2>${seg("codeMode", [["tint", "Tinted blocks"], ["accent", "Edge only"], ["off", "Off"]])}<p class="hint">Pick each section's color with the diamonds on its card.</p></div>`+`<div class="group"><h2>Brand logos</h2>${seg("brandMode", [["beside", "Beside items"], ["strip", "Logo row"], ["off", "Hide"]])}
+  <p class="hint">Link an item to a brand with its "Brand" menu. Upload logos and add new brands in the partners tab.</p></div>
+  <p class="hint">★ highlights an item. Diet tags add a key at the bottom of the panel automatically.</p>` + menuEditor("drinks") + menuEditor("food");
+}
 function mapTab() {
   const v = S.visit;
-  const ps = v.partners.map((p, i) => `<div class="card"><div class="card-head"><strong class="grow">${LETTERS[i]} · ${esc(p.name) || "New partner"}</strong>${tools("visit.partners", i, v.partners.length)}</div>
-    ${upload("logo", `visit.partners.${i}.logo`, true)}
-    ${field("Name", `visit.partners.${i}.name`)}<div class="row">${field("Address", `visit.partners.${i}.addr`)}${field("What they make for us", `visit.partners.${i}.note`)}</div></div>`).join("");
-  return `<div class="group"><h2>Partners <button class="btn small" data-add="visit.partners">+ Partner</button></h2><p class="hint">Uploaded logos replace the lettered pins on the map and in the list. Drag any pin on the map to move it.</p>
+  const used = id => ["drinks", "food"].reduce((n, k) => n + S[k].sections.reduce((m, s) => m + s.items.filter(i => i.brand === id).length, 0), 0);
+  const ps = v.partners.map((p, i) => { const u = used(p.id); return `<div class="card"><div class="card-head"><strong class="grow">${esc(p.name) || "New brand"}</strong>${tools("visit.partners", i, v.partners.length)}</div>
+    ${upload("logo", `visit.partners.${i}.logo`, false)}
+    ${field("Name", `visit.partners.${i}.name`)}<div class="row">${field("Address", `visit.partners.${i}.addr`)}${field("What they make for us", `visit.partners.${i}.note`)}</div>
+    <label class="check"><input type="checkbox" id="f-visit.partners.${i}.onMap" data-check="visit.partners.${i}.onMap" ${p.onMap ? "checked" : ""}> Pin on the map</label>
+    <p class="hint">${u ? `Logo shows on ${u} menu item${u > 1 ? "s" : ""}.` : "Not linked to any menu item yet."}</p></div>`; }).join("");
+  return `<div class="group"><h2>Brands &amp; partners <button class="btn small" data-add="visit.partners">+ Brand</button></h2><p class="hint">One list for every brand you serve. Its logo becomes a diamond pin on the map, a key in the partner list, and a badge on any menu item you link it to. Drag pins on the map to move them.</p>
     <label class="check"><input type="checkbox" id="showLabels" data-check="visit.showLabels" ${v.showLabels ? "checked" : ""}> Show partner names next to pins</label>${ps}</div>
   <div class="group"><h2>Your pin</h2><div class="row">${field("Label", "visit.home.label")}${field("Sub-label", "visit.home.sub")}</div></div>
   <div class="group"><h2>Visit text</h2><div class="row">${field("Small label", "visit.eyebrow")}${field("Title", "visit.title")}</div>${field("Intro", "visit.lede", "textarea")}${field("Box title", "visit.boxTitle")}${field("Where", "visit.where", "textarea")}${field("When", "visit.when", "textarea")}${field("What to expect", "visit.expect", "textarea")}${field("Partners heading", "visit.partnersTitle")}</div>`;
@@ -552,9 +633,9 @@ function renderFoot() {
   document.getElementById("foot").innerHTML = `${exportBtn}<span class="btn small file-btn">Open file<input type="file" accept="application/json,.json" id="importFile"></span><button class="btn small ghost" id="resetBtn">Reset</button><span class="save-state" id="saveState">Saved in this browser</span>`;
 }
 const blank = {
-  items: () => ({ name: "New item", price: "0.00", desc: "", tag: "", special: false }),
-  sections: () => ({ title: "New section", note: "", items: [blank.items()] }),
-  partners: () => ({ name: "New partner", addr: "", note: "", logo: null, x: Math.round(MAP.w / 2), y: Math.round(MAP.h / 2) }),
+  items: () => ({ name: "New item", price: "0", desc: "", tag: "", special: false, brand: "" }),
+  sections: () => ({ title: "New section", note: "", color: "", items: [blank.items()] }),
+  partners: () => ({ id: "p" + Math.random().toString(36).slice(2, 8), name: "New brand", addr: "", note: "", logo: null, onMap: true, x: Math.round(MAP.w / 2), y: Math.round(MAP.h / 2) }),
   steps: () => ({ main: "New step", why: "" })
 };
 
@@ -578,7 +659,8 @@ rail.addEventListener("click", e => {
   if (b.dataset.preset) {
     const p = PRESETS[b.dataset.preset]; S.preset = b.dataset.preset; S.colors = { ...p.colors }; S.coverStyle = p.cover; S.frames = p.frames;
     if (b.dataset.preset === "ink") S.printBg = false; changed(); renderRail();
-  } else if (b.dataset.seg) { set(b.dataset.seg, b.dataset.val); changed(); renderRail(); }
+  } else if (b.dataset.chip !== undefined) { set(b.dataset.chip, b.dataset.val); changed(); renderRail(); }
+  else if (b.dataset.seg) { set(b.dataset.seg, b.dataset.val); changed(); renderRail(); }
   else if (b.dataset.add) { const arr = get(b.dataset.add); arr.push(blank[b.dataset.add.split(".").at(-1)]()); changed(); renderRail(); }
   else if (b.dataset.del) { get(b.dataset.del).splice(+b.dataset.i, 1); changed(); renderRail(); }
   else if (b.dataset.move) { const a = get(b.dataset.move), i = +b.dataset.i, j = i + +b.dataset.d; [a[i], a[j]] = [a[j], a[i]]; changed(); renderRail(); }
@@ -633,7 +715,7 @@ document.getElementById("foot").addEventListener("click", e => {
 document.getElementById("foot").addEventListener("change", e => {
   if (e.target.id !== "importFile" || !e.target.files[0]) return;
   const r = new FileReader();
-  r.onload = () => { try { S = Object.assign(clone(DEFAULT), JSON.parse(r.result)); changed(); renderRail(); document.getElementById("saveState").textContent = "Opened " + e.target.files[0].name; } catch (err) { document.getElementById("saveState").textContent = "That file isn't a menu file."; } };
+  r.onload = () => { try { S = Object.assign(clone(DEFAULT), JSON.parse(r.result)); normalize(); changed(); renderRail(); document.getElementById("saveState").textContent = "Opened " + e.target.files[0].name; } catch (err) { document.getElementById("saveState").textContent = "That file isn't a menu file."; } };
   r.readAsText(e.target.files[0]);
 });
 
